@@ -9884,9 +9884,387 @@ function MiniSafetyRing({ item, settings }) {
 }
 
 // =====================================================================
+// INTERACTIVE SAFE-STATE VARIABLE OPTIMIZER (WITH RECOMMENDATION ZONES)
+// =====================================================================
+function SafeStateOptimizer({ activeItem, step, settings, onUpdateSlab, onUpdateBeam, onUpdateWall, onUpdateOpening }) {
+  if (!activeItem || !activeItem.result) return null;
+  const compType = activeItem.type || activeItem.category;
+  const r = activeItem.result;
+  const data = activeItem.data || {};
+
+  // Determine governing variable configuration based on component type
+  let config = null;
+
+  if (compType === "slab") {
+    const currentD = Number(data.thickness) || Number(r.thickness) || 125;
+    const Lx = Number(data.lx) || 3.0;
+    const LdAllow = Number(r.LdAllow) || 26;
+    // Theoretical minimum thickness to satisfy L/d <= LdAllow:
+    // dReq = (Lx * 1000) / LdAllow; D_req = dReq + 20 (cover) + 4 (half bar dia)
+    const dReq = (Lx * 1000) / LdAllow;
+    const theoreticalMinD = Math.ceil(dReq + 24);
+    // Standard recommended value: rounds up to next practical 5mm or 10mm increment with ~80-85% capacity
+    const recommendedD = Math.max(140, Math.ceil(theoreticalMinD / 5) * 5);
+    const safeZoneMin = Math.ceil(theoreticalMinD / 5) * 5;
+    const safeZoneMax = safeZoneMin + 25; // e.g. 140 to 165mm
+
+    config = {
+      title: "Slab Thickness Optimizer (D)",
+      paramName: "Slab Thickness D",
+      unit: "mm",
+      field: "thickness",
+      min: 100,
+      max: 200,
+      step: 5,
+      currentVal: currentD,
+      theoreticalMin: theoreticalMinD,
+      recommended: recommendedD,
+      safeZoneMin,
+      safeZoneMax,
+      compute: (val) => {
+        const sim = computeSlab({ ...data, thickness: val }, settings);
+        const ratio = (sim.LdActual / sim.LdAllow) * 100;
+        const deltaCost = Math.round((sim.concreteVol - r.concreteVol) * (settings.rateConcrete || 6200));
+        return {
+          metricLabel: "Span-to-Depth Ratio (L/d)",
+          actualStr: sim.LdActual.toFixed(1),
+          allowStr: sim.LdAllow.toFixed(1),
+          capacityPct: Math.round(ratio),
+          isSafe: sim.LdActual <= sim.LdAllow,
+          fos: (sim.LdAllow / (sim.LdActual || 0.01)).toFixed(2) + "×",
+          deltaCost,
+          concVolDelta: (sim.concreteVol - r.concreteVol).toFixed(2),
+          rationale: sim.LdActual <= sim.LdAllow 
+            ? `Safe & rigid (L/d = ${sim.LdActual.toFixed(1)} ≤ ${sim.LdAllow.toFixed(1)}): Ceiling plaster hair-cracks and sagging prevented.`
+            : `Deflection limit exceeded by ${(ratio - 100).toFixed(1)}% (L/d = ${sim.LdActual.toFixed(1)} > ${sim.LdAllow.toFixed(1)}).`
+        };
+      },
+      onSave: (val) => onUpdateSlab && onUpdateSlab(activeItem.id, "thickness", val)
+    };
+  } else if (compType === "beam") {
+    const currentD = Number(data.depth) || Number(r.D) || 300;
+    const Leff = Number(r.Leff) || Number(data.clearSpan) || 3.0;
+    const LdAllow = Number(r.LdAllow) || 26;
+    const theoreticalMinD = Math.ceil((Leff * 1000) / LdAllow + 40);
+    const recommendedD = Math.max(350, Math.ceil(theoreticalMinD / 25) * 25);
+    const safeZoneMin = Math.ceil(theoreticalMinD / 25) * 25;
+    const safeZoneMax = safeZoneMin + 75;
+
+    config = {
+      title: "Beam Overall Depth Optimizer (D)",
+      paramName: "Beam Depth D",
+      unit: "mm",
+      field: "depth",
+      min: 200,
+      max: 600,
+      step: 25,
+      currentVal: currentD,
+      theoreticalMin: theoreticalMinD,
+      recommended: recommendedD,
+      safeZoneMin,
+      safeZoneMax,
+      compute: (val) => {
+        const sim = computeBeam({ ...data, depth: val }, settings);
+        const ratio = (sim.LdActual / sim.LdAllow) * 100;
+        const deltaCost = Math.round((sim.concreteVol - r.concreteVol) * (settings.rateConcrete || 6200));
+        return {
+          metricLabel: "Span-to-Depth Ratio (L/d)",
+          actualStr: sim.LdActual.toFixed(1),
+          allowStr: sim.LdAllow.toFixed(1),
+          capacityPct: Math.round(ratio),
+          isSafe: sim.LdActual <= sim.LdAllow && sim.singlyOK !== false,
+          fos: (sim.Mulim / (sim.Mu || 0.01)).toFixed(2) + "×",
+          deltaCost,
+          concVolDelta: (sim.concreteVol - r.concreteVol).toFixed(2),
+          rationale: sim.LdActual <= sim.LdAllow
+            ? `Safe flexural depth: Beam remains singly reinforced with zero sagging under full load.`
+            : `Beam depth inadequate for span: exceeds deflection criteria.`
+        };
+      },
+      onSave: (val) => onUpdateBeam && onUpdateBeam(activeItem.id, "depth", val)
+    };
+  }
+
+  if (!config) return null;
+
+  // Local state for the interactive slider
+  const [sliderVal, setSliderVal] = useState(config.currentVal);
+  const [savedSuccess, setSavedSuccess] = useState(false);
+
+  // Keep in sync if component changes
+  useEffect(() => {
+    setSliderVal(config.currentVal);
+    setSavedSuccess(false);
+  }, [activeItem.key, config.currentVal]);
+
+  const sim = config.compute(sliderVal);
+  const origSim = config.compute(config.currentVal);
+
+  const handleApplyRecommended = () => {
+    setSliderVal(config.recommended);
+    config.onSave(config.recommended);
+    setSavedSuccess(true);
+    setTimeout(() => setSavedSuccess(false), 4000);
+  };
+
+  const handleSaveToProject = () => {
+    config.onSave(sliderVal);
+    setSavedSuccess(true);
+    setTimeout(() => setSavedSuccess(false), 4000);
+  };
+
+  const handleReset = () => {
+    setSliderVal(config.currentVal);
+    config.onSave(config.currentVal);
+    setSavedSuccess(false);
+  };
+
+  // Color calculation for slider state
+  let statusColor = "#10B981"; // Safe green
+  let statusBadge = "SAFE ZONE (IS 456 COMPLIANT)";
+  let zoneLabel = "Safe Zone (Sweet Spot)";
+  if (!sim.isSafe || sim.capacityPct > 100) {
+    statusColor = "#EF4444";
+    statusBadge = "FAIL / INADEQUATE (< MIN)";
+    zoneLabel = "Inadequate Zone (Fails IS 456)";
+  } else if (sim.capacityPct > 85) {
+    statusColor = "#F59E0B";
+    statusBadge = "BORDERLINE (85% - 100%)";
+    zoneLabel = "Borderline Safe";
+  } else if (sliderVal > config.safeZoneMax) {
+    statusColor = "#38BDF8";
+    statusBadge = "CONSERVATIVE (> MAX PRACTICAL)";
+    zoneLabel = "Conservative / Heavy";
+  }
+
+  // Zone percentages for visual track background
+  const totalSpan = config.max - config.min;
+  const failPct = Math.max(0, Math.min(100, ((config.safeZoneMin - config.min) / totalSpan) * 100));
+  const safePct = Math.max(0, Math.min(100, ((config.safeZoneMax - config.safeZoneMin) / totalSpan) * 100));
+  const conservativePct = 100 - failPct - safePct;
+
+  return (
+    <div className="bg-gradient-to-br from-[#0B1524] via-[#0E1A2D] to-[#08111D] border-2 border-[#1E324A] hover:border-[#2F4E75] rounded-2xl p-4 sm:p-5 space-y-4 shadow-xl transition relative overflow-hidden my-3">
+      {/* Ambient background glow */}
+      <div 
+        className="absolute top-0 right-1/3 w-80 h-28 rounded-full pointer-events-none opacity-20 blur-3xl transition-colors duration-500"
+        style={{ backgroundColor: statusColor }}
+      />
+
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-[#1A2C42] pb-3 gap-2.5 relative z-10">
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-xl bg-[#102235] text-[#5CC8E0] border border-[#5CC8E0]/40 flex items-center justify-center font-bold text-sm shadow-inner">
+            🎛️
+          </div>
+          <div>
+            <div className="text-[10px] text-[#8195AA] uppercase font-mono tracking-wider font-semibold">
+              Live What-If Engineering Simulator
+            </div>
+            <h4 className="text-sm sm:text-base font-bold text-white tracking-wide flex items-center gap-2 flex-wrap">
+              <span>{config.title}</span>
+              <span 
+                className="text-[10px] font-mono px-2 py-0.5 rounded-full border font-bold"
+                style={{ 
+                  color: statusColor, 
+                  backgroundColor: `${statusColor}18`, 
+                  borderColor: `${statusColor}40` 
+                }}
+              >
+                {statusBadge}
+              </span>
+            </h4>
+          </div>
+        </div>
+
+        {/* Current vs Slider Value Readout */}
+        <div className="flex items-center gap-2 text-xs font-mono">
+          <span className="text-[#8195AA]">Current: <b className="text-white">{config.currentVal} {config.unit}</b></span>
+          <span className="text-[#5CC8E0]">➜</span>
+          <span className="bg-[#102235] px-2.5 py-1 rounded-lg border border-[#5CC8E0]/50 text-[#5CC8E0] font-bold text-sm">
+            {sliderVal} {config.unit}
+          </span>
+        </div>
+      </div>
+
+      {/* Interactive Slider Section with Multi-Color Visual Zones */}
+      <div className="space-y-2.5 relative z-10">
+        <div className="flex items-center justify-between text-xs font-mono">
+          <span className="text-[#8195AA] flex items-center gap-1">
+            <span>Tune {config.paramName}:</span>
+            <b className="text-white">{sliderVal} {config.unit}</b>
+          </span>
+          <span className="text-[11px] font-semibold" style={{ color: statusColor }}>
+            Zone: {zoneLabel} ({sim.capacityPct}% Capacity)
+          </span>
+        </div>
+
+        {/* Custom Multi-Zone Range Slider */}
+        <div className="relative pt-1 pb-2">
+          {/* Visual Zone Background Track */}
+          <div className="w-full h-3.5 rounded-full overflow-hidden flex border border-[#1E2E44] bg-[#070D17] shadow-inner mb-2">
+            {/* Inadequate Fail Zone */}
+            <div 
+              style={{ width: `${failPct}%` }} 
+              className="bg-gradient-to-r from-[#EF4444]/60 to-[#EF4444]/40 h-full relative group cursor-pointer"
+              title={`Inadequate Zone: < ${config.safeZoneMin}mm (Exceeds Deflection Limit)`}
+            />
+            {/* Safe Zone (Sweet Spot) */}
+            <div 
+              style={{ width: `${safePct}%` }} 
+              className="bg-gradient-to-r from-[#10B981]/50 via-[#10B981]/70 to-[#10B981]/50 h-full relative group cursor-pointer shadow-[0_0_8px_rgba(16,185,129,0.3)]"
+              title={`Safe Zone: ${config.safeZoneMin}mm - ${config.safeZoneMax}mm (Optimal IS 456 balance)`}
+            />
+            {/* Conservative Zone */}
+            <div 
+              style={{ width: `${conservativePct}%` }} 
+              className="bg-gradient-to-r from-[#0284C7]/40 to-[#0284C7]/60 h-full relative group cursor-pointer"
+              title={`Conservative Zone: > ${config.safeZoneMax}mm (High self-weight)`}
+            />
+          </div>
+
+          {/* Actual Input Range Slider */}
+          <input
+            type="range"
+            min={config.min}
+            max={config.max}
+            step={config.step}
+            value={sliderVal}
+            onChange={(e) => {
+              setSliderVal(Number(e.target.value));
+              setSavedSuccess(false);
+            }}
+            className="w-full h-2 bg-[#17263A] rounded-lg appearance-none cursor-pointer accent-[#5CC8E0] focus:outline-none"
+          />
+
+          {/* Zone Legend & Pin Indicators */}
+          <div className="flex items-center justify-between text-[10px] font-mono text-[#8195AA] pt-1.5 px-0.5">
+            <span className="flex items-center gap-1 text-[#EF4444]">
+              <span className="w-2 h-2 rounded-full bg-[#EF4444]"></span>
+              Min: {config.min} {config.unit}
+            </span>
+            <span className="flex items-center gap-1 text-[#10B981] font-bold">
+              <span className="w-2 h-2 rounded-full bg-[#10B981] animate-pulse"></span>
+              Recommended Safe: {config.recommended} {config.unit}
+            </span>
+            <span className="flex items-center gap-1 text-[#38BDF8]">
+              <span className="w-2 h-2 rounded-full bg-[#38BDF8]"></span>
+              Max: {config.max} {config.unit}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* Before vs After Real-Time Structural Comparison Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 relative z-10">
+        {/* Current State Card */}
+        <div className="bg-[#070D17] border border-[#1A2738] rounded-xl p-3 space-y-1.5 text-xs font-mono">
+          <div className="text-[10px] text-[#8195AA] uppercase font-bold flex items-center justify-between">
+            <span>Original Component State</span>
+            <span className={`px-1.5 py-0.2 rounded text-[9px] font-bold ${origSim.isSafe ? "bg-[#10B981]/20 text-[#34D399]" : "bg-[#EF4444]/20 text-[#F87171]"}`}>
+              {origSim.isSafe ? "PASS" : "EXCEEDED"}
+            </span>
+          </div>
+          <div className="flex items-baseline justify-between">
+            <span className="text-white font-bold">{config.paramName}:</span>
+            <span className="text-[#94A3B8] font-bold text-sm">{config.currentVal} {config.unit}</span>
+          </div>
+          <div className="flex items-baseline justify-between">
+            <span className="text-[#8195AA]">{origSim.metricLabel}:</span>
+            <span className={`font-bold ${origSim.isSafe ? "text-[#34D399]" : "text-[#EF4444]"}`}>
+              {origSim.actualStr} / {origSim.allowStr} ({origSim.capacityPct}%)
+            </span>
+          </div>
+          <div className="flex items-baseline justify-between">
+            <span className="text-[#8195AA]">Factor of Safety (FoS):</span>
+            <span className="text-[#FCD34D] font-bold">{origSim.fos}</span>
+          </div>
+        </div>
+
+        {/* Simulated Tuned State Card */}
+        <div className="bg-[#091524] border border-[#1E3550] rounded-xl p-3 space-y-1.5 text-xs font-mono shadow-inner">
+          <div className="text-[10px] text-[#5CC8E0] uppercase font-bold flex items-center justify-between">
+            <span>Tuned Simulation State</span>
+            <span className="px-1.5 py-0.2 rounded text-[9px] font-bold" style={{ color: statusColor, backgroundColor: `${statusColor}25` }}>
+              {sim.isSafe ? "PASS (SAFE)" : "EXCEEDED"}
+            </span>
+          </div>
+          <div className="flex items-baseline justify-between">
+            <span className="text-white font-bold">{config.paramName}:</span>
+            <span className="text-[#5CC8E0] font-bold text-sm">{sliderVal} {config.unit}</span>
+          </div>
+          <div className="flex items-baseline justify-between">
+            <span className="text-[#8195AA]">{sim.metricLabel}:</span>
+            <span className="font-bold" style={{ color: statusColor }}>
+              {sim.actualStr} / {sim.allowStr} ({sim.capacityPct}%)
+            </span>
+          </div>
+          <div className="flex items-baseline justify-between">
+            <span className="text-[#8195AA]">Cost Delta:</span>
+            <span className={sim.deltaCost > 0 ? "text-[#FFA333]" : "text-[#34D399]"}>
+              {sim.deltaCost >= 0 ? `+₹ ${sim.deltaCost.toLocaleString("en-IN")}` : `-₹ ${Math.abs(sim.deltaCost).toLocaleString("en-IN")}`}
+              <span className="text-[10px] text-[#8195AA] font-normal"> ({sim.concVolDelta >= 0 ? `+${sim.concVolDelta}` : sim.concVolDelta} m³ conc)</span>
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* AI Recommendation Callout & Action Strip */}
+      <div className="bg-[#071322] border border-[#19324C] rounded-xl p-3 space-y-2 relative z-10">
+        <div className="flex items-start gap-2 text-xs">
+          <span className="text-[#FCD34D] text-base shrink-0 mt-0.5">⚡</span>
+          <div className="text-[#CBD5E1] text-[11px] leading-relaxed">
+            <strong className="text-[#FCD34D] font-bold">IS 456 Recommended Perfect Value: </strong>
+            <span>
+              Set <b>{config.paramName} = {config.recommended} {config.unit}</b>. This brings capacity to 
+              <b className="text-[#10B981]"> {config.compute(config.recommended).capacityPct}%</b>, satisfying 
+              all deflection and moment criteria with an optimal factor of safety and minimal material addition.
+            </span>
+          </div>
+        </div>
+
+        {/* Interactive Action Buttons */}
+        <div className="flex items-center justify-between gap-2 pt-1 border-t border-[#15273C] flex-wrap">
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleApplyRecommended}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-[#10B981] to-[#059669] hover:from-[#059669] hover:to-[#047857] text-white rounded-xl text-xs font-bold transition shadow-lg hover:shadow-emerald-500/20 active:scale-95 cursor-pointer"
+            >
+              <span>⚡ Auto-Apply Perfect Safe Value ({config.recommended} {config.unit})</span>
+            </button>
+            <button
+              onClick={handleSaveToProject}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-[#102235] hover:bg-[#162D45] text-[#5CC8E0] border border-[#5CC8E0]/40 hover:border-[#5CC8E0] rounded-xl text-xs font-semibold transition active:scale-95 cursor-pointer"
+            >
+              <span>💾 Save to Project CAD</span>
+            </button>
+          </div>
+
+          <div className="flex items-center gap-2">
+            {sliderVal !== config.currentVal && (
+              <button
+                onClick={handleReset}
+                className="text-xs text-[#8195AA] hover:text-white underline font-mono py-1 px-2 cursor-pointer"
+              >
+                Reset to Original
+              </button>
+            )}
+            {savedSuccess && (
+              <span className="text-xs font-bold text-[#10B981] flex items-center gap-1 animate-fade-in font-mono">
+                <Check size={14} /> Saved & Updated in CAD!
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// =====================================================================
 // EXECUTIVE CAPACITY & STABILITY HUB (TOP OF COMPONENT & MATH AUDIT)
 // =====================================================================
-function ComponentCapacityHub({ activeItem, settings }) {
+function ComponentCapacityHub({ activeItem, settings, onUpdateSlab, onUpdateBeam, onUpdateWall, onUpdateOpening }) {
   if (!activeItem || !activeItem.result) return null;
   const compType = activeItem.type || activeItem.category;
   const r = activeItem.result;
@@ -9950,7 +10328,7 @@ function ComponentCapacityHub({ activeItem, settings }) {
     summaryNotes = [
       { label: "Min Factor of Safety", value: Mx > 0 ? (Mulim / Mx).toFixed(2) + "×" : "2.50×", color: "text-[#34D399]" },
       { label: "Section Ductility", value: "Under-Reinforced", color: "text-[#38BDF8]" },
-      { label: "Serviceability", value: "Deflection Safe", color: "text-[#FCD34D]" },
+      { label: "Serviceability", value: LdActual <= LdAllow ? "Deflection Safe" : "Deflection Exceeded", color: LdActual <= LdAllow ? "text-[#34D399]" : "text-[#EF4444]" },
       { label: "Code Standard", value: "IS 456 Cl 24 & Table 26", color: "text-[#A78BFA]" }
     ];
   } else if (compType === "beam") {
@@ -10096,56 +10474,86 @@ function ComponentCapacityHub({ activeItem, settings }) {
   if (rings.length === 0) return null;
 
   const isAllSafe = rings.every(ring => (Number(ring.current) || 0) <= (Number(ring.limit) || 1));
+  const [showOptimizer, setShowOptimizer] = useState(!isAllSafe);
+
+  // Auto-expand optimizer if safety fails on activeItem change
+  useEffect(() => {
+    setShowOptimizer(!isAllSafe);
+  }, [activeItem.key, isAllSafe]);
 
   return (
-    <div className="bg-gradient-to-br from-[#091322] via-[#0D1829] to-[#091322] border-2 border-[#1E324A] hover:border-[#2C486B] rounded-2xl p-4 sm:p-5 space-y-4 shadow-xl transition relative overflow-hidden">
-      {/* Top ambient glow */}
-      <div 
-        className="absolute top-0 right-1/4 w-72 h-20 rounded-full pointer-events-none opacity-20 blur-2xl"
-        style={{ backgroundColor: isAllSafe ? "#10B981" : "#EF4444" }}
-      />
+    <div className="space-y-3">
+      <div className="bg-gradient-to-br from-[#091322] via-[#0D1829] to-[#091322] border-2 border-[#1E324A] hover:border-[#2C486B] rounded-2xl p-4 sm:p-5 space-y-4 shadow-xl transition relative overflow-hidden">
+        {/* Top ambient glow */}
+        <div 
+          className="absolute top-0 right-1/4 w-72 h-20 rounded-full pointer-events-none opacity-20 blur-2xl"
+          style={{ backgroundColor: isAllSafe ? "#10B981" : "#EF4444" }}
+        />
 
-      {/* Header with Title & Overall Verification Status Badge */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-[#1A2D44] pb-3 gap-3 relative z-10">
-        <div className="flex items-center gap-2.5">
-          <div className={`w-9 h-9 rounded-xl flex items-center justify-center border shadow-inner ${
-            isAllSafe ? "bg-[#10B981]/20 text-[#34D399] border-[#10B981]/40" : "bg-[#EF4444]/20 text-[#F87171] border-[#EF4444]/40"
-          }`}>
-            <ShieldCheck size={20} />
-          </div>
-          <div>
-            <div className="text-[10px] text-[#8195AA] uppercase font-mono tracking-wider font-semibold">
-              IS 456:2000 Limit State Safety Audit
+        {/* Header with Title & Overall Verification Status Badge */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-[#1A2D44] pb-3 gap-3 relative z-10">
+          <div className="flex items-center gap-2.5">
+            <div className={`w-9 h-9 rounded-xl flex items-center justify-center border shadow-inner ${
+              isAllSafe ? "bg-[#10B981]/20 text-[#34D399] border-[#10B981]/40" : "bg-[#EF4444]/20 text-[#F87171] border-[#EF4444]/40"
+            }`}>
+              <ShieldCheck size={20} />
             </div>
-            <h4 className="text-sm sm:text-base font-bold text-white tracking-wide flex items-center gap-2">
-              <span>Safety Check & Capacity Utilization Gauges</span>
-              <span className={`text-[10px] font-mono px-2 py-0.5 rounded-full border font-bold flex items-center gap-1 ${
-                isAllSafe ? "bg-[#10B981]/15 text-[#34D399] border-[#10B981]/40" : "bg-[#EF4444]/15 text-[#F87171] border-[#EF4444]/40"
-              }`}>
-                <span className={`w-1.5 h-1.5 rounded-full ${isAllSafe ? "bg-[#34D399] animate-pulse" : "bg-[#EF4444]"}`}></span>
-                {isAllSafe ? "PASS · SAFE & STABLE" : "LIMIT EXCEEDED"}
-              </span>
-            </h4>
+            <div>
+              <div className="text-[10px] text-[#8195AA] uppercase font-mono tracking-wider font-semibold">
+                IS 456:2000 Limit State Safety Audit
+              </div>
+              <h4 className="text-sm sm:text-base font-bold text-white tracking-wide flex items-center gap-2 flex-wrap">
+                <span>Safety Check & Capacity Utilization Gauges</span>
+                <span className={`text-[10px] font-mono px-2 py-0.5 rounded-full border font-bold flex items-center gap-1 ${
+                  isAllSafe ? "bg-[#10B981]/15 text-[#34D399] border-[#10B981]/40" : "bg-[#EF4444]/15 text-[#F87171] border-[#EF4444]/40 animate-pulse"
+                }`}>
+                  <span className={`w-1.5 h-1.5 rounded-full ${isAllSafe ? "bg-[#34D399]" : "bg-[#EF4444]"}`}></span>
+                  {isAllSafe ? "PASS · SAFE & STABLE" : "ATTENTION: LIMIT EXCEEDED"}
+                </span>
+              </h4>
+            </div>
+          </div>
+
+          {/* Quick Highlights Strip & Optimizer Toggle Button */}
+          <div className="flex items-center gap-2 flex-wrap text-xs font-mono">
+            {summaryNotes.map((note, idx) => (
+              <div key={idx} className="bg-[#070D17] border border-[#1A2A3D] px-2.5 py-1 rounded-lg">
+                <span className="text-[#8195AA] text-[10px] mr-1.5">{note.label}:</span>
+                <span className={`font-bold ${note.color}`}>{note.value}</span>
+              </div>
+            ))}
+            <button
+              onClick={() => setShowOptimizer(!showOptimizer)}
+              className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold transition border cursor-pointer ${
+                !isAllSafe
+                  ? "bg-gradient-to-r from-[#EF4444]/20 to-[#F97316]/20 text-[#FCA5A5] border-[#EF4444]/50 shadow-[0_0_10px_rgba(239,68,68,0.2)]"
+                  : "bg-[#102235] text-[#5CC8E0] border-[#5CC8E0]/40 hover:border-[#5CC8E0]"
+              }`}
+            >
+              <span>🎛️ {showOptimizer ? "Hide Safe Optimizer" : "Tune Variables to Safe State"}</span>
+            </button>
           </div>
         </div>
 
-        {/* Quick Highlights Strip */}
-        <div className="flex items-center gap-2 flex-wrap text-xs font-mono">
-          {summaryNotes.map((note, idx) => (
-            <div key={idx} className="bg-[#070D17] border border-[#1A2A3D] px-2.5 py-1 rounded-lg">
-              <span className="text-[#8195AA] text-[10px] mr-1.5">{note.label}:</span>
-              <span className={`font-bold ${note.color}`}>{note.value}</span>
-            </div>
+        {/* Animated Circular Gauge Rings Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 relative z-10">
+          {rings.map((cap, i) => (
+            <AnimatedCapacityRing key={i} capacity={cap} compact={true} />
           ))}
         </div>
       </div>
 
-      {/* Animated Circular Gauge Rings Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 relative z-10">
-        {rings.map((cap, i) => (
-          <AnimatedCapacityRing key={i} capacity={cap} compact={true} />
-        ))}
-      </div>
+      {/* Expanded Interactive Safe-State Optimizer */}
+      {showOptimizer && (
+        <SafeStateOptimizer
+          activeItem={activeItem}
+          settings={settings}
+          onUpdateSlab={onUpdateSlab}
+          onUpdateBeam={onUpdateBeam}
+          onUpdateWall={onUpdateWall}
+          onUpdateOpening={onUpdateOpening}
+        />
+      )}
     </div>
   );
 }
@@ -11222,7 +11630,11 @@ function DetailedEngineeringMathAudit({
   wallResults,
   lintelResults,
   settings,
-  onNavigateTab
+  onNavigateTab,
+  onUpdateSlab,
+  onUpdateBeam,
+  onUpdateWall,
+  onUpdateOpening,
 }) {
   const [typeFilter, setTypeFilter] = useState("ALL"); // ALL, slab, beam, wall, lintel
   const [floorFilter, setFloorFilter] = useState("ALL"); // ALL, GF, FF
@@ -11629,7 +12041,14 @@ function DetailedEngineeringMathAudit({
             </div>
 
             {/* TOP COMPONENT SAFETY CHECK & CAPACITY RINGS HUB */}
-            <ComponentCapacityHub activeItem={activeItem} settings={settings} />
+            <ComponentCapacityHub
+              activeItem={activeItem}
+              settings={settings}
+              onUpdateSlab={onUpdateSlab}
+              onUpdateBeam={onUpdateBeam}
+              onUpdateWall={onUpdateWall}
+              onUpdateOpening={onUpdateOpening}
+            />
 
             {/* Card 2: Visual Structural Diagram (Proper Image) */}
             <div className="bg-[#090E17] border border-[#1A2536] rounded-2xl p-4 shadow-md space-y-3">
@@ -11867,7 +12286,14 @@ function DetailedEngineeringMathAudit({
               </div>
 
               {/* Component Executive Capacity Utilization & Stability Hub */}
-              <ComponentCapacityHub activeItem={activeItem} settings={settings} />
+              <ComponentCapacityHub
+                activeItem={activeItem}
+                settings={settings}
+                onUpdateSlab={onUpdateSlab}
+                onUpdateBeam={onUpdateBeam}
+                onUpdateWall={onUpdateWall}
+                onUpdateOpening={onUpdateOpening}
+              />
 
               <div className="space-y-4 pt-1">
                 {mathSteps.map((step, idx) => (
@@ -11939,7 +12365,21 @@ function DetailedEngineeringMathAudit({
 
                     {/* Maximum Limit Animated Capacity & Stability Ring */}
                     {step.capacity && (
-                      <AnimatedCapacityRing capacity={step.capacity} />
+                      <div className="space-y-3">
+                        <AnimatedCapacityRing capacity={step.capacity} />
+                        {/* Interactive Safe-State Variable Optimizer if capacity exceeded or deflection check */}
+                        {(Number(step.capacity.current) > Number(step.capacity.limit) || step.title?.includes("Deflection")) && (
+                          <SafeStateOptimizer
+                            activeItem={activeItem}
+                            step={step}
+                            settings={settings}
+                            onUpdateSlab={onUpdateSlab}
+                            onUpdateBeam={onUpdateBeam}
+                            onUpdateWall={onUpdateWall}
+                            onUpdateOpening={onUpdateOpening}
+                          />
+                        )}
+                      </div>
                     )}
 
                     {/* Numerical Substitution Box */}
@@ -14693,6 +15133,10 @@ export default function StructuralDesignSuite() {
             wallResults={wallResults}
             lintelResults={lintelResults}
             settings={settings}
+            onUpdateSlab={updateSlab}
+            onUpdateBeam={updateBeam}
+            onUpdateWall={updateWall}
+            onUpdateOpening={updateOpening}
             onNavigateTab={(type, id) => {
               setTab(type);
               if (type === "slab" && id) setActiveSlabId(id);
