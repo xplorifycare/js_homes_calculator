@@ -3,7 +3,7 @@ import {
   Plus, Trash2, TriangleAlert, CircleCheck, Ruler, Settings2, 
   Calculator, Box, ArrowRight, Layers, Rows3, Download, Upload, 
   FileText, RefreshCw, Info, HelpCircle, Copy, Check, Filter, Building2,
-  Eye, EyeOff, Maximize2, Minimize2, Compass, Home, Sparkles, X, ChevronRight, ChevronLeft,
+  Eye, EyeOff, Maximize2, Minimize2, Compass, Home, Sparkles, X, Menu, ChevronRight, ChevronLeft,
   RotateCw, Hand, Play, Pause, Sliders, CheckSquare, Square, Activity, ShieldCheck, Gauge, Zap, TrendingDown,
   Search, ChevronDown, ChevronUp,
   Sun, Wind, CloudRain, Droplets, Thermometer
@@ -6134,8 +6134,8 @@ function FullHouse3DViewer({ openings, slabs, beams, walls = [], lintelResults, 
 
       {/* 3D WebGL Canvas with Hover/HUD & Selected Entity Card */}
       <div 
-        className={`w-full rounded-2xl overflow-hidden border border-[#1E293B] relative shadow-[0_15px_40px_rgba(0,0,0,0.6)] ${isFullscreen ? "flex-1 min-h-0" : ""}`} 
-        style={{ height: isFullscreen ? "100%" : "calc(100vh - 220px)", minHeight: 620, background: "#070D17" }}
+        className={`w-full rounded-2xl overflow-hidden border border-[#1E293B] relative shadow-[0_15px_40px_rgba(0,0,0,0.6)] h-[58vh] min-h-[420px] md:h-[calc(100vh-220px)] md:min-h-[620px] ${isFullscreen ? "flex-1 !h-full !min-h-0" : ""}`} 
+        style={{ background: "#070D17" }}
       >
         {/* Dedicated 3D Canvas Mount - No React children inside */}
         <div 
@@ -6502,9 +6502,9 @@ function FullHouse3DViewer({ openings, slabs, beams, walls = [], lintelResults, 
           </div>
         )}
 
-        {/* Selected Entity Inspector Panel (Right Drawer) */}
+        {/* Selected Entity Inspector Panel (Bottom sheet on mobile, right drawer on desktop) */}
         {selectedEntity && (
-          <div className="absolute top-3 right-3 w-84 max-w-[92%] max-h-[550px] overflow-y-auto bg-[#0F1B2D]/95 backdrop-blur-md border border-[#5CC8E0] rounded-xl p-4 shadow-2xl z-20 animate-fadeIn text-xs mono">
+          <div className="absolute inset-x-2.5 bottom-2.5 md:inset-x-auto md:bottom-auto md:top-3 md:right-3 md:w-84 max-w-full md:max-w-[92%] max-h-[50vh] md:max-h-[550px] overflow-y-auto bg-[#0F1B2D]/95 backdrop-blur-md border border-[#5CC8E0] rounded-2xl p-3.5 sm:p-4 shadow-2xl z-20 animate-fadeIn text-xs mono">
             <div className="flex items-center justify-between pb-2 border-b border-[#1B2A3F] mb-3">
               <div className="flex items-center gap-1.5">
                 <span className="px-2 py-0.5 rounded bg-[#132133] text-[#E8C547] border border-[#2A3B52] text-[10px] font-bold uppercase">
@@ -8258,58 +8258,58 @@ function ContractorSiteGuideModal({ onClose }) {
   ];
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-3 md:p-6 overflow-y-auto" onClick={onClose}>
-      <div className="bg-[#0F1B2D] border border-[#2A3B52] rounded-xl max-w-4xl w-full my-6 shadow-2xl overflow-hidden" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-start sm:items-center justify-center p-2 sm:p-4 md:p-6 overflow-y-auto" onClick={onClose}>
+      <div className="bg-[#0F1B2D] border border-[#2A3B52] rounded-2xl max-w-4xl w-full my-2 sm:my-6 shadow-2xl overflow-hidden max-h-[95vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-[#1B2A3F] bg-[#132133]">
+        <div className="flex items-center justify-between px-4 sm:px-6 py-3 sm:py-4 border-b border-[#1B2A3F] bg-[#132133]">
           <div>
-            <div className="text-[10px] uppercase tracking-widest text-[#FFA333] mono font-bold flex items-center gap-1.5">
-              <ShieldCheck size={14} /> Official Site Execution Handbook · IS 456 / IS 1893
+            <div className="text-[9px] sm:text-[10px] uppercase tracking-widest text-[#FFA333] mono font-bold flex items-center gap-1.5">
+              <ShieldCheck size={13} /> Official Site Execution Handbook · IS 456 / IS 1893
             </div>
-            <h2 className="text-[#F2F5F8] text-xl font-bold mt-0.5">👷 Contractor's Master BBS & Site Guide</h2>
-            <p className="text-[#8195AA] text-xs">Calibrated directly from ETABS Finite Element Analysis & AutoCAD As-Built Foundations</p>
+            <h2 className="text-[#F2F5F8] text-base sm:text-xl font-bold mt-0.5">👷 Contractor's Master BBS & Site Guide</h2>
+            <p className="text-[#8195AA] text-[11px] hidden sm:block">Calibrated directly from ETABS Finite Element Analysis & AutoCAD As-Built Foundations</p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1 sm:gap-2">
             <button 
               onClick={() => window.print()} 
-              className="flex items-center gap-1 text-xs bg-[#0B1420] border border-[#2A3B52] hover:border-[#5CC8E0] text-[#5CC8E0] px-3 py-1.5 rounded-lg transition font-medium"
+              className="flex items-center gap-1 text-[11px] sm:text-xs bg-[#0B1420] border border-[#2A3B52] hover:border-[#5CC8E0] text-[#5CC8E0] px-2.5 sm:px-3 py-1.5 rounded-lg transition font-medium"
             >
-              🖨️ Print Sheet
+              🖨️ <span className="hidden sm:inline">Print Sheet</span>
             </button>
-            <button onClick={onClose} className="text-[#8195AA] hover:text-[#E6EDF2] text-2xl leading-none px-2">×</button>
+            <button onClick={onClose} className="text-[#8195AA] hover:text-[#E6EDF2] text-2xl leading-none px-1.5 sm:px-2">×</button>
           </div>
         </div>
 
         {/* Tab Buttons */}
-        <div className="flex border-b border-[#1B2A3F] bg-[#0B1420] px-6 gap-2 text-xs font-semibold overflow-x-auto">
+        <div className="flex border-b border-[#1B2A3F] bg-[#0B1420] px-3 sm:px-6 gap-1 sm:gap-2 text-xs font-semibold overflow-x-auto no-scrollbar">
           <button 
             onClick={() => setActiveTab("crank")} 
-            className={`py-3 px-3 border-b-2 transition flex items-center gap-1.5 whitespace-nowrap ${activeTab === "crank" ? "border-[#FFA333] text-[#FFA333]" : "border-transparent text-[#8195AA] hover:text-[#E6EDF2]"}`}
+            className={`py-3 px-2 sm:px-3 border-b-2 transition flex items-center gap-1.5 whitespace-nowrap text-[11px] sm:text-xs ${activeTab === "crank" ? "border-[#FFA333] text-[#FFA333]" : "border-transparent text-[#8195AA] hover:text-[#E6EDF2]"}`}
           >
-            📐 Room-by-Room Cranks (L/4)
+            📐 Room Cranks (L/4)
           </button>
           <button 
             onClick={() => setActiveTab("cantilever")} 
-            className={`py-3 px-3 border-b-2 transition flex items-center gap-1.5 whitespace-nowrap ${activeTab === "cantilever" ? "border-[#FFA333] text-[#FFA333]" : "border-transparent text-[#8195AA] hover:text-[#E6EDF2]"}`}
+            className={`py-3 px-2 sm:px-3 border-b-2 transition flex items-center gap-1.5 whitespace-nowrap text-[11px] sm:text-xs ${activeTab === "cantilever" ? "border-[#FFA333] text-[#FFA333]" : "border-transparent text-[#8195AA] hover:text-[#E6EDF2]"}`}
           >
-            🏖️ Cantilever Balcony Rules
+            🏖️ Cantilever Rules
           </button>
           <button 
             onClick={() => setActiveTab("steel")} 
-            className={`py-3 px-3 border-b-2 transition flex items-center gap-1.5 whitespace-nowrap ${activeTab === "steel" ? "border-[#FFA333] text-[#FFA333]" : "border-transparent text-[#8195AA] hover:text-[#E6EDF2]"}`}
+            className={`py-3 px-2 sm:px-3 border-b-2 transition flex items-center gap-1.5 whitespace-nowrap text-[11px] sm:text-xs ${activeTab === "steel" ? "border-[#FFA333] text-[#FFA333]" : "border-transparent text-[#8195AA] hover:text-[#E6EDF2]"}`}
           >
-            📦 Steel Purchase Bill (~1.41 T)
+            📦 Steel Bill (~1.41 T)
           </button>
           <button 
             onClick={() => setActiveTab("checklist")} 
-            className={`py-3 px-3 border-b-2 transition flex items-center gap-1.5 whitespace-nowrap ${activeTab === "checklist" ? "border-[#FFA333] text-[#FFA333]" : "border-transparent text-[#8195AA] hover:text-[#E6EDF2]"}`}
+            className={`py-3 px-2 sm:px-3 border-b-2 transition flex items-center gap-1.5 whitespace-nowrap text-[11px] sm:text-xs ${activeTab === "checklist" ? "border-[#FFA333] text-[#FFA333]" : "border-transparent text-[#8195AA] hover:text-[#E6EDF2]"}`}
           >
-            📋 Pre-Pour Site Checklist
+            📋 Site Checklist
           </button>
         </div>
 
         {/* Content Body */}
-        <div className="p-6 max-h-[72vh] overflow-y-auto space-y-5">
+        <div className="p-3.5 sm:p-6 max-h-[75vh] overflow-y-auto space-y-4 sm:space-y-5">
           {/* 1. ROOM BY ROOM CRANK TABLE */}
           {activeTab === "crank" && (
             <div className="space-y-4 animate-fadeIn">
@@ -8614,6 +8614,7 @@ function DetailedEngineeringMathAudit({
   const [sortBy, setSortBy] = useState("id"); // id, cost_desc, cost_asc, name
   const [selectedKey, setSelectedKey] = useState("slab-1");
   const [copied, setCopied] = useState(false);
+  const [mobileView, setMobileView] = useState("list"); // "list" | "detail"
 
   // Compile unified list of all components
   const allItems = useMemo(() => {
@@ -8950,10 +8951,34 @@ function DetailedEngineeringMathAudit({
         </div>
       </div>
 
+      {/* 📱 MOBILE VIEW SWITCHER (Component List vs Math Dossier) */}
+      <div className="lg:hidden flex items-center bg-[#070D17] border border-[#1E293B] rounded-xl p-1 text-xs mono w-full mb-3 shadow-md">
+        <button
+          onClick={() => setMobileView("list")}
+          className={`flex-1 py-2 rounded-lg text-center font-bold transition ${
+            mobileView === "list"
+              ? "bg-[#102235] text-[#5CC8E0] border border-[#5CC8E0]/40 shadow-sm"
+              : "text-[#8195AA] hover:text-white"
+          }`}
+        >
+          📋 Component List ({filteredItems.length})
+        </button>
+        <button
+          onClick={() => setMobileView("detail")}
+          className={`flex-1 py-2 rounded-lg text-center font-bold transition ${
+            mobileView === "detail"
+              ? "bg-[#102235] text-[#5CC8E0] border border-[#5CC8E0]/40 shadow-sm"
+              : "text-[#8195AA] hover:text-white"
+          }`}
+        >
+          📐 Math Dossier ({activeItem?.id ? `${activeItem.type.toUpperCase()}-${activeItem.id}` : ""})
+        </button>
+      </div>
+
       {/* 🚀 MAIN SPLIT WORKSPACE: LEFT COMPONENT PICKER + RIGHT DOSSIER */}
-      <div className="flex flex-col lg:flex-row gap-4 items-start">
-        {/* LEFT COLUMN: COMPONENT SELECTOR (Width: 380px) */}
-        <div className="w-full lg:w-[380px] shrink-0 space-y-2 max-h-[calc(100vh-250px)] overflow-y-auto pr-1">
+      <div className="flex flex-col lg:flex-row gap-4 items-start w-full">
+        {/* LEFT COLUMN: COMPONENT SELECTOR (Width: 380px on desktop, full width on mobile) */}
+        <div className={`${mobileView === "list" ? "block" : "hidden lg:block"} w-full lg:w-[380px] shrink-0 space-y-2 max-h-[calc(100vh-250px)] overflow-y-auto pr-1`}>
           {filteredItems.length === 0 ? (
             <div className="bg-[#0A101C] border border-[#1B2A3F] rounded-xl p-8 text-center text-xs text-[#8195AA]">
               No components match the current filters.
@@ -8964,7 +8989,10 @@ function DetailedEngineeringMathAudit({
               return (
                 <div
                   key={item.key}
-                  onClick={() => setSelectedKey(item.key)}
+                  onClick={() => {
+                    setSelectedKey(item.key);
+                    setMobileView("detail");
+                  }}
                   className={`p-3 rounded-xl border cursor-pointer transition-all duration-150 select-none ${
                     isSelected
                       ? "border-[#5CC8E0] bg-gradient-to-r from-[#102235] to-[#0D1826] ring-1 ring-[#5CC8E0]/40 shadow-lg"
@@ -9003,7 +9031,17 @@ function DetailedEngineeringMathAudit({
 
         {/* RIGHT COLUMN: DETAILED ENGINEERING MATH & COST DOSSIER (Flex-1) */}
         {activeItem ? (
-          <div className="flex-1 w-full space-y-4 max-h-[calc(100vh-250px)] overflow-y-auto pl-1">
+          <div className={`${mobileView === "detail" ? "block" : "hidden lg:block"} flex-1 w-full space-y-4 max-h-[calc(100vh-250px)] overflow-y-auto pl-0 lg:pl-1`}>
+            {/* Mobile Back Button */}
+            <div className="lg:hidden mb-2">
+              <button
+                onClick={() => setMobileView("list")}
+                className="flex items-center gap-1.5 text-xs text-[#5CC8E0] font-semibold bg-[#102235] hover:bg-[#15273F] px-3.5 py-2 rounded-xl border border-[#5CC8E0]/40 transition shadow-sm"
+              >
+                <ChevronLeft size={16} /> Back to Component List ({filteredItems.length})
+              </button>
+            </div>
+
             {/* Card 1: Executive Component Header Banner */}
             <div className="bg-gradient-to-r from-[#0B131F] via-[#0F1B2D] to-[#0B131F] border border-[#1A2536] rounded-2xl p-4 shadow-md flex flex-col md:flex-row md:items-center justify-between gap-4">
               <div>
@@ -10425,6 +10463,7 @@ function DedicatedCostAndQuantitySuite({
 export default function StructuralDesignSuite() {
   const [tab, setTab] = useState("3dhouse"); // 3dhouse, wall, lintel, slab, beam, boq
   const [floorFilter, setFloorFilter] = useState("ALL"); // ALL, GF, FF
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [settings, setSettings] = useState({
     wallThickness: 200, bearing: 150, material: "solid_block",
     concreteGrade: "M20", steelGrade: "Fe500",
@@ -10836,50 +10875,59 @@ export default function StructuralDesignSuite() {
       `}</style>
 
       {/* 🚀 TOP APPLICATION HEADER BAR (Full-Width Edge-to-Edge) */}
-      <header className="w-full bg-[#090E17]/95 backdrop-blur-md border-b border-[#1A2536] px-4 py-2.5 flex items-center justify-between gap-3 shadow-md z-30 shrink-0">
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-[#0284C7] to-[#38BDF8] flex items-center justify-center shadow-[0_0_15px_rgba(56,189,248,0.3)] shrink-0">
-            <Building2 className="text-white" size={20} />
+      <header className="w-full bg-[#090E17]/95 backdrop-blur-md border-b border-[#1A2536] px-3 sm:px-4 py-2.5 flex items-center justify-between gap-2 sm:gap-3 shadow-md z-30 shrink-0">
+        <div className="flex items-center gap-2 sm:gap-3">
+          {/* Mobile Hamburger Menu Button */}
+          <button 
+            onClick={() => setMobileMenuOpen(true)}
+            className="md:hidden p-2 rounded-xl bg-[#101E30] border border-[#2A3B52] text-[#8195AA] hover:text-[#5CC8E0] hover:border-[#5CC8E0] transition"
+            title="Open Navigation Menu"
+          >
+            <Menu size={17} />
+          </button>
+
+          <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-gradient-to-tr from-[#0284C7] to-[#38BDF8] flex items-center justify-center shadow-[0_0_15px_rgba(56,189,248,0.3)] shrink-0">
+            <Building2 className="text-white" size={18} />
           </div>
           <div>
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="font-bold text-white tracking-tight text-base font-sans">JS HOMES</span>
-              <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-[#10B981]/15 text-[#34D399] border border-[#10B981]/30">
-                IS 456 & 1893 Verified
+            <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+              <span className="font-bold text-white tracking-tight text-sm sm:text-base font-sans">JS HOMES</span>
+              <span className="text-[9px] sm:text-[10px] uppercase font-bold tracking-wider px-1.5 sm:px-2 py-0.5 rounded-full bg-[#10B981]/15 text-[#34D399] border border-[#10B981]/30">
+                IS 456 & 1893
               </span>
-              <span className="text-[#8195AA] text-xs font-mono hidden sm:inline">·</span>
-              <span className="text-[#E8C547] text-xs font-mono font-medium hidden sm:inline">Mayyanad, Kollam Residence (GND + FF)</span>
+              <span className="text-[#8195AA] text-xs font-mono hidden lg:inline">·</span>
+              <span className="text-[#E8C547] text-xs font-mono font-medium hidden lg:inline">Mayyanad Residence (GND + FF)</span>
             </div>
-            <p className="text-[#8195AA] text-[11px] hidden md:block">
+            <p className="text-[#8195AA] text-[10px] sm:text-[11px] hidden md:block">
               Limit State Solver · 3D BIM House · Slabs S1-S17 · Beams B1-B32 · Solid Block Courses · Live BOQ
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-2 shrink-0 flex-wrap">
+        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
           <button 
             onClick={() => setShowContractorModal(true)} 
-            className="flex items-center gap-1.5 text-xs bg-gradient-to-r from-[#D97706] to-[#B45309] hover:from-[#F59E0B] hover:to-[#D97706] text-white px-3 py-1.5 rounded-xl transition-all font-bold shadow-[0_0_15px_rgba(245,158,11,0.25)]"
+            className="flex items-center gap-1 text-[11px] sm:text-xs bg-gradient-to-r from-[#D97706] to-[#B45309] hover:from-[#F59E0B] hover:to-[#D97706] text-white px-2.5 sm:px-3 py-1.5 rounded-xl transition-all font-bold shadow-[0_0_15px_rgba(245,158,11,0.25)]"
           >
-            <ShieldCheck size={14} /> 👷 Contractor Guide
+            <ShieldCheck size={13} /> <span className="hidden xs:inline">👷</span> Guide
           </button>
           <button 
             onClick={resetToCADPlan} 
-            className="flex items-center gap-1 text-xs bg-[#101E30] hover:bg-[#15273F] border border-[#2A3B52] hover:border-[#E8C547] text-[#E8C547] px-2.5 py-1.5 rounded-xl transition-all font-medium"
+            className="hidden sm:flex items-center gap-1 text-xs bg-[#101E30] hover:bg-[#15273F] border border-[#2A3B52] hover:border-[#E8C547] text-[#E8C547] px-2.5 py-1.5 rounded-xl transition-all font-medium"
             title="Reset to original CAD Floor Plan layout"
           >
             <RefreshCw size={13} /> Reset CAD
           </button>
           <button 
             onClick={exportJSON} 
-            className="flex items-center gap-1 text-xs bg-[#101E30] hover:bg-[#15273F] border border-[#2A3B52] hover:border-[#5CC8E0] text-[#5CC8E0] px-2.5 py-1.5 rounded-xl transition-all font-medium"
+            className="hidden sm:flex items-center gap-1 text-xs bg-[#101E30] hover:bg-[#15273F] border border-[#2A3B52] hover:border-[#5CC8E0] text-[#5CC8E0] px-2.5 py-1.5 rounded-xl transition-all font-medium"
             title="Export complete project state to JSON file"
           >
             <Download size={13} /> Export
           </button>
           <button 
             onClick={() => fileInputRef.current?.click()} 
-            className="flex items-center gap-1 text-xs bg-[#101E30] hover:bg-[#15273F] border border-[#2A3B52] hover:border-[#5CC8E0] text-[#8195AA] hover:text-[#E6EDF2] px-2.5 py-1.5 rounded-xl transition-all font-medium"
+            className="hidden md:flex items-center gap-1 text-xs bg-[#101E30] hover:bg-[#15273F] border border-[#2A3B52] hover:border-[#5CC8E0] text-[#8195AA] hover:text-[#E6EDF2] px-2.5 py-1.5 rounded-xl transition-all font-medium"
             title="Import previously saved project JSON"
           >
             <Upload size={13} /> Import
@@ -10887,7 +10935,7 @@ export default function StructuralDesignSuite() {
           <input type="file" ref={fileInputRef} onChange={importJSON} accept=".json" className="hidden" />
           <button 
             onClick={() => setShowSettings(!showSettings)} 
-            className={`flex items-center gap-1 text-xs px-3 py-1.5 rounded-xl transition font-medium border ${
+            className={`flex items-center gap-1 text-[11px] sm:text-xs px-2.5 sm:px-3 py-1.5 rounded-xl transition font-medium border ${
               showSettings 
                 ? "bg-[#102235] border-[#5CC8E0] text-[#5CC8E0] shadow-sm" 
                 : "bg-[#0B1420] border-[#1E293B] text-[#8195AA] hover:border-[#2A3B52] hover:text-[#E6EDF2]"
@@ -10898,10 +10946,118 @@ export default function StructuralDesignSuite() {
         </div>
       </header>
 
-      {/* 🚀 WORKSPACE BODY: LEFT COLLAPSIBLE SIDEBAR + EXPANSIVE MAIN WORKSPACE */}
+      {/* 🚀 WORKSPACE BODY: LEFT COLLAPSIBLE SIDEBAR (DESKTOP) + EXPANSIVE MAIN WORKSPACE */}
       <div className="flex-1 flex overflow-hidden w-full relative">
-        {/* 📁 LEFT COLLAPSIBLE NAVIGATION SIDEBAR (Your Red Oval) */}
-        <aside className={`${sidebarCollapsed ? "w-16" : "w-64"} bg-[#090E17] border-r border-[#1A2536] flex flex-col justify-between shrink-0 transition-all duration-200 select-none z-20 overflow-y-auto overflow-x-hidden`}>
+        {/* 📱 MOBILE SLIDE-OVER DRAWER BACKDROP */}
+        {mobileMenuOpen && (
+          <div 
+            className="fixed inset-0 bg-black/75 backdrop-blur-sm z-40 md:hidden transition-opacity"
+            onClick={() => setMobileMenuOpen(false)}
+          />
+        )}
+
+        {/* 📱 MOBILE SLIDE-OVER DRAWER PANEL */}
+        <div className={`fixed inset-y-0 left-0 z-50 w-72 max-w-[85vw] bg-[#090E17] border-r border-[#1A2536] shadow-2xl flex flex-col justify-between p-4 overflow-y-auto transform transition-transform duration-200 ease-in-out md:hidden ${
+          mobileMenuOpen ? "translate-x-0" : "-translate-x-full"
+        }`}>
+          <div className="space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-[#1A2536]">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-[#0284C7] to-[#38BDF8] flex items-center justify-center text-white">
+                  <Building2 size={18} />
+                </div>
+                <div>
+                  <div className="font-bold text-white text-sm">JS HOMES</div>
+                  <div className="text-[10px] text-[#5CC8E0] mono font-semibold">Project Explorer</div>
+                </div>
+              </div>
+              <button 
+                onClick={() => setMobileMenuOpen(false)} 
+                className="p-1.5 text-[#8195AA] hover:text-white rounded-lg hover:bg-[#101E30] transition"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Navigation items in Mobile Drawer */}
+            <nav className="space-y-1">
+              {[
+                { id: "3dhouse", label: "Full House 3D BIM", icon: <Building2 size={18} /> },
+                { id: "audit", label: "📐 Math & Cost Audit", icon: <FileText size={18} /> },
+                { id: "seismic", label: "IS 1893 Seismic", icon: <Activity size={18} /> },
+                { id: "wall", label: `Walls (${filteredWalls.length})`, icon: <Home size={18} /> },
+                { id: "slab", label: `Slabs (${filteredSlabs.length})`, icon: <Layers size={18} /> },
+                { id: "beam", label: `Beams (${filteredBeams.length})`, icon: <Rows3 size={18} /> },
+                { id: "lintel", label: `Lintels (${filteredOpenings.length})`, icon: <Ruler size={18} /> },
+                { id: "boq", label: "Quantity & Cost BOQ", icon: <Calculator size={18} /> },
+              ].map(item => (
+                <button
+                  key={item.id}
+                  onClick={() => {
+                    setTab(item.id);
+                    setMobileMenuOpen(false);
+                  }}
+                  className={`w-full flex items-center justify-start px-3 py-2.5 rounded-xl transition text-xs font-medium ${
+                    tab === item.id
+                      ? "bg-[#102235] text-[#5CC8E0] border border-[#5CC8E0]/40 font-bold shadow-[0_0_12px_rgba(92,200,224,0.18)]"
+                      : "text-[#8195AA] hover:text-[#F2F5F8] hover:bg-[#0D1624] border border-transparent"
+                  }`}
+                >
+                  <span className={tab === item.id ? "text-[#5CC8E0]" : "text-[#64748B]"}>{item.icon}</span>
+                  <span className="ml-3 truncate">{item.label}</span>
+                </button>
+              ))}
+            </nav>
+
+            {/* Floor Quick Filter in Mobile Drawer */}
+            <div className="pt-3 border-t border-[#1A2536]">
+              <div className="pb-2 text-[10px] uppercase font-bold tracking-widest text-[#64748B] flex items-center gap-1">
+                <Filter size={12} /> Floor Level
+              </div>
+              <div className="grid grid-cols-3 gap-1 bg-[#070D17] border border-[#1E293B] rounded-xl p-1 text-xs mono">
+                {["ALL", "GF", "FF"].map(f => (
+                  <button
+                    key={f}
+                    onClick={() => {
+                      setFloorFilter(f);
+                      setMobileMenuOpen(false);
+                    }}
+                    className={`py-1.5 rounded-lg transition text-[11px] font-semibold text-center ${
+                      floorFilter === f
+                        ? "bg-[#102235] text-[#5CC8E0] border border-[#5CC8E0]/40 shadow-sm"
+                        : "text-[#8195AA] hover:text-[#E6EDF2]"
+                    }`}
+                  >
+                    {f === "ALL" ? "All" : (f === "GF" ? "GND" : "1st")}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Mobile Project Actions */}
+            <div className="pt-3 border-t border-[#1A2536] space-y-2">
+              <button 
+                onClick={() => { resetToCADPlan(); setMobileMenuOpen(false); }} 
+                className="w-full flex items-center justify-center gap-1.5 text-xs bg-[#101E30] hover:bg-[#15273F] border border-[#2A3B52] text-[#E8C547] py-2 rounded-xl transition font-medium"
+              >
+                <RefreshCw size={13} /> Reset CAD Plan
+              </button>
+              <button 
+                onClick={() => { exportJSON(); setMobileMenuOpen(false); }} 
+                className="w-full flex items-center justify-center gap-1.5 text-xs bg-[#101E30] hover:bg-[#15273F] border border-[#2A3B52] text-[#5CC8E0] py-2 rounded-xl transition font-medium"
+              >
+                <Download size={13} /> Export Project JSON
+              </button>
+            </div>
+          </div>
+
+          <div className="pt-4 border-t border-[#1A2536] text-[10px] text-[#64748B] mono text-center">
+            JS Homes · Kerala LSGD / IS 456
+          </div>
+        </div>
+
+        {/* 📁 LEFT COLLAPSIBLE NAVIGATION SIDEBAR (DESKTOP ONLY: hidden on mobile) */}
+        <aside className={`hidden md:flex ${sidebarCollapsed ? "w-16" : "w-64"} bg-[#090E17] border-r border-[#1A2536] flex-col justify-between shrink-0 transition-all duration-200 select-none z-20 overflow-y-auto overflow-x-hidden`}>
           <div className="p-2 space-y-4">
             {/* Sidebar Module Navigation */}
             <div>
@@ -11004,7 +11160,7 @@ export default function StructuralDesignSuite() {
         </aside>
 
         {/* 🖥️ MAIN EXPANSIVE WORKSPACE CANVAS (100% Remaining Width) */}
-        <main className="flex-1 overflow-y-auto p-3 md:p-5 w-full bg-[#070D17] space-y-4">
+        <main className="flex-1 overflow-y-auto p-2.5 sm:p-4 md:p-5 w-full bg-[#070D17] space-y-4 pb-24 md:pb-8">
           {transferNote && (
             <div className="flex items-center justify-between bg-gradient-to-r from-[#102235] to-[#0F1E2E] border border-[#5CC8E0]/50 rounded-xl px-4 py-3 text-xs text-[#5CC8E0] shadow-[0_4px_20px_rgba(92,200,224,0.15)] animate-fadeIn">
               <span className="flex items-center gap-2"><Info size={15} /> {transferNote}</span>
@@ -11062,7 +11218,7 @@ export default function StructuralDesignSuite() {
 
         {/* ============ WALLS & MASONRY TAB ============ */}
         {tab === "wall" && (
-          <div className="grid lg:grid-cols-5 gap-6">
+          <div className="grid lg:grid-cols-5 gap-4 lg:gap-6">
             <div className="lg:col-span-2">
               <div className="flex items-center justify-between mb-2">
                 <h2 className="text-xs uppercase tracking-wide text-[#8195AA] font-semibold">
@@ -11351,7 +11507,7 @@ export default function StructuralDesignSuite() {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-4 gap-2 pt-2 border-t border-[#1B2A3F]">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-2 border-t border-[#1B2A3F]">
                     <Stat label="Masonry Units" value={`${rw.unitsCount} Nos`} />
                     <Stat label="Total Cement" value={`${rw.cementBags + rw.totalPlasterCementBags} Bags`} />
                     <Stat label="Total Sand" value={`${num(rw.sandCFT + rw.totalPlasterSandCFT, 1)} CFT`} />
@@ -11388,7 +11544,7 @@ export default function StructuralDesignSuite() {
 
         {/* ============ SLAB TAB ============ */}
         {tab === "slab" && (
-          <div className="grid lg:grid-cols-5 gap-6">
+          <div className="grid lg:grid-cols-5 gap-4 lg:gap-6">
             <div className="lg:col-span-2">
               <div className="flex items-center justify-between mb-2">
                 <h2 className="text-xs uppercase tracking-wide text-[#8195AA] font-semibold">
@@ -11510,7 +11666,7 @@ export default function StructuralDesignSuite() {
 
         {/* ============ BEAM TAB ============ */}
         {tab === "beam" && (
-          <div className="grid lg:grid-cols-5 gap-6">
+          <div className="grid lg:grid-cols-5 gap-4 lg:gap-6">
             <div className="lg:col-span-2">
               <div className="flex items-center justify-between mb-2">
                 <h2 className="text-xs uppercase tracking-wide text-[#8195AA] font-semibold">
@@ -11637,7 +11793,7 @@ export default function StructuralDesignSuite() {
 
         {/* ============ LINTEL TAB ============ */}
         {tab === "lintel" && (
-          <div className="grid lg:grid-cols-5 gap-6">
+          <div className="grid lg:grid-cols-5 gap-4 lg:gap-6">
             <div className="lg:col-span-2">
               <div className="flex items-center justify-between mb-2">
                 <h2 className="text-xs uppercase tracking-wide text-[#8195AA] font-semibold">
@@ -11860,6 +12016,39 @@ export default function StructuralDesignSuite() {
         </footer>
       </main>
     </div>
+
+    {/* 📱 FIXED MOBILE BOTTOM NAVIGATION BAR */}
+    <nav className="fixed bottom-0 inset-x-0 z-30 bg-[#090E17]/95 backdrop-blur-xl border-t border-[#1A2536] px-2 py-1 flex justify-around items-center md:hidden shadow-[0_-4px_25px_rgba(0,0,0,0.6)]">
+      {[
+        { id: "3dhouse", label: "3D BIM", icon: <Building2 size={17} /> },
+        { id: "audit", label: "Math & Cost", icon: <FileText size={17} /> },
+        { id: "wall", label: "Walls", icon: <Home size={17} /> },
+        { id: "slab", label: "Slabs", icon: <Layers size={17} /> },
+        { id: "menu", label: "Menu", icon: <Menu size={17} />, isAction: true },
+      ].map(b => {
+        const isActive = tab === b.id && !b.isAction;
+        return (
+          <button
+            key={b.id}
+            onClick={() => {
+              if (b.isAction) {
+                setMobileMenuOpen(true);
+              } else {
+                setTab(b.id);
+              }
+            }}
+            className={`flex flex-col items-center justify-center py-1 px-2 rounded-xl transition ${
+              isActive
+                ? "text-[#5CC8E0] font-bold"
+                : "text-[#8195AA] hover:text-[#E6EDF2]"
+            }`}
+          >
+            <span className={`p-1 rounded-lg transition ${isActive ? "bg-[#102235] text-[#5CC8E0]" : ""}`}>{b.icon}</span>
+            <span className="text-[10px] mt-0.5 font-mono">{b.label}</span>
+          </button>
+        );
+      })}
+    </nav>
 
     {/* Modal Calc Sheet */}
     {calcModal && <CalcSheet title={calcModal.title} steps={calcModal.steps} onClose={() => setCalcModal(null)} />}
