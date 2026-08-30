@@ -9933,11 +9933,22 @@ function SafeStateOptimizer({
   const data = activeItem.data || {};
 
   // Check what physical criteria triggered this optimizer
-  const stepTitle = step?.title || "";
   const capacityLabel = step?.capacity?.label || "";
-  const isMomentCheck = capacityLabel.includes("Moment") || stepTitle.includes("Moment") || (compType === "beam" && !r.singlyOK && !stepTitle.includes("Deflection"));
-  const isShearCheck = capacityLabel.includes("Shear") || stepTitle.includes("Shear");
-  const isDeflectionCheck = capacityLabel.includes("Deflection") || stepTitle.includes("Deflection");
+  const capacityUnit = step?.capacity?.unit || "";
+  const stepTitle = step?.title || "";
+
+  // Prioritize exact limit state capacity check over generic step titles:
+  const isMomentCheck = capacityLabel.toLowerCase().includes("moment") || capacityUnit === "kNm" || (compType === "beam" && !r.singlyOK && !capacityLabel.toLowerCase().includes("shear") && !capacityLabel.toLowerCase().includes("stirrup") && !stepTitle.toLowerCase().includes("nominal shear") && !stepTitle.toLowerCase().includes("stirrup"));
+  const isDeflectionCheck = capacityLabel.toLowerCase().includes("span-to-depth") || capacityLabel.toLowerCase().includes("deflection") || stepTitle.toLowerCase().includes("deflection");
+  const isShearCheck = !isMomentCheck && !isDeflectionCheck && (
+    capacityLabel.toLowerCase().includes("shear") || 
+    capacityLabel.toLowerCase().includes("stirrup") || 
+    capacityUnit === "N/mm²" || 
+    capacityUnit === "MPa" || 
+    capacityUnit === "mm c/c" ||
+    stepTitle.toLowerCase().includes("nominal shear") ||
+    stepTitle.toLowerCase().includes("stirrup")
+  );
 
   // Baseline properties from project state
   const baseD = Number(data.depth) || Number(r.D) || 300;
