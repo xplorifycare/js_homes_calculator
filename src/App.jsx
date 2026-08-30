@@ -652,6 +652,11 @@ function buildWallSteps(wall, settings, r) {
     latexEq: "A_{\\text{gross}} = L \\times H",
     latexSub: `A_{\\text{gross}} = ${wall.length}\\text{ m} \\times ${wall.height}\\text{ m}`,
     latexResult: `A_{\\text{gross}} = ${num(r.grossArea, 2)}\\text{ m}^2`,
+    vars: [
+      { symbol: "A_{\\text{gross}}", name: "Gross Wall Surface Area", def: "Overall outer face area of wall before opening deductions", unit: "m²" },
+      { symbol: "L", name: "Panel Centerline Length", def: "Plan length measured between boundary grid lines or column centers", unit: "m" },
+      { symbol: "H", name: "Elevation Clear Height", def: "Vertical height measured from floor finish level to slab or beam soffit", unit: "m" }
+    ],
     formula: "A_gross = Length × Height",
     sub: `${wall.length} m × ${wall.height} m`,
     result: `A_gross = ${num(r.grossArea, 2)} m²`,
@@ -668,6 +673,11 @@ function buildWallSteps(wall, settings, r) {
     latexEq: "A_{\\text{deduct}} = \\sum (w_{\\text{op}} \\times h_{\\text{op}})",
     latexSub: `A_{\\text{deduct}} = ${opStr}`,
     latexResult: `A_{\\text{deduct}} = ${num(r.opDeductionArea, 2)}\\text{ m}^2`,
+    vars: [
+      { symbol: "A_{\\text{deduct}}", name: "Opening Deduction Area", def: "Sum of all door, window, ventilator & beam pocket voids deducted", unit: "m²" },
+      { symbol: "w_{\\text{op}}", name: "Opening Clear Width", def: "Horizontal clear masonry opening width", unit: "m" },
+      { symbol: "h_{\\text{op}}", name: "Opening Clear Height", def: "Vertical clear masonry opening height", unit: "m" }
+    ],
     formula: "A_deduct = Σ (width × height)",
     sub: r.opDetails.length > 0 ? r.opDetails.map(d => `${d.label.split("—")[0]}: ${d.width}×${d.height}m = ${num(d.area,2)}m²`).join(" + ") : "No openings",
     result: `Deductions = ${num(r.opDeductionArea, 2)} m²`,
@@ -681,6 +691,11 @@ function buildWallSteps(wall, settings, r) {
     latexEq: "A_{\\text{net}} = A_{\\text{gross}} - A_{\\text{deduct}}",
     latexSub: `A_{\\text{net}} = ${num(r.grossArea, 2)}\\text{ m}^2 - ${num(r.opDeductionArea, 2)}\\text{ m}^2`,
     latexResult: `A_{\\text{net}} = ${num(r.netArea, 2)}\\text{ m}^2`,
+    vars: [
+      { symbol: "A_{\\text{net}}", name: "Net Masonry Area", def: "Actual vertical surface receiving blocks and mortar joints", unit: "m²" },
+      { symbol: "A_{\\text{gross}}", name: "Gross Elevation Area", def: "Initial bounding elevation surface area", unit: "m²" },
+      { symbol: "A_{\\text{deduct}}", name: "Void Deductions", def: "Total area subtracted for windows and doors", unit: "m²" }
+    ],
     formula: "A_net = A_gross − A_deduct",
     sub: `${num(r.grossArea, 2)} − ${num(r.opDeductionArea, 2)}`,
     result: `A_net = ${num(r.netArea, 2)} m²`,
@@ -694,6 +709,11 @@ function buildWallSteps(wall, settings, r) {
     latexEq: "V_{\\text{masonry}} = A_{\\text{net}} \\times t_{\\text{wall}}",
     latexSub: `V_{\\text{masonry}} = ${num(r.netArea, 2)}\\text{ m}^2 \\times ${thickM.toFixed(3)}\\text{ m}`,
     latexResult: `V_{\\text{masonry}} = ${num(r.netVolume, 3)}\\text{ m}^3`,
+    vars: [
+      { symbol: "V_{\\text{masonry}}", name: "Solid Masonry Volume", def: "Physical volumetric displacement of solid blockwork masonry", unit: "m³" },
+      { symbol: "A_{\\text{net}}", name: "Net Elevation Area", def: "Effective surface area of wall panel", unit: "m²" },
+      { symbol: "t_{\\text{wall}}", name: "Wall Thickness", def: "Standard wall bed width (200mm solid block laying orientation)", unit: "m" }
+    ],
     formula: "V_masonry = A_net × t_wall",
     sub: `${num(r.netArea, 2)} m² × ${thickM.toFixed(3)} m`,
     result: `V_masonry = ${num(r.netVolume, 3)} m³`,
@@ -707,6 +727,13 @@ function buildWallSteps(wall, settings, r) {
     latexEq: "N_{\\text{modular}} = \\frac{1}{(L_b + t_j)(H_b + t_j) \\cdot t_{\\text{wall}}}",
     latexSub: `N_{\\text{modular}} = \\frac{1}{(${r.blockL} + 10)\\text{mm} \\times (${r.blockH} + 10)\\text{mm} \\times ${r.blockT}\\text{mm}} = \\frac{1}{0.310 \\times 0.160 \\times ${thickM.toFixed(3)}}`,
     latexResult: `N_{\\text{modular}} = ${num(r.calcUnitsPerM3, 1)}\\text{ blocks/m}^3 \\quad (V_{\\text{solid}} = ${(r.solidBlockVol * 1000).toFixed(2)}\\text{ L/block})`,
+    vars: [
+      { symbol: "N_{\\text{modular}}", name: "Modular Block Yield", def: "Theoretical quantity of interlocking blocks contained in 1 cubic meter", unit: "blocks/m³" },
+      { symbol: "L_b", name: "Block Length", def: "Physical manufactured length of concrete block (${r.blockL}mm)", unit: "mm" },
+      { symbol: "H_b", name: "Block Height", def: "Physical manufactured height of concrete block (${r.blockH}mm)", unit: "mm" },
+      { symbol: "t_j", name: "Mortar Joint Thickness", def: "Standard bed and perp joint thickness (10 mm)", unit: "mm" },
+      { symbol: "V_{\\text{solid}}", name: "Single Block Volume", def: "Net physical displacement of an individual unmortared block", unit: "L" }
+    ],
     formula: "Units/m³ = 1 / [(L+tj) × (H+tj) × t]",
     sub: `Block ${r.blockL}×${r.blockH}×${r.blockT}mm + 10mm joint → Nom ${(r.nomL*1000).toFixed(0)}×${(r.nomH*1000).toFixed(0)}mm`,
     result: `Rate = ${num(r.calcUnitsPerM3, 1)} units/m³`,
@@ -720,6 +747,10 @@ function buildWallSteps(wall, settings, r) {
     latexEq: "N_{\\text{procure}} = V_{\\text{masonry}} \\times N_{\\text{modular}} \\times 1.05",
     latexSub: `N_{\\text{procure}} = ${num(r.netVolume, 3)}\\text{ m}^3 \\times ${num(r.calcUnitsPerM3, 1)} \\times 1.05`,
     latexResult: `N_{\\text{procure}} = ${r.unitsCount.toLocaleString()}\\text{ Blocks} \\implies \\text{Cost} = \\text{₹ } ${Math.round(r.unitsCost).toLocaleString("en-IN")}`,
+    vars: [
+      { symbol: "N_{\\text{procure}}", name: "Procurement Quantity", def: "Final bill of quantity for masonry block purchase order", unit: "Nos" },
+      { symbol: "1.05", name: "Wastage Factor", def: "+5% allowance for corners, half-block cutting at jambs & transport loss", unit: "dimensionless" }
+    ],
     formula: "Units = V_masonry × Units/m³ × 1.05",
     sub: `${num(r.netVolume, 3)} m³ × ${num(r.calcUnitsPerM3, 1)} × 1.05`,
     result: `Total Units = ${r.unitsCount.toLocaleString()} Nos (₹${r.costPerUnit}/unit)`,
@@ -733,6 +764,13 @@ function buildWallSteps(wall, settings, r) {
     latexEq: "V_{\\text{dry}} = [V_{\\text{masonry}} - (N_{\\text{theor}} \\cdot V_{\\text{solid}})] \\times 1.33",
     latexSub: `V_{\\text{wet}} = ${num(r.wetMortarVol, 3)}\\text{ m}^3\\; (${(r.calcMortarPct * 100).toFixed(1)}\\%) \\implies V_{\\text{dry}} = ${num(r.dryMortarVol, 3)}\\text{ m}^3`,
     latexResult: `\\text{Cement} = ${r.cementBags}\\text{ Bags (50kg)}, \\quad \\text{Fine Sand} = ${num(r.sandCFT, 1)}\\text{ CFT}\\; (${num(r.sandTonnes, 2)}\\text{ T})`,
+    vars: [
+      { symbol: "V_{\\text{wet}}", name: "Wet Mortar Volume", def: "Liquid paste volume filling the gaps between blocks in wall", unit: "m³" },
+      { symbol: "V_{\\text{dry}}", name: "Dry Mortar Volume", def: "Loose dry volume of unmixed cement and sand materials", unit: "m³" },
+      { symbol: "1.33", name: "Dry Bulking Multiplier", def: "+33% multiplier to compensate for dry sand voids and hydration shrinkage", unit: "dimensionless" },
+      { symbol: "\\text{Cement}", name: "OPC 53 Cement", def: "50kg standard bags needed for 1:5 ratio (${r.cementBags} bags)", unit: "Bags" },
+      { symbol: "\\text{Sand}", name: "River Sand / M-Sand", def: "Fine aggregate volume needed for bedding mortar (${num(r.sandCFT, 1)} CFT)", unit: "CFT" }
+    ],
     formula: "Mortar % = 1 − (Units/m³ × Solid Vol); Dry = Wet × 1.33",
     sub: `Wet = ${num(r.wetMortarVol, 3)} m³ → Dry = ${num(r.dryMortarVol, 3)} m³`,
     result: `Cement = ${r.cementBags} bags · Sand = ${num(r.sandCFT, 1)} CFT`,
@@ -746,6 +784,11 @@ function buildWallSteps(wall, settings, r) {
     latexEq: "A_{\\text{plaster}} = A_{\\text{net,int}} + A_{\\text{net,ext}} + A_{\\text{jambs}}",
     latexSub: `A_{\\text{plaster}} = ${num(r.internalPlasterArea, 2)}\\text{ m}^2\\; (12\\text{mm, 1:5}) + ${num(r.externalPlasterArea, 2)}\\text{ m}^2\\; (18\\text{mm, 1:4})`,
     latexResult: `\\text{Total Plaster Area} = ${num(r.totalPlasterArea, 2)}\\text{ m}^2 \\implies ${r.totalPlasterCementBags}\\text{ Cement Bags} + ${num(r.totalPlasterSandCFT, 1)}\\text{ CFT Sand}`,
+    vars: [
+      { symbol: "A_{\\text{plaster}}", name: "Total Plaster Area", def: "Combined surface area of internal, external and reveal plaster faces", unit: "m²" },
+      { symbol: "A_{\\text{net,int}}", name: "Internal Plaster Face", def: "12mm single-coat smooth troweled finish with 1:5 cement-sand mix", unit: "m²" },
+      { symbol: "A_{\\text{net,ext}}", name: "External Plaster Face", def: "18mm double-coat sand-faced waterproof finish with 1:4 cement-sand mix", unit: "m²" }
+    ],
     formula: "Total Plaster = Internal (12mm) + External (18mm) + Reveals",
     sub: `Int = ${num(r.internalPlasterArea, 2)} m² · Ext = ${num(r.externalPlasterArea, 2)} m²`,
     result: `Plaster Cement = ${r.totalPlasterCementBags} bags · Sand = ${num(r.totalPlasterSandCFT, 1)} CFT`,
@@ -776,6 +819,11 @@ function buildLintelSteps(op, settings, r) {
     latexEq: "L_{\\text{eff}} = L_{\\text{clear}} + 2 \\cdot w_{\\text{bearing}}",
     latexSub: `L_{\\text{eff}} = ${g.clearSpan}\\text{ m} + 2 \\times ${g.bearM.toFixed(3)}\\text{ m}`,
     latexResult: `L_{\\text{eff}} = ${num(Leff)}\\text{ m}`,
+    vars: [
+      { symbol: "L_{\\text{eff}}", name: "Effective Span", def: "Center-to-center distance between bearing reaction supports", unit: "m" },
+      { symbol: "L_{\\text{clear}}", name: "Clear Opening Span", def: "Horizontal masonry opening width between jamb faces", unit: "m" },
+      { symbol: "w_{\\text{bearing}}", name: "Jamb Bearing Width", def: "Minimum seating length on solid masonry wall each side", unit: "m" }
+    ],
     formula: "Leff = Lclear + 2 × bearing",
     sub: `${g.clearSpan} + 2 × ${g.bearM.toFixed(3)}`,
     result: `Leff = ${num(Leff)} m`,
@@ -791,6 +839,10 @@ function buildLintelSteps(op, settings, r) {
     latexResult: arching 
       ? `\\mathbf{\\text{ARCHING ACTIVE (Triangular Masonry Prism, Apex = } ${num(r.loadHeightUsed)}\\text{ m)}}` 
       : `\\mathbf{\\text{NO ARCHING (Full Rectangular UDL, Height = } ${num(r.loadHeightUsed)}\\text{ m)}}`,
+    vars: [
+      { symbol: "h_{\\text{above}}", name: "Overhead Masonry Height", def: "Solid masonry height between lintel soffit and upper slab soffit", unit: "m" },
+      { symbol: "\\frac{L_{\\text{eff}}}{2}", name: "Arching Threshold", def: "Half-span height required to establish internal compression arches in wall", unit: "m" }
+    ],
     formula: "Arching if h(above) >= Leff / 2",
     sub: `${g.heightAbove} m vs ${num(Leff / 2)} m`,
     result: arching ? "ARCHING - Triangular Load" : "NO ARCHING - Full Rectangular Load",
@@ -808,6 +860,12 @@ function buildLintelSteps(op, settings, r) {
       : "M_u = 1.50 \\times \\left[\\frac{w_{\\text{masonry}} L_{\\text{eff}}^2}{8} + \\frac{w_{\\text{self}} L_{\\text{eff}}^2}{8}\\right]",
     latexSub: `M_{\\text{service}} = ${num(r.M_masonry)} + ${num(r.M_self)} = ${num(r.M_service)}\\text{ kNm} \\implies M_u = 1.50 \\times ${num(r.M_service)}`,
     latexResult: `M_u = ${num(r.Mu)}\\text{ kNm}, \\quad V_u = ${num(r.Vu)}\\text{ kN}`,
+    vars: [
+      { symbol: "M_u", name: "Factored Design Moment", def: "Ultimate limit state bending moment with 1.50 safety multiplier", unit: "kNm" },
+      { symbol: "V_u", name: "Factored Design Shear", def: "Ultimate limit state shear force at support jamb face", unit: "kN" },
+      { symbol: "W_{\\text{masonry}}", name: "Supported Masonry Weight", def: "Gravity weight of triangular or rectangular masonry load", unit: "kN" },
+      { symbol: "w_{\\text{self}}", name: "Lintel Stem Self-Weight", def: "Dead weight per meter run of concrete lintel rib", unit: "kN/m" }
+    ],
     formula: "Mu = 1.50 × Mservice, Vu = 1.50 × Vservice",
     sub: `Mservice = ${num(r.M_service)} kNm, Vservice = ${num(r.V_service)} kN`,
     result: `Mu = ${num(r.Mu)} kNm, Vu = ${num(r.Vu)} kN`,
@@ -821,6 +879,12 @@ function buildLintelSteps(op, settings, r) {
     latexEq: "M_{u,\\lim} = 0.138 \\cdot f_{ck} \\cdot b \\cdot d^2",
     latexSub: `M_{u,\\lim} = 0.138 \\times ${fck} \\times ${b} \\times (${d_eff})^2 \\times 10^{-6}`,
     latexResult: `M_{u,\\lim} = ${num(r.Mulim)}\\text{ kNm} \\ge M_u = ${num(r.Mu)}\\text{ kNm} \\implies \\mathbf{\\text{SECTION IS UNDER-REINFORCED (Safe)}}`,
+    vars: [
+      { symbol: "M_{u,\\lim}", name: "Limiting Moment Capacity", def: "Maximum allowable moment of singly reinforced concrete section before crushing", unit: "kNm" },
+      { symbol: "f_{ck}", name: "Concrete Cube Strength", def: "Characteristic 28-day compressive strength of concrete (${fck} N/mm²)", unit: "N/mm²" },
+      { symbol: "b", name: "Section Width", def: "Stem width matching wall thickness (${b}mm)", unit: "mm" },
+      { symbol: "d", name: "Effective Tensile Depth", def: "Depth from top compression fiber to center of bottom rebar", unit: "mm" }
+    ],
     formula: "Mu,lim = 0.138 · fck · b · d²",
     sub: `0.138 × ${fck} × ${b} × ${d_eff}² / 1e6`,
     result: `Mu,lim = ${num(r.Mulim)} kNm >= ${num(r.Mu)} kNm`,
@@ -834,6 +898,11 @@ function buildLintelSteps(op, settings, r) {
     latexEq: "A_{st} = \\frac{0.5 f_{ck}}{f_y} \\left[1 - \\sqrt{1 - \\frac{4.6 M_u}{f_{ck} b d^2}}\\right] b d \\quad (\\ge \\frac{0.85 b d}{f_y})",
     latexSub: `A_{st,\\text{calc}} = ${num(r.AstReq, 0)}\\text{ mm}^2, \\quad A_{st,\\min} = \\frac{0.85 \\times ${b} \\times ${d_eff}}{${fy}} = ${num(r.AstMin, 0)}\\text{ mm}^2`,
     latexResult: `\\mathbf{\\text{Provide } ${r.bars.n} \\times ${r.bars.dia}\\phi\\text{ Bottom Rebar}}\\quad (A_{st,\\text{prov}} = ${num(r.bars.area, 0)}\\text{ mm}^2)`,
+    vars: [
+      { symbol: "A_{st}", name: "Tensile Steel Area", def: "Required bottom flexural reinforcement area to carry sagging tension", unit: "mm²" },
+      { symbol: "f_y", name: "Steel Yield Strength", def: "Characteristic yield strength of Fe500 reinforcement (${fy} N/mm²)", unit: "N/mm²" },
+      { symbol: "A_{st,\\min}", name: "Minimum Steel Area", def: "Code-enforced crack-prevention threshold (0.85 bd / fy)", unit: "mm²" }
+    ],
     formula: "Ast = 0.5(fck/fy)bd[1 - sqrt(1 - 4.6Mu/(fck·b·d²))]",
     sub: `fck=${fck}, fy=${fy}, b=${b}mm, d=${d_eff}mm`,
     result: `Ast = ${num(r.AstReq, 0)} mm² -> Provide ${r.bars.n} × ${r.bars.dia}ϕ (${num(r.bars.area, 0)} mm²)`,
@@ -847,6 +916,10 @@ function buildLintelSteps(op, settings, r) {
     latexEq: "\\tau_v = \\frac{V_u}{b \\cdot d} \\le \\tau_c",
     latexSub: `\\tau_v = \\frac{${num(r.Vu)} \\times 10^3\\text{ N}}{${b}\\text{ mm} \\times ${d_eff}\\text{ mm}} = ${num(r.tauV, 3)}\\text{ N/mm}^2 \\quad \\text{vs} \\quad \\tau_c = ${num(r.tauC, 3)}\\text{ N/mm}^2`,
     latexResult: `\\tau_v = ${num(r.tauV, 3)}\\text{ N/mm}^2 \\le \\tau_c \\implies \\mathbf{\\text{Provide 2-Legged 8}\\phi\\text{ Stirrups @ 150 mm c/c}}`,
+    vars: [
+      { symbol: "\\tau_v", name: "Nominal Shear Stress", def: "Average shear stress across concrete section at critical support face", unit: "N/mm²" },
+      { symbol: "\\tau_c", name: "Concrete Shear Strength", def: "Permissible shear resistance of concrete from IS 456 Table 19", unit: "N/mm²" }
+    ],
     formula: "tau_v = Vu / (b · d)",
     sub: `Vu = ${num(r.Vu)} kN, b = ${b} mm, d = ${d_eff} mm`,
     result: `tau_v = ${num(r.tauV, 3)} N/mm² -> 2-leg 8ϕ @ 150mm c/c`,
@@ -860,6 +933,10 @@ function buildLintelSteps(op, settings, r) {
     latexEq: "\\left(\\frac{L}{d}\\right)_{\\text{actual}} = \\frac{L_{\\text{eff}} \\times 10^3}{d} \\le 24",
     latexSub: `\\left(\\frac{L}{d}\\right)_{\\text{actual}} = \\frac{${(Leff*1000).toFixed(0)}}{${d_eff}} = ${num(r.LdActual, 1)} \\le 24`,
     latexResult: `${num(r.LdActual, 1)} \\le 24 \\implies \\mathbf{\\text{DEFLECTION SAFE (Rigid Lintel Beam)}}`,
+    vars: [
+      { symbol: "(L/d)_{\\text{actual}}", name: "Actual Span-to-Depth Ratio", def: "Effective span divided by effective depth", unit: "dimensionless" },
+      { symbol: "24", name: "Permissible Ratio", def: "Serviceability limit ensuring beam remains stiff and window frames don't jam", unit: "dimensionless" }
+    ],
     formula: "L/d <= 24",
     sub: `${(Leff*1000).toFixed(0)} / ${d_eff} = ${num(r.LdActual, 1)}`,
     result: `L/d = ${num(r.LdActual, 1)} <= 24 (PASS)`,
@@ -893,6 +970,11 @@ function buildSlabSteps(panel, settings, r) {
       : (oneWay 
         ? `r = ${num(r.ratio)} > 2.0 \\implies \\mathbf{\\text{ONE-WAY SLAB (Uniaxial Bending Across Short Span)}}` 
         : `r = ${num(r.ratio)} \\le 2.0 \\implies \\mathbf{\\text{TWO-WAY SLAB (Biaxial Bending Across Both Spans)}}`),
+    vars: [
+      { symbol: "r", name: "Aspect Ratio", def: "Ratio of long clear span to short clear span (Ly / Lx)", unit: "dimensionless" },
+      { symbol: "L_y", name: "Long Clear Span", def: "Center-to-center or clear span along long supporting wall edges", unit: "m" },
+      { symbol: "L_x", name: "Short Clear Span", def: "Center-to-center or clear span along short supporting wall edges", unit: "m" }
+    ],
     formula: "r = Ly / Lx",
     sub: `${Ly.toFixed(2)} / ${Lx.toFixed(2)} = ${num(r.ratio)}`,
     result: isCantilever ? "CANTILEVER SLAB" : (oneWay ? "ONE-WAY SLAB" : "TWO-WAY SLAB"),
@@ -910,6 +992,14 @@ function buildSlabSteps(panel, settings, r) {
     latexEq: "w_u = \\gamma_f \\cdot [(\\gamma_c \\cdot D) + w_{\\text{finish}} + w_{\\text{live}}]",
     latexSub: `w_u = 1.50 \\times [(25 \\times \\frac{${D}}{1000}) + ${num(r.DL - (D/1000)*25)} + ${num(r.LL)}] = 1.50 \\times [${num(r.DL)} + ${num(r.LL)}]`,
     latexResult: `w_u = 1.50 \\times ${num(r.w_service)}\\text{ kN/m}^2 = ${num(r.wu)}\\text{ kN/m}^2 \\quad (w_{\\text{service}} = ${num(r.w_service)}\\text{ kN/m}^2)`,
+    vars: [
+      { symbol: "w_u", name: "Factored Ultimate Load", def: "Total design gravity load per unit area with 1.50 collapse factor", unit: "kN/m²" },
+      { symbol: "\\gamma_f", name: "Partial Load Safety Factor", def: "1.50 for Limit State of Collapse design (IS 456 Cl 36.4)", unit: "dimensionless" },
+      { symbol: "\\gamma_c", name: "RCC Unit Weight", def: "Density of reinforced cement concrete per IS 875 (Part 1)", unit: "25 kN/m³" },
+      { symbol: "D", name: "Overall Slab Thickness", def: "Total physical depth of cast-in-place concrete panel (${D}mm)", unit: "m" },
+      { symbol: "w_{\\text{finish}}", name: "Floor Finishes", def: "Superimposed dead load from screed, vitrified tiles & ceiling plaster", unit: "kN/m²" },
+      { symbol: "w_{\\text{live}}", name: "Imposed Live Load", def: "Design occupancy live load per IS 875 (Part 2) for residential bedrooms", unit: "kN/m²" }
+    ],
     formula: "wu = 1.50 × (DL + LL)",
     sub: `DL = self-wt (${num((D/1000)*25)}) + finish (${num(r.DL - (D/1000)*25)}) = ${num(r.DL)}, LL = ${num(r.LL)}`,
     result: `wu = 1.50 × ${num(r.w_service)} = ${num(r.wu)} kN/m²`,
@@ -923,6 +1013,12 @@ function buildSlabSteps(panel, settings, r) {
     latexEq: "d_x = D - c_{\\text{nom}} - \\frac{\\phi_x}{2}, \\quad d_y = d_x - \\frac{\\phi_x + \\phi_y}{2}",
     latexSub: `d_x = ${D}\\text{ mm} - 20\\text{ mm} - \\frac{${r.barDiaX}}{2}\\text{ mm} = ${num(dx, 0)}\\text{ mm}, \\quad d_y = ${num(dx, 0)} - 10 = ${num(dy, 0)}\\text{ mm}`,
     latexResult: `d_x = ${num(dx, 0)}\\text{ mm (Short Span)}, \\quad d_y = ${num(dy, 0)}\\text{ mm (Long Span)}`,
+    vars: [
+      { symbol: "d_x", name: "Short Span Effective Depth", def: "Distance from extreme compression fiber to centroid of bottom outer rebar", unit: "mm" },
+      { symbol: "d_y", name: "Long Span Effective Depth", def: "Effective depth to upper layer rebar resting on short span steel", unit: "mm" },
+      { symbol: "c_{\\text{nom}}", name: "Nominal Clear Cover", def: "20mm concrete cover for mild residential exposure (IS 456 Table 16)", unit: "mm" },
+      { symbol: "\\phi_x", name: "Main Bar Diameter", def: "Nominal bar diameter of short span tensile steel (${r.barDiaX}mm)", unit: "mm" }
+    ],
     formula: "dx = D - cover - dia/2",
     sub: `${D} - 20 - ${r.barDiaX}/2 = ${num(dx, 0)} mm`,
     result: `dx = ${num(dx, 0)} mm, dy = ${num(dy, 0)} mm`,
@@ -937,6 +1033,10 @@ function buildSlabSteps(panel, settings, r) {
       latexEq: "M_{ux} = \\frac{w_u \\cdot L_{\\text{eff}}^2}{2}",
       latexSub: `M_{ux} = \\frac{${num(r.wu)} \\times (${Lx.toFixed(2)})^2}{2}`,
       latexResult: `M_{ux} = ${num(r.Mx)}\\text{ kNm/m (Negative Hogging at Wall Face)}`,
+      vars: [
+        { symbol: "M_{ux}", name: "Cantilever Hogging Moment", def: "Peak negative bending moment per meter occurring at support face", unit: "kNm/m" },
+        { symbol: "L_{\\text{eff}}", name: "Cantilever Projection", def: "Effective cantilever projection distance from support wall face", unit: "m" }
+      ],
       formula: "Mx = wu · Leff² / 2",
       sub: `${num(r.wu)} × (${Lx.toFixed(2)})² / 2`,
       result: `Mx = ${num(r.Mx)} kNm/m`,
@@ -949,6 +1049,10 @@ function buildSlabSteps(panel, settings, r) {
       latexEq: "M_{ux} = \\frac{w_u \\cdot L_x^2}{8}",
       latexSub: `M_{ux} = \\frac{${num(r.wu)} \\times (${Lx.toFixed(2)})^2}{8}`,
       latexResult: `M_{ux} = ${num(r.Mx)}\\text{ kNm/m}, \\quad M_{uy} \\approx 0`,
+      vars: [
+        { symbol: "M_{ux}", name: "One-Way Design Moment", def: "Peak mid-span sagging moment across the short span direction", unit: "kNm/m" },
+        { symbol: "L_x", name: "Effective Span", def: "Clear short span plus effective depth or bearing", unit: "m" }
+      ],
       formula: "Mx = wu · Lx² / 8",
       sub: `${num(r.wu)} × (${Lx.toFixed(2)})² / 8`,
       result: `Mx = ${num(r.Mx)} kNm/m`,
@@ -961,6 +1065,12 @@ function buildSlabSteps(panel, settings, r) {
       latexEq: "M_{ux} = \\alpha_x \\cdot w_u \\cdot L_x^2, \\quad M_{uy} = \\alpha_y \\cdot w_u \\cdot L_x^2",
       latexSub: `M_{ux} = \\alpha_x \\times ${num(r.wu)} \\times (${Lx.toFixed(2)})^2, \\quad M_{uy} = \\alpha_y \\times ${num(r.wu)} \\times (${Lx.toFixed(2)})^2`,
       latexResult: `M_{ux} = ${num(r.Mx)}\\text{ kNm/m}, \\quad M_{uy} = ${num(r.My)}\\text{ kNm/m}`,
+      vars: [
+        { symbol: "M_{ux}", name: "Short Span Moment", def: "Design mid-span bending moment along short span direction", unit: "kNm/m" },
+        { symbol: "M_{uy}", name: "Long Span Moment", def: "Design mid-span bending moment along long span direction", unit: "kNm/m" },
+        { symbol: "\\alpha_x", name: "Short Span Moment Coeff", def: "Marcus coefficient interpolated from IS 456 Table 26 based on aspect ratio", unit: "dimensionless" },
+        { symbol: "\\alpha_y", name: "Long Span Moment Coeff", def: "Marcus coefficient interpolated from IS 456 Table 26", unit: "dimensionless" }
+      ],
       formula: "Mx = αx · wu · Lx², My = αy · wu · Lx²",
       sub: `Interpolated at Ly/Lx = ${num(r.ratio)}`,
       result: `Mx = ${num(r.Mx)} kNm/m, My = ${num(r.My)} kNm/m`,
@@ -976,6 +1086,12 @@ function buildSlabSteps(panel, settings, r) {
     latexEq: "M_{u,\\lim} = 0.36 \\left(\\frac{x_{u,\\max}}{d}\\right) \\left[1 - 0.42 \\left(\\frac{x_{u,\\max}}{d}\\right)\\right] f_{ck} b d_x^2 = 0.138 \\cdot f_{ck} \\cdot b \\cdot d_x^2",
     latexSub: `M_{u,\\lim} = 0.138 \\times ${fck} \\times 1000 \\times (${num(dx,0)})^2 \\times 10^{-6}`,
     latexResult: `M_{u,\\lim} = ${num(Mulim)}\\text{ kNm/m} \\ge M_{ux} = ${num(r.Mx)}\\text{ kNm/m} \\implies \\mathbf{\\text{SECTION IS UNDER-REINFORCED (Ductile)}}`,
+    vars: [
+      { symbol: "M_{u,\\lim}", name: "Limiting Moment of Resistance", def: "Max moment capacity of singly reinforced section without compression steel", unit: "kNm/m" },
+      { symbol: "x_{u,\\max}/d", name: "Limiting Neutral Axis Depth", def: "0.46 for Fe500 high-strength deformed bars per IS 456 Cl 38.1", unit: "0.46" },
+      { symbol: "f_{ck}", name: "Concrete Compressive Strength", def: "Characteristic 28-day cube strength (${fck} N/mm²)", unit: "N/mm²" },
+      { symbol: "b", name: "Unit Design Strip Width", def: "Standard 1-meter slab design strip width (1000mm)", unit: "1000 mm" }
+    ],
     formula: "Mu,lim = 0.138 · fck · b · d²",
     sub: `0.138 × ${fck} × 1000 × ${num(dx,0)}² / 1e6`,
     result: `Mu,lim = ${num(Mulim)} kNm/m >= ${num(r.Mx)} kNm/m (PASS)`,
@@ -990,6 +1106,12 @@ function buildSlabSteps(panel, settings, r) {
     latexEq: "A_{st,x} = \\frac{0.5 f_{ck}}{f_y} \\left[1 - \\sqrt{1 - \\frac{4.6 M_{ux}}{f_{ck} b d_x^2}}\\right] b d_x \\quad (\\ge A_{st,\\min} = 0.12\\% b D)",
     latexSub: `A_{st,x} = \\frac{0.5 \\times ${fck}}{${fy}} \\left[1 - \\sqrt{1 - \\frac{4.6 \\times ${num(r.Mx)} \\times 10^6}{${fck} \\times 1000 \\times (${num(dx,0)})^2}}\\right] \\times 1000 \\times ${num(dx,0)}`,
     latexResult: `A_{st,x} = ${num(r.AstX, 0)}\\text{ mm}^2/\\text{m} \\implies \\mathbf{\\text{Provide } ${r.barDiaX}\\phi\\text{ @ } ${r.spacingX}\\text{ mm c/c}}\\quad (A_{st,\\text{prov}} = ${astProvX}\\text{ mm}^2/\\text{m})`,
+    vars: [
+      { symbol: "A_{st,x}", name: "Primary Tensile Steel Area", def: "Bottom flexural reinforcement required per meter width", unit: "mm²/m" },
+      { symbol: "f_y", name: "Steel Yield Strength", def: "Fe500 Grade characteristic yield strength (${fy} N/mm²)", unit: "N/mm²" },
+      { symbol: "A_{st,\\min}", name: "Code Minimum Steel", def: "0.12% b D minimum crack and shrinkage control rebar", unit: "mm²/m" },
+      { symbol: "s_x", name: "Bar Spacing Pitch", def: "Center-to-center spacing satisfying Cl 26.3.3 limit min(3d, 300mm)", unit: "mm c/c" }
+    ],
     formula: "Ast,x = 0.5(fck/fy)bd[1 - sqrt(1 - 4.6Mu/(fck·b·d²))]",
     sub: `fck=${fck}, fy=${fy}, b=1000mm, dx=${num(dx,0)}mm`,
     result: `Ast,x = ${num(r.AstX, 0)} mm²/m -> Provide ${r.barDiaX}ϕ @ ${r.spacingX} mm c/c`,
@@ -1004,6 +1126,10 @@ function buildSlabSteps(panel, settings, r) {
     latexEq: "A_{st,y} = \\max\\left(A_{st,\\text{calc}},\\; 0.0012 \\cdot b \\cdot D\\right)",
     latexSub: `A_{st,\\min} = 0.0012 \\times 1000 \\times ${D} = ${num(AstMin, 0)}\\text{ mm}^2/\\text{m}, \\quad s_y \\le \\min(5d, 450\\text{ mm})`,
     latexResult: `A_{st,y} = ${num(r.AstY, 0)}\\text{ mm}^2/\\text{m} \\implies \\mathbf{\\text{Provide } ${r.barDiaY}\\phi\\text{ @ } ${r.spacingY}\\text{ mm c/c}}\\quad (A_{st,\\text{prov}} = ${astProvY}\\text{ mm}^2/\\text{m})`,
+    vars: [
+      { symbol: "A_{st,y}", name: "Distribution Steel Area", def: "Transverse rebar carrying long-direction moment and temperature shrinkage", unit: "mm²/m" },
+      { symbol: "s_y", name: "Distribution Spacing", def: "Pitch restricted to max(5d, 450mm) per IS 456 Cl 26.3.3", unit: "mm c/c" }
+    ],
     formula: "Ast,y = max(Ast,calc, 0.12% b D)",
     sub: `Min steel = 0.0012 × 1000 × ${D} = ${num(AstMin, 0)} mm²/m`,
     result: `Ast,y = ${num(r.AstY, 0)} mm²/m -> Provide ${r.barDiaY}ϕ @ ${r.spacingY} mm c/c`,
@@ -1019,6 +1145,12 @@ function buildSlabSteps(panel, settings, r) {
     latexEq: "\\tau_v = \\frac{V_{ux}}{b \\cdot d_x} \\le k \\cdot \\tau_c",
     latexSub: `\\tau_v = \\frac{${num(r.reactionLong || (r.wu * Lx / 2))} \\times 10^3\\text{ N}}{1000\\text{ mm} \\times ${num(dx,0)}\\text{ mm}} = ${num(tauV, 3)}\\text{ N/mm}^2 \\quad \\text{vs} \\quad k \\cdot \\tau_c = ${tauC_M20}\\text{ N/mm}^2`,
     latexResult: `\\tau_v = ${num(tauV, 3)}\\text{ N/mm}^2 < ${tauC_M20}\\text{ N/mm}^2 \\implies \\mathbf{\\text{SAFE IN SHEAR WITHOUT SHEAR REINFORCEMENT}}`,
+    vars: [
+      { symbol: "\\tau_v", name: "Nominal Shear Stress", def: "Calculated shear stress at face of supporting wall or beam", unit: "N/mm²" },
+      { symbol: "V_{ux}", name: "Ultimate Transverse Shear", def: "Peak design shear force per meter width", unit: "N/m" },
+      { symbol: "\\tau_c", name: "Design Concrete Shear Strength", def: "Basic shear capacity of concrete from IS 456 Table 19", unit: "N/mm²" },
+      { symbol: "k", name: "Depth Factor for Slabs", def: "Modification factor = 1.30 for slab depths <= 150mm (Cl 40.2.1.1)", unit: "1.30" }
+    ],
     formula: "tau_v = Vu / (b · d)",
     sub: `Vu = ${num(r.reactionLong || (r.wu * Lx / 2))} kN/m, b=1000mm, d=${num(dx,0)}mm`,
     result: `tau_v = ${num(tauV, 3)} N/mm² < tau_c (PASS)`,
@@ -1032,6 +1164,10 @@ function buildSlabSteps(panel, settings, r) {
     latexEq: "\\left(\\frac{L}{d}\\right)_{\\text{actual}} = \\frac{L_x \\times 10^3}{d_x} \\le \\left(\\frac{L}{d}\\right)_{\\text{allow}} = \\left(\\frac{L}{d}\\right)_{\\text{basic}} \\times k_t",
     latexSub: `\\left(\\frac{L}{d}\\right)_{\\text{actual}} = \\frac{${(Lx*1000).toFixed(0)}}{${num(dx,0)}} = ${num(r.LdActual, 1)} \\quad \\text{vs} \\quad \\left(\\frac{L}{d}\\right)_{\\text{allow}} = ${r.LdAllow}`,
     latexResult: `${num(r.LdActual, 1)} \\le ${r.LdAllow} \\implies ${r.deflectionFlag ? "\\mathbf{\\text{DEFLECTION LIMIT EXCEEDED - INCREASE DEPTH}}" : "\\mathbf{\\text{DEFLECTION CRITERIA SATISFIED (Rigid & Safe)}}"}`,
+    vars: [
+      { symbol: "(L/d)_{\\text{actual}}", name: "Actual Span-to-Depth Ratio", def: "Calculated span-to-effective-depth ratio of the floor panel", unit: "dimensionless" },
+      { symbol: "(L/d)_{\\text{allow}}", name: "Permissible Span-to-Depth", def: "Basic ratio (26 or 35) multiplied by tension steel factor kt (Cl 23.2.1)", unit: "dimensionless" }
+    ],
     formula: "L/d_actual <= L/d_allow",
     sub: `L/d = ${(Lx*1000).toFixed(0)} / ${num(dx,0)} = ${num(r.LdActual, 1)} vs allow ${r.LdAllow}`,
     result: `L/d = ${num(r.LdActual, 1)} <= ${r.LdAllow} (${r.deflectionFlag ? "FAIL" : "SAFE"})`,
@@ -1045,6 +1181,10 @@ function buildSlabSteps(panel, settings, r) {
     latexEq: "R_{\\text{long}} = \\frac{w_u L_x}{2}\\left(1 - \\frac{1}{3 r^2}\\right), \\quad R_{\\text{short}} = \\frac{w_u L_x}{3}",
     latexSub: `R_{\\text{long}} = ${num(r.reactionLong)}\\text{ kN/m (Peak } ${num(r.peakLong)}\\text{ kN/m)}, \\quad R_{\\text{short}} = ${num(r.reactionShort)}\\text{ kN/m}`,
     latexResult: `\\text{Transferred to Long Beams: } ${num(r.reactionLong)}\\text{ kN/m}, \\quad \\text{Short Beams: } ${num(r.reactionShort)}\\text{ kN/m}`,
+    vars: [
+      { symbol: "R_{\\text{long}}", name: "Long Beam Average Reaction", def: "Trapezoidal tributary line load transferred to long edge supporting beam", unit: "kN/m" },
+      { symbol: "R_{\\text{short}}", name: "Short Beam Average Reaction", def: "Triangular tributary line load transferred to short edge supporting beam", unit: "kN/m" }
+    ],
     formula: "R_long = avg reaction, R_short = avg reaction",
     sub: `Long = ${num(r.reactionLong)} kN/m, Short = ${num(r.reactionShort)} kN/m`,
     result: `Long Beam Reaction = ${num(r.reactionLong)} kN/m · Short Beam Reaction = ${num(r.reactionShort)} kN/m`,
@@ -1078,6 +1218,12 @@ function buildBeamSteps(beam, settings, r) {
     latexEq: "L_{\\text{eff}} = \\min(L_{\\text{clear}} + d,\\; L_{\\text{clear}} + w_{\\text{support}})",
     latexSub: `L_{\\text{eff}} = ${beam.clearSpan}\\text{ m} + ${((Number(beam.supportWidth) || settings.bearing) / 1000).toFixed(3)}\\text{ m}`,
     latexResult: `L_{\\text{eff}} = ${num(Leff)}\\text{ m}`,
+    vars: [
+      { symbol: "L_{\\text{eff}}", name: "Effective Span", def: "Design center-to-center span between support centers per Cl 22.2(a)", unit: "m" },
+      { symbol: "L_{\\text{clear}}", name: "Clear Unobstructed Span", def: "Face-to-face clear distance between supporting columns or walls", unit: "m" },
+      { symbol: "w_{\\text{support}}", name: "Support Bearing Width", def: "Bearing width on column or wall (${((Number(beam.supportWidth) || settings.bearing)).toFixed(0)}mm)", unit: "m" },
+      { symbol: "d", name: "Effective Depth", def: "Effective depth of the beam section (${d}mm)", unit: "m" }
+    ],
     formula: "Leff = Lclear + support width",
     sub: `${beam.clearSpan} + ${((Number(beam.supportWidth) || settings.bearing) / 1000).toFixed(3)}`,
     result: `Leff = ${num(Leff)} m`,
@@ -1091,6 +1237,12 @@ function buildBeamSteps(beam, settings, r) {
     latexEq: "w_{\\text{self}} = \\left(\\frac{b}{1000}\\right) \\left(\\frac{D}{1000}\\right) \\times 25\\text{ kN/m}^3, \\quad L \\le 60b",
     latexSub: `w_{\\text{self}} = \\left(\\frac{${b}}{1000}\\right) \\times \\left(\\frac{${D}}{1000}\\right) \\times 25 = ${num(r.w_self)}\\text{ kN/m}`,
     latexResult: `w_{\\text{self}} = ${num(r.w_self)}\\text{ kN/m} \\quad (L/b = ${((Leff*1000)/b).toFixed(1)} \\le 60 \\implies \\mathbf{\\text{Laterally Stable}})`,
+    vars: [
+      { symbol: "w_{\\text{self}}", name: "Beam Stem Self-Weight", def: "Dead weight per meter length of reinforced concrete beam", unit: "kN/m" },
+      { symbol: "b", name: "Beam Web Width", def: "Horizontal cross-section thickness (${b}mm)", unit: "mm" },
+      { symbol: "D", name: "Overall Beam Depth", def: "Total vertical beam depth including slab (${D}mm)", unit: "mm" },
+      { symbol: "L/b", name: "Lateral Slenderness", def: "Clear distance between lateral restraints divided by b (max 60 per Cl 23.3)", unit: "dimensionless" }
+    ],
     formula: "w_self = (b/1000) × (D/1000) × 25",
     sub: `(${b}/1000) × (${D}/1000) × 25`,
     result: `w_self = ${num(r.w_self)} kN/m`,
@@ -1109,6 +1261,12 @@ function buildBeamSteps(beam, settings, r) {
         : `w_{\\text{wall}} = 21.0 \\times ${(settings.wallThickness/1000).toFixed(2)} \\times ${beam.wallHeight || 0} \\implies M_{\\text{wall}} = ${num(r.M_wall)}\\text{ kNm}`)
       : `\\text{No partition wall directly seated on this beam stem}`,
     latexResult: `M_{\\text{wall}} = ${num(r.M_wall)}\\text{ kNm}`,
+    vars: [
+      { symbol: "W_{\\text{wall}}", name: "Wall Gravity Weight", def: "Masonry gravity load (triangular when arching is active)", unit: "kN" },
+      { symbol: "\\gamma_m", name: "Masonry Unit Weight", def: "Density of solid concrete blockwork (${settings.materialDensity || 21} kN/m³)", unit: "kN/m³" },
+      { symbol: "t_w", name: "Wall Thickness", def: "Thickness of overhead partition wall (${settings.wallThickness}mm)", unit: "m" },
+      { symbol: "h_{\\text{wall}}", name: "Wall Height", def: "Floor-to-ceiling clear height of overhead partition (${beam.wallHeight || 0}m)", unit: "m" }
+    ],
     formula: "M_wall = calculation based on wall height and arching",
     sub: `height = ${beam.wallHeight || 0} m`,
     result: `M(wall) = ${num(r.M_wall)} kNm`,
@@ -1126,6 +1284,10 @@ function buildBeamSteps(beam, settings, r) {
     latexEq: "M_{\\text{slab}} = \\frac{w_{\\text{slab}} \\cdot L_{\\text{eff}}^2}{8}",
     latexSub: `M_{\\text{slab}} = \\frac{${num(r.w_slab)} \\times (${num(Leff)})^2}{8}`,
     latexResult: `M_{\\text{slab}} = ${num(r.M_slab)}\\text{ kNm} \\quad (w_{\\text{slab}} = ${num(r.w_slab)}\\text{ kN/m})`,
+    vars: [
+      { symbol: "M_{\\text{slab}}", name: "Slab Bending Moment", def: "Mid-span moment caused by floor slabs tributary reaction", unit: "kNm" },
+      { symbol: "w_{\\text{slab}}", name: "Slab Reaction Line Load", def: "Tributary UDL transferred from 45° slab yield line reactions", unit: "kN/m" }
+    ],
     formula: "M_slab = w_slab · Leff² / 8",
     sub: `w = ${num(r.w_slab)} kN/m`,
     result: `M(slab) = ${num(r.M_slab)} kNm`,
@@ -1139,6 +1301,11 @@ function buildBeamSteps(beam, settings, r) {
     latexEq: "M_u = \\gamma_f \\cdot \\sum M_{\\text{service}}, \\quad V_u = \\gamma_f \\cdot \\sum V_{\\text{service}}",
     latexSub: `M_u = 1.50 \\times [${num(r.M_self)} + ${num(r.M_wall)} + ${num(r.M_slab)}], \\quad V_u = 1.50 \\times ${num(r.V_service)}`,
     latexResult: `M_u = ${num(Mu)}\\text{ kNm}, \\quad V_u = ${num(Vu)}\\text{ kN}`,
+    vars: [
+      { symbol: "M_u", name: "Factored Ultimate Moment", def: "Collapse limit state design bending moment ($1.50 \\times M_{\\text{service}}$)", unit: "kNm" },
+      { symbol: "V_u", name: "Factored Ultimate Shear", def: "Collapse limit state design shear force at support ($1.50 \\times V_{\\text{service}}$)", unit: "kN" },
+      { symbol: "\\gamma_f", name: "Load Factor", def: "1.50 factor for dead load + live load collapse combinations", unit: "1.50" }
+    ],
     formula: "Mu = 1.50 × Mservice, Vu = 1.50 × Vservice",
     sub: `Mservice = ${num(r.M_service)} kNm, Vservice = ${num(r.V_service)} kN`,
     result: `Mu = ${num(Mu)} kNm, Vu = ${num(Vu)} kN`,
@@ -1152,6 +1319,13 @@ function buildBeamSteps(beam, settings, r) {
     latexEq: "M_{u,\\lim} = 0.36 \\left(\\frac{x_{u,\\max}}{d}\\right) \\left[1 - 0.42 \\left(\\frac{x_{u,\\max}}{d}\\right)\\right] f_{ck} b d^2 = 0.138 \\cdot f_{ck} \\cdot b \\cdot d^2",
     latexSub: `M_{u,\\lim} = 0.138 \\times ${fck} \\times ${b} \\times (${d})^2 \\times 10^{-6}`,
     latexResult: `M_{u,\\lim} = ${num(Mulim)}\\text{ kNm} \\ge M_u = ${num(Mu)}\\text{ kNm} \\implies ${r.singlyOK ? "\\mathbf{\\text{SECTION IS SINGLY REINFORCED (Pass)}}" : "\\mathbf{\\text{EXCEEDS Mulim - INCREASE DEPTH D}}"}`,
+    vars: [
+      { symbol: "M_{u,\\lim}", name: "Limiting Moment Capacity", def: "Maximum flexural moment without crushing concrete in compression", unit: "kNm" },
+      { symbol: "x_{u,\\max}/d", name: "Max Neutral Axis Ratio", def: "0.46 for Fe500 grade rebar per IS 456 Cl 38.1", unit: "0.46" },
+      { symbol: "f_{ck}", name: "Concrete Grade Strength", def: "Characteristic compressive strength (${fck} N/mm²)", unit: "N/mm²" },
+      { symbol: "b", name: "Beam Stem Width", def: "Cross-section width (${b}mm)", unit: "mm" },
+      { symbol: "d", name: "Effective Depth", def: "Depth from top face to centroid of tensile steel (${d}mm)", unit: "mm" }
+    ],
     formula: "Mu,lim = 0.138 · fck · b · d²",
     sub: `0.138 × ${fck} × ${b} × ${d}² / 1e6`,
     result: `Mu,lim = ${num(Mulim)} kNm >= ${num(Mu)} kNm (${r.singlyOK ? "PASS" : "INCREASE D"})`,
@@ -1165,6 +1339,13 @@ function buildBeamSteps(beam, settings, r) {
     latexEq: "A_{st} = \\frac{0.5 f_{ck}}{f_y} \\left[1 - \\sqrt{1 - \\frac{4.6 M_u}{f_{ck} b d^2}}\\right] b d",
     latexSub: `A_{st} = \\frac{0.5 \\times ${fck}}{${fy}} \\left[1 - \\sqrt{1 - \\frac{4.6 \\times ${num(Mu)} \\times 10^6}{${fck} \\times ${b} \\times (${d})^2}}\\right] \\times ${b} \\times ${d}`,
     latexResult: `A_{st,\\text{req}} = ${num(AstReq, 0)}\\text{ mm}^2 \\implies \\mathbf{\\text{Provide } ${bars.n} \\times ${bars.dia}\\phi}\\quad (A_{st,\\text{prov}} = ${num(bars.area, 0)}\\text{ mm}^2,\\; p_t = ${pt}\\%)`,
+    vars: [
+      { symbol: "A_{st}", name: "Flexural Steel Area", def: "Bottom tension steel area required to resist sagging moment Mu", unit: "mm²" },
+      { symbol: "f_y", name: "Steel Yield Strength", def: "Yield strength of Fe500 steel rebar (${fy} N/mm²)", unit: "N/mm²" },
+      { symbol: "n", name: "Number of Bars", def: "Number of main longitudinal rebar bars (${bars.n} Nos)", unit: "Nos" },
+      { symbol: "\\phi", name: "Bar Diameter", def: "Diameter of each bottom tension bar (${bars.dia}mm)", unit: "mm" },
+      { symbol: "p_t", name: "Percentage Steel", def: "Tension reinforcement ratio 100 Ast / (b d) (${pt}%)", unit: "%" }
+    ],
     formula: "Ast = 0.5(fck/fy)bd[1 - sqrt(1 - 4.6Mu/(fck·b·d²))]",
     sub: `Mu = ${num(Mu)} kNm, b = ${b} mm, d = ${d} mm`,
     result: `Ast,req = ${num(AstReq, 0)} mm² -> Provide ${bars.n} × ${bars.dia}ϕ (${num(bars.area, 0)} mm²)`,
@@ -1178,6 +1359,10 @@ function buildBeamSteps(beam, settings, r) {
     latexEq: "A_{st,\\min} = \\frac{0.85 b d}{f_y} \\le A_{st} \\le A_{st,\\max} = 0.04 b D",
     latexSub: `A_{st,\\min} = \\frac{0.85 \\times ${b} \\times ${d}}{${fy}} = ${num(AstMin, 0)}\\text{ mm}^2, \\quad A_{st,\\max} = 0.04 \\times ${b} \\times ${D} = ${num(AstMax, 0)}\\text{ mm}^2`,
     latexResult: `${num(AstMin, 0)}\\text{ mm}^2 \\le ${num(bars.area, 0)}\\text{ mm}^2 \\le ${num(AstMax, 0)}\\text{ mm}^2 \\implies \\mathbf{\\text{ALL CODE BOUNDS SATISFIED}}`,
+    vars: [
+      { symbol: "A_{st,\\min}", name: "Minimum Steel Area", def: "0.85 bd / fy to prevent brittle rupture upon first tensile cracking", unit: "mm²" },
+      { symbol: "A_{st,\\max}", name: "Maximum Steel Area", def: "0.04 b D (4% limit) to prevent rebar congestion during concrete pouring", unit: "mm²" }
+    ],
     formula: "Ast,min = 0.85bd/fy <= Ast <= 0.04bD",
     sub: `Min = ${num(AstMin, 0)} mm², Max = ${num(AstMax, 0)} mm²`,
     result: `Ast,prov = ${num(bars.area, 0)} mm² (Within Safe Code Bounds)`,
@@ -1191,6 +1376,10 @@ function buildBeamSteps(beam, settings, r) {
     latexEq: "\\tau_v = \\frac{V_u}{b \\cdot d} \\quad \\text{vs} \\quad \\tau_c = f(p_t, f_{ck})",
     latexSub: `\\tau_v = \\frac{${num(Vu)} \\times 10^3\\text{ N}}{${b}\\text{ mm} \\times ${d}\\text{ mm}} = ${num(r.tauV, 3)}\\text{ N/mm}^2 \\quad \\text{vs} \\quad \\tau_c = ${num(r.tauC, 3)}\\text{ N/mm}^2`,
     latexResult: `\\tau_v = ${num(r.tauV, 3)}\\text{ N/mm}^2, \\quad \\tau_c = ${num(r.tauC, 3)}\\text{ N/mm}^2 \\implies ${r.shearFlag ? "\\mathbf{\\text{SHEAR REINFORCEMENT REQUIRED}}" : "\\mathbf{\\text{NOMINAL SHEAR STIRRUPS SAFE}}"}`,
+    vars: [
+      { symbol: "\\tau_v", name: "Nominal Shear Stress", def: "Ultimate shear stress at critical section distance d from support", unit: "N/mm²" },
+      { symbol: "\\tau_c", name: "Concrete Shear Strength", def: "Permissible concrete shear capacity from Table 19 for pt = ${pt}%", unit: "N/mm²" }
+    ],
     formula: "tau_v = Vu / (b · d)",
     sub: `Vu = ${num(Vu)} kN, b = ${b} mm, d = ${d} mm`,
     result: `tau_v = ${num(r.tauV, 3)} N/mm² vs tau_c = ${num(r.tauC, 3)} N/mm²`,
@@ -1204,6 +1393,11 @@ function buildBeamSteps(beam, settings, r) {
     latexEq: "s_v = \\min\\left(\\frac{0.87 f_y A_{sv} d}{V_{us}},\\; 0.75 d,\\; 300\\text{ mm}\\right)",
     latexSub: `A_{sv} = 2 \\times \\frac{\\pi}{4}(8)^2 = 100.5\\text{ mm}^2 \\implies s_v = ${r.sv}\\text{ mm c/c}`,
     latexResult: `\\mathbf{\\text{Provide 2-Legged 8}\\phi\\text{ Vertical Stirrups @ } ${r.sv}\\text{ mm c/c}}`,
+    vars: [
+      { symbol: "s_v", name: "Stirrup Pitch / Spacing", def: "Longitudinal center-to-center distance between vertical 2-legged ties", unit: "mm c/c" },
+      { symbol: "A_{sv}", name: "Stirrup Leg Area", def: "Area of 2-legged 8mm ties ($2 \\times 50.3 = 100.5\\text{ mm}^2$)", unit: "100.5 mm²" },
+      { symbol: "V_{us}", name: "Net Shear Carried by Steel", def: "Excess shear force over concrete capacity (Vu - tau_c * b * d)", unit: "N" }
+    ],
     formula: "sv = min(0.87fy·Asv·d / Vus, 0.75d, 300mm)",
     sub: `2-legged 8mm ties (Asv = 100.5 mm²)`,
     result: `2-leg 8ϕ @ ${r.sv} mm c/c`,
@@ -1218,6 +1412,11 @@ function buildBeamSteps(beam, settings, r) {
     latexEq: "\\left(\\frac{L}{d}\\right)_{\\text{actual}} = \\frac{L_{\\text{eff}} \\times 10^3}{d} \\le 26, \\quad L_d = \\frac{\\phi \\cdot \\sigma_s}{4 \\tau_{bd}} = 47 \\phi",
     latexSub: `\\left(\\frac{L}{d}\\right)_{\\text{actual}} = \\frac{${(Leff*1000).toFixed(0)}}{${d}} = ${num(r.LdActual, 1)} \\le ${r.LdAllow}, \\quad L_d = 47 \\times ${bars.dia} = ${Ld}\\text{ mm}`,
     latexResult: `\\left(\\frac{L}{d}\\right)_{\\text{actual}} = ${num(r.LdActual, 1)} \\le ${r.LdAllow} \\implies \\mathbf{\\text{DEFLECTION SAFE}}, \\quad \\mathbf{L_d = ${Ld}\\text{ mm Anchorage}}`,
+    vars: [
+      { symbol: "(L/d)_{\\text{actual}}", name: "Actual Slenderness Ratio", def: "Span-to-effective-depth ratio controlling long-term sagging deflection", unit: "dimensionless" },
+      { symbol: "L_d", name: "Development Anchorage Length", def: "Full tensile bond embedment into column support (47 * bar diameter)", unit: "mm" },
+      { symbol: "\\tau_{bd}", name: "Design Bond Stress", def: "Permissible bond stress between concrete and deformed bars (IS 456 Cl 26.2.1.1)", unit: "N/mm²" }
+    ],
     formula: "L/d <= 26, Ld = 47 * dia",
     sub: `L/d = ${(Leff*1000).toFixed(0)} / ${d} = ${num(r.LdActual, 1)} vs ${r.LdAllow}`,
     result: `L/d = ${num(r.LdActual, 1)} <= ${r.LdAllow} (PASS) · Ld = ${Ld} mm`,
@@ -9260,6 +9459,13 @@ function DetailedEngineeringMathAudit({
     for (const s of mathSteps) {
       text += `\n[${s.title}]\n`;
       if (s.formula) text += `Formula: ${s.formula}\n`;
+      if (s.vars && s.vars.length > 0) {
+        text += `Variables:\n`;
+        for (const v of s.vars) {
+          const symClean = v.symbol.replace(/\\text\{([^}]+)\}/g, '$1').replace(/\\/g, '');
+          text += `  • ${symClean} = ${v.name}: ${v.def} [${v.unit || '-'}]\n`;
+        }
+      }
       if (s.sub) text += `Substitution: ${s.sub}\n`;
       text += `Result: ${s.result}\n`;
       if (s.explanation) text += `Engineering Meaning: ${s.explanation}\n`;
@@ -9763,6 +9969,37 @@ function DetailedEngineeringMathAudit({
                       </div>
                     )}
 
+                    {/* Variable Definitions & Nomenclature */}
+                    {step.vars && step.vars.length > 0 && (
+                      <div className="bg-[#0A121E]/90 border border-[#1E293B] rounded-xl p-3 space-y-2">
+                        <div className="text-[10px] font-bold text-[#8195AA] uppercase tracking-wider flex items-center justify-between">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-[#38BDF8]">📖</span>
+                            <span>Variable Definitions & Physical Meaning:</span>
+                          </div>
+                          <span className="text-[9px] text-[#5CC8E0] font-mono lowercase">
+                            {step.vars.length} parameters
+                          </span>
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                          {step.vars.map((v, vIdx) => (
+                            <div key={vIdx} className="bg-[#0E1726] border border-[#1E2A3B] hover:border-[#2A3C52] rounded-lg px-2.5 py-1.5 text-xs flex items-start gap-2 transition">
+                              <div className="text-[#FCD34D] font-mono font-bold shrink-0 pt-0.5 min-w-[22px]">
+                                <MathView math={v.symbol} displayMode={false} />
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <div className="text-white font-medium text-[11px] leading-tight flex items-center gap-1 flex-wrap">
+                                  <span>{v.name}</span>
+                                  {v.unit && <span className="text-[#5CC8E0] text-[10px] font-mono font-semibold">[{v.unit}]</span>}
+                                </div>
+                                <div className="text-[#8195AA] text-[10px] leading-snug mt-0.5">{v.def}</div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
                     {/* Numerical Substitution Box */}
                     {(step.latexSub || step.sub) && (
                       <div className="bg-[#0B1420]/70 border border-[#1B2A3F]/60 rounded-xl p-3 space-y-1">
@@ -9820,7 +10057,14 @@ function CalcSheet({ title, steps, onClose }) {
 
   const handleCopyText = () => {
     const text = `${title} — Calculation Sheet (IS 456:2000)\n` + 
-      steps.map(s => `\n[${s.title}]\nFormula: ${s.formula || '-'}\nSubstitution: ${s.sub || '-'}\nResult: ${s.result}${s.explanation ? `\nRationale: ${s.explanation}` : ''}`).join('\n');
+      steps.map(s => {
+        let block = `\n[${s.title}]\nFormula: ${s.formula || '-'}\n`;
+        if (s.vars && s.vars.length > 0) {
+          block += `Variables:\n` + s.vars.map(v => `  • ${v.symbol.replace(/\\text\{([^}]+)\}/g, '$1').replace(/\\/g, '')}: ${v.name} (${v.def}) [${v.unit || '-'}]`).join('\n') + '\n';
+        }
+        block += `Substitution: ${s.sub || '-'}\nResult: ${s.result}${s.explanation ? `\nRationale: ${s.explanation}` : ''}`;
+        return block;
+      }).join('\n');
     navigator.clipboard.writeText(text);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
@@ -9866,6 +10110,31 @@ function CalcSheet({ title, steps, onClose }) {
                   </div>
                   <div className="text-[#FCD34D] font-mono text-xs overflow-x-auto py-0.5">
                     <MathView math={s.latexEq || s.formula} displayMode={true} />
+                  </div>
+                </div>
+              )}
+
+              {/* Variable Definitions in Modal */}
+              {s.vars && s.vars.length > 0 && (
+                <div className="bg-[#0A121E]/90 border border-[#1E293B] rounded-lg p-2.5 space-y-1.5">
+                  <div className="text-[9px] font-bold text-[#8195AA] uppercase tracking-wider flex items-center gap-1">
+                    <span className="text-[#38BDF8]">📖</span> Variable Definitions & Units:
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                    {s.vars.map((v, vIdx) => (
+                      <div key={vIdx} className="bg-[#0E1726] border border-[#1E2A3B] rounded-md px-2 py-1 text-xs flex items-start gap-1.5">
+                        <div className="text-[#FCD34D] font-mono font-bold shrink-0 pt-0.5">
+                          <MathView math={v.symbol} displayMode={false} />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="text-white font-medium text-[10px] leading-tight flex items-center gap-1 flex-wrap">
+                            <span>{v.name}</span>
+                            {v.unit && <span className="text-[#5CC8E0] text-[9px] font-mono font-semibold">[{v.unit}]</span>}
+                          </div>
+                          <div className="text-[#8195AA] text-[9px] leading-snug mt-0.5">{v.def}</div>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
               )}
