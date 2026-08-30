@@ -652,6 +652,8 @@ function buildWallSteps(wall, settings, r) {
     latexEq: "A_{\\text{gross}} = L \\times H",
     latexSub: `A_{\\text{gross}} = ${wall.length}\\text{ m} \\times ${wall.height}\\text{ m}`,
     latexResult: `A_{\\text{gross}} = ${num(r.grossArea, 2)}\\text{ m}^2`,
+    diagramKey: "wall_gross_area",
+    diagData: { length: wall.length, height: wall.height, grossArea: r.grossArea, thickMM },
     vars: [
       { symbol: "A_{\\text{gross}}", name: "Gross Wall Surface Area", def: "Overall outer face area of wall before opening deductions", unit: "m²" },
       { symbol: "L", name: "Panel Centerline Length", def: "Plan length measured between boundary grid lines or column centers", unit: "m" },
@@ -673,6 +675,8 @@ function buildWallSteps(wall, settings, r) {
     latexEq: "A_{\\text{deduct}} = \\sum (w_{\\text{op}} \\times h_{\\text{op}})",
     latexSub: `A_{\\text{deduct}} = ${opStr}`,
     latexResult: `A_{\\text{deduct}} = ${num(r.opDeductionArea, 2)}\\text{ m}^2`,
+    diagramKey: "wall_deductions",
+    diagData: { length: wall.length, height: wall.height, opDetails: r.opDetails, opDeductionArea: r.opDeductionArea },
     vars: [
       { symbol: "A_{\\text{deduct}}", name: "Opening Deduction Area", def: "Sum of all door, window, ventilator & beam pocket voids deducted", unit: "m²" },
       { symbol: "w_{\\text{op}}", name: "Opening Clear Width", def: "Horizontal clear masonry opening width", unit: "m" },
@@ -691,6 +695,8 @@ function buildWallSteps(wall, settings, r) {
     latexEq: "A_{\\text{net}} = A_{\\text{gross}} - A_{\\text{deduct}}",
     latexSub: `A_{\\text{net}} = ${num(r.grossArea, 2)}\\text{ m}^2 - ${num(r.opDeductionArea, 2)}\\text{ m}^2`,
     latexResult: `A_{\\text{net}} = ${num(r.netArea, 2)}\\text{ m}^2`,
+    diagramKey: "wall_net_area",
+    diagData: { length: wall.length, height: wall.height, opDetails: r.opDetails, netArea: r.netArea, grossArea: r.grossArea },
     vars: [
       { symbol: "A_{\\text{net}}", name: "Net Masonry Area", def: "Actual vertical surface receiving blocks and mortar joints", unit: "m²" },
       { symbol: "A_{\\text{gross}}", name: "Gross Elevation Area", def: "Initial bounding elevation surface area", unit: "m²" },
@@ -709,6 +715,8 @@ function buildWallSteps(wall, settings, r) {
     latexEq: "V_{\\text{masonry}} = A_{\\text{net}} \\times t_{\\text{wall}}",
     latexSub: `V_{\\text{masonry}} = ${num(r.netArea, 2)}\\text{ m}^2 \\times ${thickM.toFixed(3)}\\text{ m}`,
     latexResult: `V_{\\text{masonry}} = ${num(r.netVolume, 3)}\\text{ m}^3`,
+    diagramKey: "wall_volume",
+    diagData: { netArea: r.netArea, thickMM, netVolume: r.netVolume },
     vars: [
       { symbol: "V_{\\text{masonry}}", name: "Solid Masonry Volume", def: "Physical volumetric displacement of solid blockwork masonry", unit: "m³" },
       { symbol: "A_{\\text{net}}", name: "Net Elevation Area", def: "Effective surface area of wall panel", unit: "m²" },
@@ -727,6 +735,8 @@ function buildWallSteps(wall, settings, r) {
     latexEq: "N_{\\text{modular}} = \\frac{1}{(L_b + t_j)(H_b + t_j) \\cdot t_{\\text{wall}}}",
     latexSub: `N_{\\text{modular}} = \\frac{1}{(${r.blockL} + 10)\\text{mm} \\times (${r.blockH} + 10)\\text{mm} \\times ${r.blockT}\\text{mm}} = \\frac{1}{0.310 \\times 0.160 \\times ${thickM.toFixed(3)}}`,
     latexResult: `N_{\\text{modular}} = ${num(r.calcUnitsPerM3, 1)}\\text{ blocks/m}^3 \\quad (V_{\\text{solid}} = ${(r.solidBlockVol * 1000).toFixed(2)}\\text{ L/block})`,
+    diagramKey: "wall_block_unit",
+    diagData: { blockL: r.blockL, blockH: r.blockH, blockT: r.blockT, tj: 10, yield: r.calcUnitsPerM3 },
     vars: [
       { symbol: "N_{\\text{modular}}", name: "Modular Block Yield", def: "Theoretical quantity of interlocking blocks contained in 1 cubic meter", unit: "blocks/m³" },
       { symbol: "L_b", name: "Block Length", def: "Physical manufactured length of concrete block (${r.blockL}mm)", unit: "mm" },
@@ -747,6 +757,8 @@ function buildWallSteps(wall, settings, r) {
     latexEq: "N_{\\text{procure}} = V_{\\text{masonry}} \\times N_{\\text{modular}} \\times 1.05",
     latexSub: `N_{\\text{procure}} = ${num(r.netVolume, 3)}\\text{ m}^3 \\times ${num(r.calcUnitsPerM3, 1)} \\times 1.05`,
     latexResult: `N_{\\text{procure}} = ${r.unitsCount.toLocaleString()}\\text{ Blocks} \\implies \\text{Cost} = \\text{₹ } ${Math.round(r.unitsCost).toLocaleString("en-IN")}`,
+    diagramKey: "wall_wastage",
+    diagData: { netVolume: r.netVolume, unitsCount: r.unitsCount, wastagePct: 5 },
     vars: [
       { symbol: "N_{\\text{procure}}", name: "Procurement Quantity", def: "Final bill of quantity for masonry block purchase order", unit: "Nos" },
       { symbol: "1.05", name: "Wastage Factor", def: "+5% allowance for corners, half-block cutting at jambs & transport loss", unit: "dimensionless" }
@@ -764,6 +776,8 @@ function buildWallSteps(wall, settings, r) {
     latexEq: "V_{\\text{dry}} = [V_{\\text{masonry}} - (N_{\\text{theor}} \\cdot V_{\\text{solid}})] \\times 1.33",
     latexSub: `V_{\\text{wet}} = ${num(r.wetMortarVol, 3)}\\text{ m}^3\\; (${(r.calcMortarPct * 100).toFixed(1)}\\%) \\implies V_{\\text{dry}} = ${num(r.dryMortarVol, 3)}\\text{ m}^3`,
     latexResult: `\\text{Cement} = ${r.cementBags}\\text{ Bags (50kg)}, \\quad \\text{Fine Sand} = ${num(r.sandCFT, 1)}\\text{ CFT}\\; (${num(r.sandTonnes, 2)}\\text{ T})`,
+    diagramKey: "wall_mortar",
+    diagData: { wetMortarVol: r.wetMortarVol, dryMortarVol: r.dryMortarVol, cementBags: r.cementBags, sandCFT: r.sandCFT },
     vars: [
       { symbol: "V_{\\text{wet}}", name: "Wet Mortar Volume", def: "Liquid paste volume filling the gaps between blocks in wall", unit: "m³" },
       { symbol: "V_{\\text{dry}}", name: "Dry Mortar Volume", def: "Loose dry volume of unmixed cement and sand materials", unit: "m³" },
@@ -784,6 +798,8 @@ function buildWallSteps(wall, settings, r) {
     latexEq: "A_{\\text{plaster}} = A_{\\text{net,int}} + A_{\\text{net,ext}} + A_{\\text{jambs}}",
     latexSub: `A_{\\text{plaster}} = ${num(r.internalPlasterArea, 2)}\\text{ m}^2\\; (12\\text{mm, 1:5}) + ${num(r.externalPlasterArea, 2)}\\text{ m}^2\\; (18\\text{mm, 1:4})`,
     latexResult: `\\text{Total Plaster Area} = ${num(r.totalPlasterArea, 2)}\\text{ m}^2 \\implies ${r.totalPlasterCementBags}\\text{ Cement Bags} + ${num(r.totalPlasterSandCFT, 1)}\\text{ CFT Sand}`,
+    diagramKey: "wall_plaster",
+    diagData: { thickMM, totalPlasterArea: r.totalPlasterArea, internalPlasterArea: r.internalPlasterArea, externalPlasterArea: r.externalPlasterArea },
     vars: [
       { symbol: "A_{\\text{plaster}}", name: "Total Plaster Area", def: "Combined surface area of internal, external and reveal plaster faces", unit: "m²" },
       { symbol: "A_{\\text{net,int}}", name: "Internal Plaster Face", def: "12mm single-coat smooth troweled finish with 1:5 cement-sand mix", unit: "m²" },
@@ -819,6 +835,8 @@ function buildLintelSteps(op, settings, r) {
     latexEq: "L_{\\text{eff}} = L_{\\text{clear}} + 2 \\cdot w_{\\text{bearing}}",
     latexSub: `L_{\\text{eff}} = ${g.clearSpan}\\text{ m} + 2 \\times ${g.bearM.toFixed(3)}\\text{ m}`,
     latexResult: `L_{\\text{eff}} = ${num(Leff)}\\text{ m}`,
+    diagramKey: "lintel_effective_span",
+    diagData: { clearSpan: g.clearSpan, bearing: settings.bearing, Leff, D: r.D },
     vars: [
       { symbol: "L_{\\text{eff}}", name: "Effective Span", def: "Center-to-center distance between bearing reaction supports", unit: "m" },
       { symbol: "L_{\\text{clear}}", name: "Clear Opening Span", def: "Horizontal masonry opening width between jamb faces", unit: "m" },
@@ -839,6 +857,8 @@ function buildLintelSteps(op, settings, r) {
     latexResult: arching 
       ? `\\mathbf{\\text{ARCHING ACTIVE (Triangular Masonry Prism, Apex = } ${num(r.loadHeightUsed)}\\text{ m)}}` 
       : `\\mathbf{\\text{NO ARCHING (Full Rectangular UDL, Height = } ${num(r.loadHeightUsed)}\\text{ m)}}`,
+    diagramKey: "lintel_arching",
+    diagData: { clearSpan: g.clearSpan, arching, heightAbove: g.heightAbove, Leff, D: r.D },
     vars: [
       { symbol: "h_{\\text{above}}", name: "Overhead Masonry Height", def: "Solid masonry height between lintel soffit and upper slab soffit", unit: "m" },
       { symbol: "\\frac{L_{\\text{eff}}}{2}", name: "Arching Threshold", def: "Half-span height required to establish internal compression arches in wall", unit: "m" }
@@ -860,6 +880,8 @@ function buildLintelSteps(op, settings, r) {
       : "M_u = 1.50 \\times \\left[\\frac{w_{\\text{masonry}} L_{\\text{eff}}^2}{8} + \\frac{w_{\\text{self}} L_{\\text{eff}}^2}{8}\\right]",
     latexSub: `M_{\\text{service}} = ${num(r.M_masonry)} + ${num(r.M_self)} = ${num(r.M_service)}\\text{ kNm} \\implies M_u = 1.50 \\times ${num(r.M_service)}`,
     latexResult: `M_u = ${num(r.Mu)}\\text{ kNm}, \\quad V_u = ${num(r.Vu)}\\text{ kN}`,
+    diagramKey: "lintel_loads",
+    diagData: { Leff, Mu: r.Mu, Vu: r.Vu, D: r.D },
     vars: [
       { symbol: "M_u", name: "Factored Design Moment", def: "Ultimate limit state bending moment with 1.50 safety multiplier", unit: "kNm" },
       { symbol: "V_u", name: "Factored Design Shear", def: "Ultimate limit state shear force at support jamb face", unit: "kN" },
@@ -879,6 +901,8 @@ function buildLintelSteps(op, settings, r) {
     latexEq: "M_{u,\\lim} = 0.138 \\cdot f_{ck} \\cdot b \\cdot d^2",
     latexSub: `M_{u,\\lim} = 0.138 \\times ${fck} \\times ${b} \\times (${d_eff})^2 \\times 10^{-6}`,
     latexResult: `M_{u,\\lim} = ${num(r.Mulim)}\\text{ kNm} \\ge M_u = ${num(r.Mu)}\\text{ kNm} \\implies \\mathbf{\\text{SECTION IS UNDER-REINFORCED (Safe)}}`,
+    diagramKey: "lintel_capacity",
+    diagData: { b, D: r.D, d: d_eff, Mulim: r.Mulim, Mu: r.Mu },
     vars: [
       { symbol: "M_{u,\\lim}", name: "Limiting Moment Capacity", def: "Maximum allowable moment of singly reinforced concrete section before crushing", unit: "kNm" },
       { symbol: "f_{ck}", name: "Concrete Cube Strength", def: "Characteristic 28-day compressive strength of concrete (${fck} N/mm²)", unit: "N/mm²" },
@@ -898,6 +922,8 @@ function buildLintelSteps(op, settings, r) {
     latexEq: "A_{st} = \\frac{0.5 f_{ck}}{f_y} \\left[1 - \\sqrt{1 - \\frac{4.6 M_u}{f_{ck} b d^2}}\\right] b d \\quad (\\ge \\frac{0.85 b d}{f_y})",
     latexSub: `A_{st,\\text{calc}} = ${num(r.AstReq, 0)}\\text{ mm}^2, \\quad A_{st,\\min} = \\frac{0.85 \\times ${b} \\times ${d_eff}}{${fy}} = ${num(r.AstMin, 0)}\\text{ mm}^2`,
     latexResult: `\\mathbf{\\text{Provide } ${r.bars.n} \\times ${r.bars.dia}\\phi\\text{ Bottom Rebar}}\\quad (A_{st,\\text{prov}} = ${num(r.bars.area, 0)}\\text{ mm}^2)`,
+    diagramKey: "lintel_rebar",
+    diagData: { b, D: r.D, d: d_eff, bars: r.bars, AstReq: r.AstReq },
     vars: [
       { symbol: "A_{st}", name: "Tensile Steel Area", def: "Required bottom flexural reinforcement area to carry sagging tension", unit: "mm²" },
       { symbol: "f_y", name: "Steel Yield Strength", def: "Characteristic yield strength of Fe500 reinforcement (${fy} N/mm²)", unit: "N/mm²" },
@@ -916,6 +942,8 @@ function buildLintelSteps(op, settings, r) {
     latexEq: "\\tau_v = \\frac{V_u}{b \\cdot d} \\le \\tau_c",
     latexSub: `\\tau_v = \\frac{${num(r.Vu)} \\times 10^3\\text{ N}}{${b}\\text{ mm} \\times ${d_eff}\\text{ mm}} = ${num(r.tauV, 3)}\\text{ N/mm}^2 \\quad \\text{vs} \\quad \\tau_c = ${num(r.tauC, 3)}\\text{ N/mm}^2`,
     latexResult: `\\tau_v = ${num(r.tauV, 3)}\\text{ N/mm}^2 \\le \\tau_c \\implies \\mathbf{\\text{Provide 2-Legged 8}\\phi\\text{ Stirrups @ 150 mm c/c}}`,
+    diagramKey: "lintel_stirrups",
+    diagData: { b, D: r.D, sv: r.sv, dia: 8 },
     vars: [
       { symbol: "\\tau_v", name: "Nominal Shear Stress", def: "Average shear stress across concrete section at critical support face", unit: "N/mm²" },
       { symbol: "\\tau_c", name: "Concrete Shear Strength", def: "Permissible shear resistance of concrete from IS 456 Table 19", unit: "N/mm²" }
@@ -933,6 +961,8 @@ function buildLintelSteps(op, settings, r) {
     latexEq: "\\left(\\frac{L}{d}\\right)_{\\text{actual}} = \\frac{L_{\\text{eff}} \\times 10^3}{d} \\le 24",
     latexSub: `\\left(\\frac{L}{d}\\right)_{\\text{actual}} = \\frac{${(Leff*1000).toFixed(0)}}{${d_eff}} = ${num(r.LdActual, 1)} \\le 24`,
     latexResult: `${num(r.LdActual, 1)} \\le 24 \\implies \\mathbf{\\text{DEFLECTION SAFE (Rigid Lintel Beam)}}`,
+    diagramKey: "lintel_deflection",
+    diagData: { Leff, d: d_eff, LdActual: (Leff*1000)/d_eff, LdAllow: 24 },
     vars: [
       { symbol: "(L/d)_{\\text{actual}}", name: "Actual Span-to-Depth Ratio", def: "Effective span divided by effective depth", unit: "dimensionless" },
       { symbol: "24", name: "Permissible Ratio", def: "Serviceability limit ensuring beam remains stiff and window frames don't jam", unit: "dimensionless" }
@@ -970,6 +1000,8 @@ function buildSlabSteps(panel, settings, r) {
       : (oneWay 
         ? `r = ${num(r.ratio)} > 2.0 \\implies \\mathbf{\\text{ONE-WAY SLAB (Uniaxial Bending Across Short Span)}}` 
         : `r = ${num(r.ratio)} \\le 2.0 \\implies \\mathbf{\\text{TWO-WAY SLAB (Biaxial Bending Across Both Spans)}}`),
+    diagramKey: "slab_aspect_ratio",
+    diagData: { Lx, Ly, ratio: r.ratio, oneWay, isCantilever },
     vars: [
       { symbol: "r", name: "Aspect Ratio", def: "Ratio of long clear span to short clear span (Ly / Lx)", unit: "dimensionless" },
       { symbol: "L_y", name: "Long Clear Span", def: "Center-to-center or clear span along long supporting wall edges", unit: "m" },
@@ -992,6 +1024,8 @@ function buildSlabSteps(panel, settings, r) {
     latexEq: "w_u = \\gamma_f \\cdot [(\\gamma_c \\cdot D) + w_{\\text{finish}} + w_{\\text{live}}]",
     latexSub: `w_u = 1.50 \\times [(25 \\times \\frac{${D}}{1000}) + ${num(r.DL - (D/1000)*25)} + ${num(r.LL)}] = 1.50 \\times [${num(r.DL)} + ${num(r.LL)}]`,
     latexResult: `w_u = 1.50 \\times ${num(r.w_service)}\\text{ kN/m}^2 = ${num(r.wu)}\\text{ kN/m}^2 \\quad (w_{\\text{service}} = ${num(r.w_service)}\\text{ kN/m}^2)`,
+    diagramKey: "slab_loads",
+    diagData: { D, DL: r.DL, LL: r.LL, wu: r.wu, finish: r.DL - (D/1000)*25, selfWt: (D/1000)*25 },
     vars: [
       { symbol: "w_u", name: "Factored Ultimate Load", def: "Total design gravity load per unit area with 1.50 collapse factor", unit: "kN/m²" },
       { symbol: "\\gamma_f", name: "Partial Load Safety Factor", def: "1.50 for Limit State of Collapse design (IS 456 Cl 36.4)", unit: "dimensionless" },
@@ -1013,6 +1047,8 @@ function buildSlabSteps(panel, settings, r) {
     latexEq: "d_x = D - c_{\\text{nom}} - \\frac{\\phi_x}{2}, \\quad d_y = d_x - \\frac{\\phi_x + \\phi_y}{2}",
     latexSub: `d_x = ${D}\\text{ mm} - 20\\text{ mm} - \\frac{${r.barDiaX}}{2}\\text{ mm} = ${num(dx, 0)}\\text{ mm}, \\quad d_y = ${num(dx, 0)} - 10 = ${num(dy, 0)}\\text{ mm}`,
     latexResult: `d_x = ${num(dx, 0)}\\text{ mm (Short Span)}, \\quad d_y = ${num(dy, 0)}\\text{ mm (Long Span)}`,
+    diagramKey: "slab_effective_depth",
+    diagData: { D, dx, dy, cnom: 20, barDiaX: r.barDiaX, barDiaY: r.barDiaY },
     vars: [
       { symbol: "d_x", name: "Short Span Effective Depth", def: "Distance from extreme compression fiber to centroid of bottom outer rebar", unit: "mm" },
       { symbol: "d_y", name: "Long Span Effective Depth", def: "Effective depth to upper layer rebar resting on short span steel", unit: "mm" },
@@ -1033,6 +1069,8 @@ function buildSlabSteps(panel, settings, r) {
       latexEq: "M_{ux} = \\frac{w_u \\cdot L_{\\text{eff}}^2}{2}",
       latexSub: `M_{ux} = \\frac{${num(r.wu)} \\times (${Lx.toFixed(2)})^2}{2}`,
       latexResult: `M_{ux} = ${num(r.Mx)}\\text{ kNm/m (Negative Hogging at Wall Face)}`,
+      diagramKey: "slab_moment",
+      diagData: { Lx, Ly, wu: r.wu, Mx: r.Mx, My: 0, isCantilever: true, oneWay: true },
       vars: [
         { symbol: "M_{ux}", name: "Cantilever Hogging Moment", def: "Peak negative bending moment per meter occurring at support face", unit: "kNm/m" },
         { symbol: "L_{\\text{eff}}", name: "Cantilever Projection", def: "Effective cantilever projection distance from support wall face", unit: "m" }
@@ -1049,6 +1087,8 @@ function buildSlabSteps(panel, settings, r) {
       latexEq: "M_{ux} = \\frac{w_u \\cdot L_x^2}{8}",
       latexSub: `M_{ux} = \\frac{${num(r.wu)} \\times (${Lx.toFixed(2)})^2}{8}`,
       latexResult: `M_{ux} = ${num(r.Mx)}\\text{ kNm/m}, \\quad M_{uy} \\approx 0`,
+      diagramKey: "slab_moment",
+      diagData: { Lx, Ly, wu: r.wu, Mx: r.Mx, My: 0, isCantilever: false, oneWay: true },
       vars: [
         { symbol: "M_{ux}", name: "One-Way Design Moment", def: "Peak mid-span sagging moment across the short span direction", unit: "kNm/m" },
         { symbol: "L_x", name: "Effective Span", def: "Clear short span plus effective depth or bearing", unit: "m" }
@@ -1065,6 +1105,8 @@ function buildSlabSteps(panel, settings, r) {
       latexEq: "M_{ux} = \\alpha_x \\cdot w_u \\cdot L_x^2, \\quad M_{uy} = \\alpha_y \\cdot w_u \\cdot L_x^2",
       latexSub: `M_{ux} = \\alpha_x \\times ${num(r.wu)} \\times (${Lx.toFixed(2)})^2, \\quad M_{uy} = \\alpha_y \\times ${num(r.wu)} \\times (${Lx.toFixed(2)})^2`,
       latexResult: `M_{ux} = ${num(r.Mx)}\\text{ kNm/m}, \\quad M_{uy} = ${num(r.My)}\\text{ kNm/m}`,
+      diagramKey: "slab_moment",
+      diagData: { Lx, Ly, wu: r.wu, Mx: r.Mx, My: r.My, isCantilever: false, oneWay: false },
       vars: [
         { symbol: "M_{ux}", name: "Short Span Moment", def: "Design mid-span bending moment along short span direction", unit: "kNm/m" },
         { symbol: "M_{uy}", name: "Long Span Moment", def: "Design mid-span bending moment along long span direction", unit: "kNm/m" },
@@ -1086,6 +1128,8 @@ function buildSlabSteps(panel, settings, r) {
     latexEq: "M_{u,\\lim} = 0.36 \\left(\\frac{x_{u,\\max}}{d}\\right) \\left[1 - 0.42 \\left(\\frac{x_{u,\\max}}{d}\\right)\\right] f_{ck} b d_x^2 = 0.138 \\cdot f_{ck} \\cdot b \\cdot d_x^2",
     latexSub: `M_{u,\\lim} = 0.138 \\times ${fck} \\times 1000 \\times (${num(dx,0)})^2 \\times 10^{-6}`,
     latexResult: `M_{u,\\lim} = ${num(Mulim)}\\text{ kNm/m} \\ge M_{ux} = ${num(r.Mx)}\\text{ kNm/m} \\implies \\mathbf{\\text{SECTION IS UNDER-REINFORCED (Ductile)}}`,
+    diagramKey: "slab_limiting_moment",
+    diagData: { fck, fy, b: 1000, dx, Mulim, Mx: r.Mx },
     vars: [
       { symbol: "M_{u,\\lim}", name: "Limiting Moment of Resistance", def: "Max moment capacity of singly reinforced section without compression steel", unit: "kNm/m" },
       { symbol: "x_{u,\\max}/d", name: "Limiting Neutral Axis Depth", def: "0.46 for Fe500 high-strength deformed bars per IS 456 Cl 38.1", unit: "0.46" },
@@ -1106,6 +1150,8 @@ function buildSlabSteps(panel, settings, r) {
     latexEq: "A_{st,x} = \\frac{0.5 f_{ck}}{f_y} \\left[1 - \\sqrt{1 - \\frac{4.6 M_{ux}}{f_{ck} b d_x^2}}\\right] b d_x \\quad (\\ge A_{st,\\min} = 0.12\\% b D)",
     latexSub: `A_{st,x} = \\frac{0.5 \\times ${fck}}{${fy}} \\left[1 - \\sqrt{1 - \\frac{4.6 \\times ${num(r.Mx)} \\times 10^6}{${fck} \\times 1000 \\times (${num(dx,0)})^2}}\\right] \\times 1000 \\times ${num(dx,0)}`,
     latexResult: `A_{st,x} = ${num(r.AstX, 0)}\\text{ mm}^2/\\text{m} \\implies \\mathbf{\\text{Provide } ${r.barDiaX}\\phi\\text{ @ } ${r.spacingX}\\text{ mm c/c}}\\quad (A_{st,\\text{prov}} = ${astProvX}\\text{ mm}^2/\\text{m})`,
+    diagramKey: "slab_tensile_steel",
+    diagData: { dx, AstX: r.AstX, barDiaX: r.barDiaX, spacingX: r.spacingX, astProvX },
     vars: [
       { symbol: "A_{st,x}", name: "Primary Tensile Steel Area", def: "Bottom flexural reinforcement required per meter width", unit: "mm²/m" },
       { symbol: "f_y", name: "Steel Yield Strength", def: "Fe500 Grade characteristic yield strength (${fy} N/mm²)", unit: "N/mm²" },
@@ -1126,6 +1172,8 @@ function buildSlabSteps(panel, settings, r) {
     latexEq: "A_{st,y} = \\max\\left(A_{st,\\text{calc}},\\; 0.0012 \\cdot b \\cdot D\\right)",
     latexSub: `A_{st,\\min} = 0.0012 \\times 1000 \\times ${D} = ${num(AstMin, 0)}\\text{ mm}^2/\\text{m}, \\quad s_y \\le \\min(5d, 450\\text{ mm})`,
     latexResult: `A_{st,y} = ${num(r.AstY, 0)}\\text{ mm}^2/\\text{m} \\implies \\mathbf{\\text{Provide } ${r.barDiaY}\\phi\\text{ @ } ${r.spacingY}\\text{ mm c/c}}\\quad (A_{st,\\text{prov}} = ${astProvY}\\text{ mm}^2/\\text{m})`,
+    diagramKey: "slab_distribution_steel",
+    diagData: { D, AstY: r.AstY, barDiaY: r.barDiaY, spacingY: r.spacingY, astProvY },
     vars: [
       { symbol: "A_{st,y}", name: "Distribution Steel Area", def: "Transverse rebar carrying long-direction moment and temperature shrinkage", unit: "mm²/m" },
       { symbol: "s_y", name: "Distribution Spacing", def: "Pitch restricted to max(5d, 450mm) per IS 456 Cl 26.3.3", unit: "mm c/c" }
@@ -1145,6 +1193,8 @@ function buildSlabSteps(panel, settings, r) {
     latexEq: "\\tau_v = \\frac{V_{ux}}{b \\cdot d_x} \\le k \\cdot \\tau_c",
     latexSub: `\\tau_v = \\frac{${num(r.reactionLong || (r.wu * Lx / 2))} \\times 10^3\\text{ N}}{1000\\text{ mm} \\times ${num(dx,0)}\\text{ mm}} = ${num(tauV, 3)}\\text{ N/mm}^2 \\quad \\text{vs} \\quad k \\cdot \\tau_c = ${tauC_M20}\\text{ N/mm}^2`,
     latexResult: `\\tau_v = ${num(tauV, 3)}\\text{ N/mm}^2 < ${tauC_M20}\\text{ N/mm}^2 \\implies \\mathbf{\\text{SAFE IN SHEAR WITHOUT SHEAR REINFORCEMENT}}`,
+    diagramKey: "slab_shear",
+    diagData: { dx, Vu: r.reactionLong || (r.wu * Lx / 2), tauV, tauC: tauC_M20 },
     vars: [
       { symbol: "\\tau_v", name: "Nominal Shear Stress", def: "Calculated shear stress at face of supporting wall or beam", unit: "N/mm²" },
       { symbol: "V_{ux}", name: "Ultimate Transverse Shear", def: "Peak design shear force per meter width", unit: "N/m" },
@@ -1164,6 +1214,8 @@ function buildSlabSteps(panel, settings, r) {
     latexEq: "\\left(\\frac{L}{d}\\right)_{\\text{actual}} = \\frac{L_x \\times 10^3}{d_x} \\le \\left(\\frac{L}{d}\\right)_{\\text{allow}} = \\left(\\frac{L}{d}\\right)_{\\text{basic}} \\times k_t",
     latexSub: `\\left(\\frac{L}{d}\\right)_{\\text{actual}} = \\frac{${(Lx*1000).toFixed(0)}}{${num(dx,0)}} = ${num(r.LdActual, 1)} \\quad \\text{vs} \\quad \\left(\\frac{L}{d}\\right)_{\\text{allow}} = ${r.LdAllow}`,
     latexResult: `${num(r.LdActual, 1)} \\le ${r.LdAllow} \\implies ${r.deflectionFlag ? "\\mathbf{\\text{DEFLECTION LIMIT EXCEEDED - INCREASE DEPTH}}" : "\\mathbf{\\text{DEFLECTION CRITERIA SATISFIED (Rigid & Safe)}}"}`,
+    diagramKey: "slab_deflection",
+    diagData: { Lx, dx, LdActual: r.LdActual, LdAllow: r.LdAllow, deflectionFlag: r.deflectionFlag },
     vars: [
       { symbol: "(L/d)_{\\text{actual}}", name: "Actual Span-to-Depth Ratio", def: "Calculated span-to-effective-depth ratio of the floor panel", unit: "dimensionless" },
       { symbol: "(L/d)_{\\text{allow}}", name: "Permissible Span-to-Depth", def: "Basic ratio (26 or 35) multiplied by tension steel factor kt (Cl 23.2.1)", unit: "dimensionless" }
@@ -1181,6 +1233,8 @@ function buildSlabSteps(panel, settings, r) {
     latexEq: "R_{\\text{long}} = \\frac{w_u L_x}{2}\\left(1 - \\frac{1}{3 r^2}\\right), \\quad R_{\\text{short}} = \\frac{w_u L_x}{3}",
     latexSub: `R_{\\text{long}} = ${num(r.reactionLong)}\\text{ kN/m (Peak } ${num(r.peakLong)}\\text{ kN/m)}, \\quad R_{\\text{short}} = ${num(r.reactionShort)}\\text{ kN/m}`,
     latexResult: `\\text{Transferred to Long Beams: } ${num(r.reactionLong)}\\text{ kN/m}, \\quad \\text{Short Beams: } ${num(r.reactionShort)}\\text{ kN/m}`,
+    diagramKey: "slab_reactions",
+    diagData: { Lx, Ly, wu: r.wu, Rlong: r.reactionLong, Rshort: r.reactionShort },
     vars: [
       { symbol: "R_{\\text{long}}", name: "Long Beam Average Reaction", def: "Trapezoidal tributary line load transferred to long edge supporting beam", unit: "kN/m" },
       { symbol: "R_{\\text{short}}", name: "Short Beam Average Reaction", def: "Triangular tributary line load transferred to short edge supporting beam", unit: "kN/m" }
@@ -1218,6 +1272,8 @@ function buildBeamSteps(beam, settings, r) {
     latexEq: "L_{\\text{eff}} = \\min(L_{\\text{clear}} + d,\\; L_{\\text{clear}} + w_{\\text{support}})",
     latexSub: `L_{\\text{eff}} = ${beam.clearSpan}\\text{ m} + ${((Number(beam.supportWidth) || settings.bearing) / 1000).toFixed(3)}\\text{ m}`,
     latexResult: `L_{\\text{eff}} = ${num(Leff)}\\text{ m}`,
+    diagramKey: "beam_effective_span",
+    diagData: { clearSpan: beam.clearSpan, supportWidth: (Number(beam.supportWidth) || settings.bearing), d, Leff },
     vars: [
       { symbol: "L_{\\text{eff}}", name: "Effective Span", def: "Design center-to-center span between support centers per Cl 22.2(a)", unit: "m" },
       { symbol: "L_{\\text{clear}}", name: "Clear Unobstructed Span", def: "Face-to-face clear distance between supporting columns or walls", unit: "m" },
@@ -1237,6 +1293,8 @@ function buildBeamSteps(beam, settings, r) {
     latexEq: "w_{\\text{self}} = \\left(\\frac{b}{1000}\\right) \\left(\\frac{D}{1000}\\right) \\times 25\\text{ kN/m}^3, \\quad L \\le 60b",
     latexSub: `w_{\\text{self}} = \\left(\\frac{${b}}{1000}\\right) \\times \\left(\\frac{${D}}{1000}\\right) \\times 25 = ${num(r.w_self)}\\text{ kN/m}`,
     latexResult: `w_{\\text{self}} = ${num(r.w_self)}\\text{ kN/m} \\quad (L/b = ${((Leff*1000)/b).toFixed(1)} \\le 60 \\implies \\mathbf{\\text{Laterally Stable}})`,
+    diagramKey: "beam_section_slenderness",
+    diagData: { b, D, Leff, w_self: r.w_self },
     vars: [
       { symbol: "w_{\\text{self}}", name: "Beam Stem Self-Weight", def: "Dead weight per meter length of reinforced concrete beam", unit: "kN/m" },
       { symbol: "b", name: "Beam Web Width", def: "Horizontal cross-section thickness (${b}mm)", unit: "mm" },
@@ -1261,6 +1319,8 @@ function buildBeamSteps(beam, settings, r) {
         : `w_{\\text{wall}} = 21.0 \\times ${(settings.wallThickness/1000).toFixed(2)} \\times ${beam.wallHeight || 0} \\implies M_{\\text{wall}} = ${num(r.M_wall)}\\text{ kNm}`)
       : `\\text{No partition wall directly seated on this beam stem}`,
     latexResult: `M_{\\text{wall}} = ${num(r.M_wall)}\\text{ kNm}`,
+    diagramKey: "beam_wall_load",
+    diagData: { wallHeight: beam.wallHeight || 0, wallThick: settings.wallThickness, arching, M_wall: r.M_wall, wallOnBeam: beam.wallOnBeam },
     vars: [
       { symbol: "W_{\\text{wall}}", name: "Wall Gravity Weight", def: "Masonry gravity load (triangular when arching is active)", unit: "kN" },
       { symbol: "\\gamma_m", name: "Masonry Unit Weight", def: "Density of solid concrete blockwork (${settings.materialDensity || 21} kN/m³)", unit: "kN/m³" },
@@ -1284,6 +1344,8 @@ function buildBeamSteps(beam, settings, r) {
     latexEq: "M_{\\text{slab}} = \\frac{w_{\\text{slab}} \\cdot L_{\\text{eff}}^2}{8}",
     latexSub: `M_{\\text{slab}} = \\frac{${num(r.w_slab)} \\times (${num(Leff)})^2}{8}`,
     latexResult: `M_{\\text{slab}} = ${num(r.M_slab)}\\text{ kNm} \\quad (w_{\\text{slab}} = ${num(r.w_slab)}\\text{ kN/m})`,
+    diagramKey: "beam_slab_udl",
+    diagData: { Leff, w_slab: r.w_slab, M_slab: r.M_slab },
     vars: [
       { symbol: "M_{\\text{slab}}", name: "Slab Bending Moment", def: "Mid-span moment caused by floor slabs tributary reaction", unit: "kNm" },
       { symbol: "w_{\\text{slab}}", name: "Slab Reaction Line Load", def: "Tributary UDL transferred from 45° slab yield line reactions", unit: "kN/m" }
@@ -1301,6 +1363,8 @@ function buildBeamSteps(beam, settings, r) {
     latexEq: "M_u = \\gamma_f \\cdot \\sum M_{\\text{service}}, \\quad V_u = \\gamma_f \\cdot \\sum V_{\\text{service}}",
     latexSub: `M_u = 1.50 \\times [${num(r.M_self)} + ${num(r.M_wall)} + ${num(r.M_slab)}], \\quad V_u = 1.50 \\times ${num(r.V_service)}`,
     latexResult: `M_u = ${num(Mu)}\\text{ kNm}, \\quad V_u = ${num(Vu)}\\text{ kN}`,
+    diagramKey: "beam_moment_shear",
+    diagData: { Leff, Mu, Vu },
     vars: [
       { symbol: "M_u", name: "Factored Ultimate Moment", def: "Collapse limit state design bending moment ($1.50 \\times M_{\\text{service}}$)", unit: "kNm" },
       { symbol: "V_u", name: "Factored Ultimate Shear", def: "Collapse limit state design shear force at support ($1.50 \\times V_{\\text{service}}$)", unit: "kN" },
@@ -1319,6 +1383,8 @@ function buildBeamSteps(beam, settings, r) {
     latexEq: "M_{u,\\lim} = 0.36 \\left(\\frac{x_{u,\\max}}{d}\\right) \\left[1 - 0.42 \\left(\\frac{x_{u,\\max}}{d}\\right)\\right] f_{ck} b d^2 = 0.138 \\cdot f_{ck} \\cdot b \\cdot d^2",
     latexSub: `M_{u,\\lim} = 0.138 \\times ${fck} \\times ${b} \\times (${d})^2 \\times 10^{-6}`,
     latexResult: `M_{u,\\lim} = ${num(Mulim)}\\text{ kNm} \\ge M_u = ${num(Mu)}\\text{ kNm} \\implies ${r.singlyOK ? "\\mathbf{\\text{SECTION IS SINGLY REINFORCED (Pass)}}" : "\\mathbf{\\text{EXCEEDS Mulim - INCREASE DEPTH D}}"}`,
+    diagramKey: "beam_limiting_moment",
+    diagData: { b, D, d, fck, fy, Mulim, Mu, singlyOK: r.singlyOK },
     vars: [
       { symbol: "M_{u,\\lim}", name: "Limiting Moment Capacity", def: "Maximum flexural moment without crushing concrete in compression", unit: "kNm" },
       { symbol: "x_{u,\\max}/d", name: "Max Neutral Axis Ratio", def: "0.46 for Fe500 grade rebar per IS 456 Cl 38.1", unit: "0.46" },
@@ -1339,6 +1405,8 @@ function buildBeamSteps(beam, settings, r) {
     latexEq: "A_{st} = \\frac{0.5 f_{ck}}{f_y} \\left[1 - \\sqrt{1 - \\frac{4.6 M_u}{f_{ck} b d^2}}\\right] b d",
     latexSub: `A_{st} = \\frac{0.5 \\times ${fck}}{${fy}} \\left[1 - \\sqrt{1 - \\frac{4.6 \\times ${num(Mu)} \\times 10^6}{${fck} \\times ${b} \\times (${d})^2}}\\right] \\times ${b} \\times ${d}`,
     latexResult: `A_{st,\\text{req}} = ${num(AstReq, 0)}\\text{ mm}^2 \\implies \\mathbf{\\text{Provide } ${bars.n} \\times ${bars.dia}\\phi}\\quad (A_{st,\\text{prov}} = ${num(bars.area, 0)}\\text{ mm}^2,\\; p_t = ${pt}\\%)`,
+    diagramKey: "beam_tensile_steel",
+    diagData: { b, D, d, AstReq, bars, pt },
     vars: [
       { symbol: "A_{st}", name: "Flexural Steel Area", def: "Bottom tension steel area required to resist sagging moment Mu", unit: "mm²" },
       { symbol: "f_y", name: "Steel Yield Strength", def: "Yield strength of Fe500 steel rebar (${fy} N/mm²)", unit: "N/mm²" },
@@ -1359,6 +1427,8 @@ function buildBeamSteps(beam, settings, r) {
     latexEq: "A_{st,\\min} = \\frac{0.85 b d}{f_y} \\le A_{st} \\le A_{st,\\max} = 0.04 b D",
     latexSub: `A_{st,\\min} = \\frac{0.85 \\times ${b} \\times ${d}}{${fy}} = ${num(AstMin, 0)}\\text{ mm}^2, \\quad A_{st,\\max} = 0.04 \\times ${b} \\times ${D} = ${num(AstMax, 0)}\\text{ mm}^2`,
     latexResult: `${num(AstMin, 0)}\\text{ mm}^2 \\le ${num(bars.area, 0)}\\text{ mm}^2 \\le ${num(AstMax, 0)}\\text{ mm}^2 \\implies \\mathbf{\\text{ALL CODE BOUNDS SATISFIED}}`,
+    diagramKey: "beam_bounds",
+    diagData: { b, D, d, AstMin, AstMax, provArea: bars.area },
     vars: [
       { symbol: "A_{st,\\min}", name: "Minimum Steel Area", def: "0.85 bd / fy to prevent brittle rupture upon first tensile cracking", unit: "mm²" },
       { symbol: "A_{st,\\max}", name: "Maximum Steel Area", def: "0.04 b D (4% limit) to prevent rebar congestion during concrete pouring", unit: "mm²" }
@@ -1376,6 +1446,8 @@ function buildBeamSteps(beam, settings, r) {
     latexEq: "\\tau_v = \\frac{V_u}{b \\cdot d} \\quad \\text{vs} \\quad \\tau_c = f(p_t, f_{ck})",
     latexSub: `\\tau_v = \\frac{${num(Vu)} \\times 10^3\\text{ N}}{${b}\\text{ mm} \\times ${d}\\text{ mm}} = ${num(r.tauV, 3)}\\text{ N/mm}^2 \\quad \\text{vs} \\quad \\tau_c = ${num(r.tauC, 3)}\\text{ N/mm}^2`,
     latexResult: `\\tau_v = ${num(r.tauV, 3)}\\text{ N/mm}^2, \\quad \\tau_c = ${num(r.tauC, 3)}\\text{ N/mm}^2 \\implies ${r.shearFlag ? "\\mathbf{\\text{SHEAR REINFORCEMENT REQUIRED}}" : "\\mathbf{\\text{NOMINAL SHEAR STIRRUPS SAFE}}"}`,
+    diagramKey: "beam_shear_stress",
+    diagData: { b, d, Vu, tauV: r.tauV, tauC: r.tauC, shearFlag: r.shearFlag },
     vars: [
       { symbol: "\\tau_v", name: "Nominal Shear Stress", def: "Ultimate shear stress at critical section distance d from support", unit: "N/mm²" },
       { symbol: "\\tau_c", name: "Concrete Shear Strength", def: "Permissible concrete shear capacity from Table 19 for pt = ${pt}%", unit: "N/mm²" }
@@ -1393,6 +1465,8 @@ function buildBeamSteps(beam, settings, r) {
     latexEq: "s_v = \\min\\left(\\frac{0.87 f_y A_{sv} d}{V_{us}},\\; 0.75 d,\\; 300\\text{ mm}\\right)",
     latexSub: `A_{sv} = 2 \\times \\frac{\\pi}{4}(8)^2 = 100.5\\text{ mm}^2 \\implies s_v = ${r.sv}\\text{ mm c/c}`,
     latexResult: `\\mathbf{\\text{Provide 2-Legged 8}\\phi\\text{ Vertical Stirrups @ } ${r.sv}\\text{ mm c/c}}`,
+    diagramKey: "beam_stirrups",
+    diagData: { b, d, sv: r.sv, dia: 8, legs: 2, Asv: 100.5 },
     vars: [
       { symbol: "s_v", name: "Stirrup Pitch / Spacing", def: "Longitudinal center-to-center distance between vertical 2-legged ties", unit: "mm c/c" },
       { symbol: "A_{sv}", name: "Stirrup Leg Area", def: "Area of 2-legged 8mm ties ($2 \\times 50.3 = 100.5\\text{ mm}^2$)", unit: "100.5 mm²" },
@@ -1412,6 +1486,8 @@ function buildBeamSteps(beam, settings, r) {
     latexEq: "\\left(\\frac{L}{d}\\right)_{\\text{actual}} = \\frac{L_{\\text{eff}} \\times 10^3}{d} \\le 26, \\quad L_d = \\frac{\\phi \\cdot \\sigma_s}{4 \\tau_{bd}} = 47 \\phi",
     latexSub: `\\left(\\frac{L}{d}\\right)_{\\text{actual}} = \\frac{${(Leff*1000).toFixed(0)}}{${d}} = ${num(r.LdActual, 1)} \\le ${r.LdAllow}, \\quad L_d = 47 \\times ${bars.dia} = ${Ld}\\text{ mm}`,
     latexResult: `\\left(\\frac{L}{d}\\right)_{\\text{actual}} = ${num(r.LdActual, 1)} \\le ${r.LdAllow} \\implies \\mathbf{\\text{DEFLECTION SAFE}}, \\quad \\mathbf{L_d = ${Ld}\\text{ mm Anchorage}}`,
+    diagramKey: "beam_anchorage",
+    diagData: { barDia: bars.dia, Ld, Leff, d },
     vars: [
       { symbol: "(L/d)_{\\text{actual}}", name: "Actual Slenderness Ratio", def: "Span-to-effective-depth ratio controlling long-term sagging deflection", unit: "dimensionless" },
       { symbol: "L_d", name: "Development Anchorage Length", def: "Full tensile bond embedment into column support (47 * bar diameter)", unit: "mm" },
@@ -9281,6 +9357,940 @@ function SeismicAuditDashboard({ onOpenContractorModal }) {
 }
 
 // =====================================================================
+// ANNOTATED STRUCTURAL STEP VARIABLE DIAGRAMS (SVG VECTOR GRAPHICS)
+// =====================================================================
+function StepVariableDiagram({ step, item, settings }) {
+  const { diagramKey, diagData = {} } = step || {};
+  if (!diagramKey) return null;
+
+  // SVG Common Definitions (Markers, Patterns, Hatching)
+  const renderDefs = (idPrefix = "") => (
+    <defs>
+      <marker id={`${idPrefix}arr-c`} markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+        <path d="M0,0 L6,3 L0,6 Z" fill="#38BDF8" />
+      </marker>
+      <marker id={`${idPrefix}arr-sc`} markerWidth="6" markerHeight="6" refX="1" refY="3" orient="auto">
+        <path d="M6,0 L0,3 L6,6 Z" fill="#38BDF8" />
+      </marker>
+      <marker id={`${idPrefix}arr-a`} markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+        <path d="M0,0 L6,3 L0,6 Z" fill="#FCD34D" />
+      </marker>
+      <marker id={`${idPrefix}arr-sa`} markerWidth="6" markerHeight="6" refX="1" refY="3" orient="auto">
+        <path d="M6,0 L0,3 L6,6 Z" fill="#FCD34D" />
+      </marker>
+      <marker id={`${idPrefix}arr-g`} markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+        <path d="M0,0 L6,3 L0,6 Z" fill="#34D399" />
+      </marker>
+      <marker id={`${idPrefix}arr-sg`} markerWidth="6" markerHeight="6" refX="1" refY="3" orient="auto">
+        <path d="M6,0 L0,3 L6,6 Z" fill="#34D399" />
+      </marker>
+      <marker id={`${idPrefix}arr-p`} markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+        <path d="M0,0 L6,3 L0,6 Z" fill="#A78BFA" />
+      </marker>
+      <marker id={`${idPrefix}arr-sp`} markerWidth="6" markerHeight="6" refX="1" refY="3" orient="auto">
+        <path d="M6,0 L0,3 L6,6 Z" fill="#A78BFA" />
+      </marker>
+      <pattern id={`${idPrefix}concHatch`} patternUnits="userSpaceOnUse" width="20" height="20">
+        <rect width="20" height="20" fill="#0C1523" />
+        <circle cx="5" cy="5" r="1" fill="#243447" />
+        <circle cx="15" cy="12" r="1.3" fill="#243447" />
+        <circle cx="9" cy="16" r="0.9" fill="#1F2E3E" />
+        <path d="M2,14 L4,17 L6,15 Z" fill="#293D53" opacity="0.6" />
+        <path d="M12,4 L14,6 L16,3 Z" fill="#293D53" opacity="0.6" />
+      </pattern>
+      <pattern id={`${idPrefix}diagGrid`} patternUnits="userSpaceOnUse" width="10" height="10">
+        <line x1="0" y1="0" x2="10" y2="10" stroke="#162538" strokeWidth="1" />
+      </pattern>
+    </defs>
+  );
+
+  return (
+    <div className="bg-[#0A121E]/95 border border-[#1E293B] hover:border-[#2A3C52] rounded-xl p-3 space-y-2 transition">
+      <div className="text-[10px] font-bold text-[#8195AA] uppercase tracking-wider flex items-center justify-between">
+        <div className="flex items-center gap-1.5">
+          <span className="text-[#FCD34D]">📐</span>
+          <span>Visual Structural Diagram & Variable Identification:</span>
+        </div>
+        <span className="text-[9px] text-[#34D399] font-mono lowercase">
+          annotated engineering view
+        </span>
+      </div>
+
+      <div className="w-full overflow-x-auto rounded-lg bg-[#070D17] border border-[#172334] p-1.5">
+        {/* 1. SLAB EFFECTIVE DEPTH (USER'S HIGHLIGHTED STEP) */}
+        {diagramKey === "slab_effective_depth" && (() => {
+          const { D = 125, dx = 105, dy = 95, cnom = 20, barDiaX = 10, barDiaY = 8 } = diagData;
+          return (
+            <svg viewBox="0 0 540 215" className="w-full h-auto min-w-[500px] max-h-[220px]">
+              {renderDefs("sed_")}
+              {/* Slab Section Box */}
+              <rect x="90" y="32" width="350" height="135" fill="url(#sed_concHatch)" stroke="#334155" strokeWidth="1.5" rx="3" />
+
+              {/* Extreme Compression Fiber (Top Edge) */}
+              <line x1="70" y1="32" x2="460" y2="32" stroke="#94A3B8" strokeWidth="1.5" strokeDasharray="4 2" />
+              <text x="265" y="24" fill="#94A3B8" fontSize="9.5" textAnchor="middle" fontFamily="monospace" fontWeight="600">
+                Extreme Compression Fiber (Top Concrete Surface)
+              </text>
+
+              {/* Rebar Short Span Main Bars (Bottom Outer Layer ϕx) */}
+              {[125, 175, 225, 275, 325, 375, 415].map((cx, idx) => (
+                <g key={idx}>
+                  <circle cx={cx} cy="151" r="8" fill="#0284C7" stroke="#38BDF8" strokeWidth="1.5" />
+                  <circle cx={cx} cy="151" r="2.5" fill="#BAE6FD" />
+                </g>
+              ))}
+
+              {/* Rebar Long Span Distribution Bars (Upper Layer ϕy, resting on ϕx) */}
+              {[125, 175, 225, 275, 325, 375, 415].map((cx, idx) => (
+                <g key={idx}>
+                  <circle cx={cx} cy="135" r="7" fill="#7C3AED" stroke="#A78BFA" strokeWidth="1.5" />
+                  <circle cx={cx} cy="135" r="2" fill="#DDD6FE" />
+                </g>
+              ))}
+
+              {/* Dimension: Total Depth D (on left) */}
+              <line x1="58" y1="32" x2="58" y2="167" stroke="#FCD34D" strokeWidth="1.5" markerStart="url(#sed_arr-sa)" markerEnd="url(#sed_arr-a)" />
+              <line x1="48" y1="32" x2="68" y2="32" stroke="#FCD34D" strokeWidth="1" />
+              <line x1="48" y1="167" x2="68" y2="167" stroke="#FCD34D" strokeWidth="1" />
+              <text x="48" y="104" fill="#FCD34D" fontSize="11" textAnchor="middle" fontFamily="monospace" fontWeight="bold" transform="rotate(-90 48 104)">
+                D = {D} mm
+              </text>
+
+              {/* Dimension: Nominal Clear Cover cnom (at bottom) */}
+              <line x1="80" y1="167" x2="80" y2="159" stroke="#34D399" strokeWidth="1.5" markerStart="url(#sed_arr-sg)" markerEnd="url(#sed_arr-g)" />
+              <line x1="75" y1="159" x2="115" y2="159" stroke="#34D399" strokeWidth="1" strokeDasharray="2 2" />
+              <text x="76" y="190" fill="#34D399" fontSize="9.5" textAnchor="start" fontFamily="monospace" fontWeight="bold">
+                cnom = {cnom} mm Cover
+              </text>
+
+              {/* Dimension: Short Span Effective Depth dx (to centroid of ϕx) */}
+              <line x1="465" y1="32" x2="465" y2="151" stroke="#38BDF8" strokeWidth="1.5" markerStart="url(#sed_arr-sc)" markerEnd="url(#sed_arr-c)" />
+              <line x1="415" y1="151" x2="475" y2="151" stroke="#38BDF8" strokeWidth="1" strokeDasharray="2 2" />
+              <line x1="455" y1="32" x2="475" y2="32" stroke="#38BDF8" strokeWidth="1" />
+              <rect x="470" y="85" width="65" height="18" fill="#0C2033" stroke="#38BDF8" strokeWidth="1" rx="4" />
+              <text x="502" y="98" fill="#38BDF8" fontSize="10" textAnchor="middle" fontFamily="monospace" fontWeight="bold">
+                dx = {dx} mm
+              </text>
+
+              {/* Dimension: Long Span Effective Depth dy (to centroid of ϕy) */}
+              <line x1="450" y1="32" x2="450" y2="135" stroke="#A78BFA" strokeWidth="1.5" markerStart="url(#sed_arr-sp)" markerEnd="url(#sed_arr-p)" />
+              <line x1="415" y1="135" x2="458" y2="135" stroke="#A78BFA" strokeWidth="1" strokeDasharray="2 2" />
+              <text x="445" y="75" fill="#A78BFA" fontSize="9.5" textAnchor="end" fontFamily="monospace" fontWeight="bold">
+                dy = {dy} mm
+              </text>
+
+              {/* Bar Labels */}
+              {/* Leader for ϕx */}
+              <line x1="275" y1="155" x2="275" y2="185" stroke="#38BDF8" strokeWidth="1" />
+              <line x1="275" y1="185" x2="295" y2="185" stroke="#38BDF8" strokeWidth="1" />
+              <text x="300" y="189" fill="#38BDF8" fontSize="9.5" fontFamily="monospace">
+                ϕx = {barDiaX}mm (Short Span Outer Bars)
+              </text>
+
+              {/* Leader for ϕy */}
+              <line x1="325" y1="135" x2="350" y2="115" stroke="#A78BFA" strokeWidth="1" />
+              <line x1="350" y1="115" x2="385" y2="115" stroke="#A78BFA" strokeWidth="1" />
+              <text x="390" y="119" fill="#A78BFA" fontSize="9.5" fontFamily="monospace">
+                ϕy = {barDiaY}mm (Upper Layer)
+              </text>
+
+              {/* Bottom Summary Bar */}
+              <rect x="90" y="196" width="350" height="16" fill="#0C1A2E" stroke="#1E293B" rx="3" />
+              <text x="265" y="208" fill="#FCD34D" fontSize="9" textAnchor="middle" fontFamily="monospace">
+                dx = D − cnom − ϕx/2 = {D} − 20 − {barDiaX/2} = {dx} mm  |  dy = dx − 10 = {dy} mm
+              </text>
+            </svg>
+          );
+        })()}
+
+        {/* 2. SLAB ASPECT RATIO & YIELD LINES */}
+        {diagramKey === "slab_aspect_ratio" && (() => {
+          const { Lx = 3.0, Ly = 4.0, ratio = 1.33, oneWay = false, isCantilever = false } = diagData;
+          return (
+            <svg viewBox="0 0 540 185" className="w-full h-auto min-w-[500px] max-h-[190px]">
+              {renderDefs("sar_")}
+              {/* Panel Outline */}
+              <rect x="130" y="32" width="280" height="115" fill="#0E1A29" stroke="#38BDF8" strokeWidth="2" rx="3" />
+
+              {/* Yield Lines */}
+              {isCantilever ? (
+                <g>
+                  <line x1="130" y1="32" x2="130" y2="147" stroke="#EF4444" strokeWidth="3" />
+                  <text x="145" y="93" fill="#EF4444" fontSize="10" fontFamily="monospace" fontWeight="bold">Hogging Support Line</text>
+                </g>
+              ) : oneWay ? (
+                <g>
+                  <line x1="270" y1="32" x2="270" y2="147" stroke="#FCD34D" strokeWidth="1.5" strokeDasharray="4 2" />
+                  <text x="270" y="93" fill="#FCD34D" fontSize="10" textAnchor="middle" fontFamily="monospace">Uniaxial Cylindrical Bending across Lx</text>
+                </g>
+              ) : (
+                <g>
+                  {/* Trapezoidal & Triangular fracture lines at 45 deg */}
+                  <line x1="130" y1="32" x2="185" y2="89.5" stroke="#FCD34D" strokeWidth="1.5" strokeDasharray="3 2" />
+                  <line x1="130" y1="147" x2="185" y2="89.5" stroke="#FCD34D" strokeWidth="1.5" strokeDasharray="3 2" />
+                  <line x1="410" y1="32" x2="355" y2="89.5" stroke="#FCD34D" strokeWidth="1.5" strokeDasharray="3 2" />
+                  <line x1="410" y1="147" x2="355" y2="89.5" stroke="#FCD34D" strokeWidth="1.5" strokeDasharray="3 2" />
+                  <line x1="185" y1="89.5" x2="355" y2="89.5" stroke="#FCD34D" strokeWidth="2" />
+                  <polygon points="130,32 185,89.5 355,89.5 410,32" fill="#FCD34D" opacity="0.08" />
+                  <polygon points="130,147 185,89.5 355,89.5 410,147" fill="#FCD34D" opacity="0.08" />
+                  <text x="270" y="85" fill="#FCD34D" fontSize="9.5" textAnchor="middle" fontFamily="monospace" fontWeight="bold">
+                    45° Yield Lines (Biaxial Dish Bending)
+                  </text>
+                </g>
+              )}
+
+              {/* Dimension Lx (Top) */}
+              <line x1="130" y1="20" x2="410" y2="20" stroke="#38BDF8" strokeWidth="1.5" markerStart="url(#sar_arr-sc)" markerEnd="url(#sar_arr-c)" />
+              <text x="270" y="14" fill="#38BDF8" fontSize="10.5" textAnchor="middle" fontFamily="monospace" fontWeight="bold">
+                Short Span Lx = {Number(Lx).toFixed(2)} m
+              </text>
+
+              {/* Dimension Ly (Left) */}
+              <line x1="112" y1="32" x2="112" y2="147" stroke="#34D399" strokeWidth="1.5" markerStart="url(#sar_arr-sg)" markerEnd="url(#sar_arr-g)" />
+              <text x="102" y="93" fill="#34D399" fontSize="10.5" textAnchor="middle" fontFamily="monospace" fontWeight="bold" transform="rotate(-90 102 93)">
+                Ly = {Number(Ly).toFixed(2)} m
+              </text>
+
+              {/* Aspect Ratio Badge at Bottom */}
+              <rect x="130" y="157" width="280" height="20" fill="#0B1420" stroke="#1E293B" rx="4" />
+              <text x="270" y="171" fill="#FCD34D" fontSize="10" textAnchor="middle" fontFamily="monospace" fontWeight="bold">
+                r = Ly / Lx = {Number(ratio).toFixed(2)} {oneWay ? "(> 2.0 → One-Way Slab)" : "(≤ 2.0 → Two-Way Slab Panel)"}
+              </text>
+            </svg>
+          );
+        })()}
+
+        {/* 3. SLAB LOADS */}
+        {diagramKey === "slab_loads" && (() => {
+          const { D = 125, finish = 1.0, selfWt = 3.13, wu = 9.20 } = diagData;
+          return (
+            <svg viewBox="0 0 540 175" className="w-full h-auto min-w-[500px] max-h-[180px]">
+              {renderDefs("sl_")}
+              {/* Load Vectors from top */}
+              {[150, 210, 270, 330, 390].map((x, i) => (
+                <line key={i} x1={x} y1="12" x2={x} y2="40" stroke="#FCD34D" strokeWidth="1.5" markerEnd="url(#sl_arr-a)" />
+              ))}
+              <text x="270" y="10" fill="#FCD34D" fontSize="9.5" textAnchor="middle" fontFamily="monospace" fontWeight="bold">
+                Live Load (w_live) + Tile & Screed Finish (w_finish = {num(finish)} kN/m²)
+              </text>
+
+              {/* Finish Layer */}
+              <rect x="100" y="44" width="340" height="14" fill="#1E293B" stroke="#38BDF8" strokeWidth="1" />
+              <text x="270" y="54" fill="#38BDF8" fontSize="8.5" textAnchor="middle" fontFamily="monospace">
+                Floor Finish (Tiles, Screed, Ceiling Plaster)
+              </text>
+
+              {/* RCC Slab Depth D */}
+              <rect x="100" y="58" width="340" height="70" fill="url(#sl_concHatch)" stroke="#334155" strokeWidth="1.5" />
+              <text x="270" y="95" fill="#94A3B8" fontSize="10" textAnchor="middle" fontFamily="monospace">
+                RCC Slab Stem: γc · D = 25 × {D}/1000 = {num(selfWt)} kN/m²
+              </text>
+
+              {/* Dimension D */}
+              <line x1="82" y1="58" x2="82" y2="128" stroke="#34D399" strokeWidth="1.5" markerStart="url(#sl_arr-sg)" markerEnd="url(#sl_arr-g)" />
+              <text x="72" y="97" fill="#34D399" fontSize="10" textAnchor="middle" fontFamily="monospace" fontWeight="bold" transform="rotate(-90 72 97)">
+                D = {D}mm
+              </text>
+
+              {/* Bottom Result Banner */}
+              <rect x="100" y="140" width="340" height="24" fill="#102235" stroke="#38BDF8" strokeWidth="1" rx="4" />
+              <text x="270" y="156" fill="#38BDF8" fontSize="10" textAnchor="middle" fontFamily="monospace" fontWeight="bold">
+                Total Factored Design Load wu = 1.50 × (DL + LL) = {num(wu)} kN/m²
+              </text>
+            </svg>
+          );
+        })()}
+
+        {/* 4. SLAB BENDING MOMENT */}
+        {diagramKey === "slab_moment" && (() => {
+          const { Lx = 3.0, Mx = 8.5, My = 6.2, isCantilever = false } = diagData;
+          return (
+            <svg viewBox="0 0 540 175" className="w-full h-auto min-w-[500px] max-h-[180px]">
+              {renderDefs("sm_")}
+              {/* Span Baseline */}
+              <line x1="90" y1="50" x2="450" y2="50" stroke="#475569" strokeWidth="2" />
+              {/* Supports */}
+              <polygon points="80,50 100,50 90,65" fill="#38BDF8" />
+              <polygon points="440,50 460,50 450,65" fill="#38BDF8" />
+
+              {/* Parabolic Bending Moment Curve */}
+              {isCantilever ? (
+                <path d="M 90 50 Q 270 120 450 50" fill="none" stroke="#EF4444" strokeWidth="2" strokeDasharray="3 3" />
+              ) : (
+                <path d="M 90 50 Q 270 135 450 50" fill="#38BDF8" fillOpacity="0.08" stroke="#38BDF8" strokeWidth="2" />
+              )}
+
+              {/* Midspan Moment Arrow and Tag */}
+              <line x1="270" y1="50" x2="270" y2="92" stroke="#FCD34D" strokeWidth="1.5" markerEnd="url(#sm_arr-a)" />
+              <rect x="200" y="100" width="140" height="22" fill="#0F172A" stroke="#FCD34D" strokeWidth="1" rx="4" />
+              <text x="270" y="115" fill="#FCD34D" fontSize="10" textAnchor="middle" fontFamily="monospace" fontWeight="bold">
+                Mux = {num(Mx)} kNm/m
+              </text>
+              {Number(My) > 0 && (
+                <text x="270" y="138" fill="#A78BFA" fontSize="9" textAnchor="middle" fontFamily="monospace">
+                  Long Span Muy = {num(My)} kNm/m
+                </text>
+              )}
+
+              <text x="270" y="38" fill="#94A3B8" fontSize="9.5" textAnchor="middle" fontFamily="monospace">
+                Span Lx = {Number(Lx).toFixed(2)} m (Tension on Bottom Face)
+              </text>
+            </svg>
+          );
+        })()}
+
+        {/* 5. LIMITING MOMENT & STRESS BLOCK (SLAB & BEAM) */}
+        {(diagramKey === "slab_limiting_moment" || diagramKey === "beam_limiting_moment") && (() => {
+          const { dx = 105, d = 260, Mulim = 15.2, Mx = 10, Mu = 12 } = diagData;
+          const effD = dx || d;
+          return (
+            <svg viewBox="0 0 540 185" className="w-full h-auto min-w-[500px] max-h-[190px]">
+              {renderDefs("mb_")}
+              {/* Section cross-section */}
+              <rect x="60" y="25" width="80" height="120" fill="url(#mb_concHatch)" stroke="#475569" strokeWidth="1.5" />
+              <line x1="50" y1="75" x2="480" y2="75" stroke="#94A3B8" strokeWidth="1" strokeDasharray="3 3" />
+              <text x="145" y="72" fill="#94A3B8" fontSize="9" fontFamily="monospace">Neutral Axis (xu,max = 0.46 d)</text>
+
+              {/* Stress Block Profile */}
+              <rect x="220" y="25" width="90" height="30" fill="#EF4444" fillOpacity="0.25" stroke="#EF4444" strokeWidth="1.5" />
+              <path d="M 220 55 Q 310 55 310 75 L 220 75 Z" fill="#EF4444" fillOpacity="0.15" stroke="#EF4444" strokeWidth="1.5" />
+              <text x="320" y="42" fill="#EF4444" fontSize="9" fontFamily="monospace">0.36 fck b (Rectangular)</text>
+              <text x="320" y="68" fill="#EF4444" fontSize="9" fontFamily="monospace">Parabolic</text>
+
+              {/* Internal Forces Couple */}
+              <line x1="265" y1="45" x2="370" y2="45" stroke="#38BDF8" strokeWidth="2" markerEnd="url(#mb_arr-c)" />
+              <text x="380" y="49" fill="#38BDF8" fontSize="9.5" fontFamily="monospace" fontWeight="bold">C = 0.36 fck b xu</text>
+
+              <line x1="370" y1="130" x2="265" y2="130" stroke="#34D399" strokeWidth="2" markerEnd="url(#mb_arr-g)" />
+              <text x="380" y="134" fill="#34D399" fontSize="9.5" fontFamily="monospace" fontWeight="bold">T = 0.87 fy Ast</text>
+
+              {/* Lever Arm z */}
+              <line x1="240" y1="45" x2="240" y2="130" stroke="#FCD34D" strokeWidth="1.5" markerStart="url(#mb_arr-sa)" markerEnd="url(#mb_arr-a)" />
+              <text x="232" y="90" fill="#FCD34D" fontSize="9" textAnchor="end" fontFamily="monospace">z = d − 0.42xu</text>
+
+              {/* Capacity Banner */}
+              <rect x="60" y="155" width="420" height="20" fill="#0C1A2E" stroke="#1E293B" rx="3" />
+              <text x="270" y="169" fill="#34D399" fontSize="9.5" textAnchor="middle" fontFamily="monospace" fontWeight="bold">
+                Mu,lim = 0.138 · fck · b · d² = {num(Mulim)} kNm ≥ Mu = {num(Mx || Mu)} kNm (PASS — Ductile Failure)
+              </text>
+            </svg>
+          );
+        })()}
+
+        {/* 6. SLAB TENSILE STEEL & REBAR SPACING */}
+        {diagramKey === "slab_tensile_steel" && (() => {
+          const { dx = 105, barDiaX = 10, spacingX = 150, astProvX = 523 } = diagData;
+          return (
+            <svg viewBox="0 0 540 175" className="w-full h-auto min-w-[500px] max-h-[180px]">
+              {renderDefs("sts_")}
+              {/* Strip Width 1000mm */}
+              <rect x="70" y="35" width="400" height="95" fill="url(#sts_concHatch)" stroke="#334155" strokeWidth="1.5" rx="3" />
+
+              {/* Rebar Circles spaced at spacingX */}
+              {[110, 175, 240, 305, 370, 435].map((cx, i) => (
+                <g key={i}>
+                  <circle cx={cx} cy="105" r="7.5" fill="#0284C7" stroke="#38BDF8" strokeWidth="1.5" />
+                  <circle cx={cx} cy="105" r="2.5" fill="#BAE6FD" />
+                </g>
+              ))}
+
+              {/* Spacing Dimension sx */}
+              <line x1="240" y1="105" x2="305" y2="105" stroke="#FCD34D" strokeWidth="1.5" markerStart="url(#sts_arr-sa)" markerEnd="url(#sts_arr-a)" />
+              <text x="272" y="95" fill="#FCD34D" fontSize="10" textAnchor="middle" fontFamily="monospace" fontWeight="bold">
+                sx = {spacingX} mm c/c
+              </text>
+
+              {/* 1000mm Strip Width Label */}
+              <line x1="70" y1="20" x2="470" y2="20" stroke="#38BDF8" strokeWidth="1.5" markerStart="url(#sts_arr-sc)" markerEnd="url(#sts_arr-c)" />
+              <text x="270" y="14" fill="#38BDF8" fontSize="10" textAnchor="middle" fontFamily="monospace" fontWeight="bold">
+                Unit Strip Width b = 1000 mm (1.0 meter)
+              </text>
+
+              {/* Bottom Result Pill */}
+              <rect x="70" y="140" width="400" height="24" fill="#0B1626" stroke="#38BDF8" strokeWidth="1" rx="4" />
+              <text x="270" y="156" fill="#38BDF8" fontSize="10" textAnchor="middle" fontFamily="monospace" fontWeight="bold">
+                Provide {barDiaX}ϕ @ {spacingX} mm c/c (Ast,prov = {astProvX} mm²/m, dx = {dx}mm)
+              </text>
+            </svg>
+          );
+        })()}
+
+        {/* 7. SLAB DISTRIBUTION STEEL MESH */}
+        {diagramKey === "slab_distribution_steel" && (() => {
+          const { barDiaY = 8, spacingY = 180, astProvY = 279 } = diagData;
+          return (
+            <svg viewBox="0 0 540 175" className="w-full h-auto min-w-[500px] max-h-[180px]">
+              {renderDefs("sds_")}
+              {/* Mesh Area */}
+              <rect x="100" y="20" width="340" height="110" fill="#08101C" stroke="#334155" strokeWidth="1.5" rx="3" />
+
+              {/* Vertical Short Span Bars */}
+              {[130, 180, 230, 280, 330, 380, 415].map((x, i) => (
+                <line key={i} x1={x} y1="20" x2={x} y2="130" stroke="#38BDF8" strokeWidth="2" />
+              ))}
+
+              {/* Horizontal Long Span Distribution Bars */}
+              {[38, 65, 92, 118].map((y, i) => (
+                <line key={i} x1="100" y1={y} x2="440" y2={y} stroke="#A78BFA" strokeWidth="1.8" />
+              ))}
+
+              {/* Callouts */}
+              <text x="450" y="65" fill="#A78BFA" fontSize="9.5" fontFamily="monospace" fontWeight="bold">
+                Distribution Bars ϕy @ {spacingY}mm c/c
+              </text>
+              <text x="280" y="145" fill="#38BDF8" fontSize="9.5" textAnchor="middle" fontFamily="monospace" fontWeight="bold">
+                Main Bars ϕx
+              </text>
+
+              {/* Result Pill */}
+              <rect x="100" y="148" width="340" height="20" fill="#0F172A" stroke="#1E293B" rx="4" />
+              <text x="270" y="162" fill="#34D399" fontSize="9.5" textAnchor="middle" fontFamily="monospace">
+                Secondary Steel: {barDiaY}ϕ @ {spacingY} mm c/c ({astProvY} mm²/m)
+              </text>
+            </svg>
+          );
+        })()}
+
+        {/* 8. SLAB & BEAM SHEAR STRESS */}
+        {(diagramKey === "slab_shear" || diagramKey === "beam_shear_stress") && (() => {
+          const { dx = 105, d = 260, tauV = 0.25, tauC = 0.36, Vu = 15 } = diagData;
+          const effD = dx || d;
+          return (
+            <svg viewBox="0 0 540 175" className="w-full h-auto min-w-[500px] max-h-[180px]">
+              {renderDefs("shr_")}
+              {/* Support column on left */}
+              <rect x="50" y="20" width="80" height="120" fill="#1E293B" stroke="#475569" strokeWidth="1.5" />
+              <text x="90" y="85" fill="#94A3B8" fontSize="10" textAnchor="middle" fontFamily="monospace">Support</text>
+
+              {/* Beam/Slab stem extending to right */}
+              <rect x="130" y="20" width="340" height="90" fill="url(#shr_concHatch)" stroke="#334155" strokeWidth="1.5" />
+
+              {/* 45 degree shear plane at distance d */}
+              <line x1="200" y1="20" x2="200" y2="110" stroke="#FCD34D" strokeWidth="1.5" strokeDasharray="3 3" />
+              <line x1="130" y1="110" x2="200" y2="20" stroke="#EF4444" strokeWidth="2.5" />
+              <text x="205" y="65" fill="#EF4444" fontSize="9" fontFamily="monospace" fontWeight="bold">Critical 45° Shear Crack</text>
+
+              {/* Distance d from support face */}
+              <line x1="130" y1="125" x2="200" y2="125" stroke="#38BDF8" strokeWidth="1.5" markerStart="url(#shr_arr-sc)" markerEnd="url(#shr_arr-c)" />
+              <text x="165" y="138" fill="#38BDF8" fontSize="9.5" textAnchor="middle" fontFamily="monospace">d = {effD}mm</text>
+
+              {/* Shear Stress Comparison Box */}
+              <rect x="270" y="40" width="190" height="50" fill="#0C1A2E" stroke="#34D399" strokeWidth="1" rx="4" />
+              <text x="365" y="58" fill="#34D399" fontSize="10" textAnchor="middle" fontFamily="monospace" fontWeight="bold">
+                τv = {num(tauV, 3)} N/mm²
+              </text>
+              <text x="365" y="78" fill="#94A3B8" fontSize="9" textAnchor="middle" fontFamily="monospace">
+                ≤ τc = {num(tauC, 3)} N/mm² (Safe in Shear)
+              </text>
+            </svg>
+          );
+        })()}
+
+        {/* 9. DEFLECTION SERVICEABILITY (SLAB & BEAM) */}
+        {(diagramKey === "slab_deflection" || diagramKey === "beam_anchorage") && (() => {
+          const { Lx, Leff = 3.5, d = 260, LdActual = 15.2, LdAllow = 26, Ld = 750, barDia = 16 } = diagData;
+          const span = Lx || Leff;
+          return (
+            <svg viewBox="0 0 540 175" className="w-full h-auto min-w-[500px] max-h-[180px]">
+              {renderDefs("def_")}
+              {/* Span Curve */}
+              <line x1="80" y1="50" x2="460" y2="50" stroke="#334155" strokeWidth="2" />
+              <polygon points="70,50 90,50 80,65" fill="#38BDF8" />
+              <polygon points="450,50 470,50 460,65" fill="#38BDF8" />
+
+              {/* Exaggerated Sag Curve */}
+              <path d="M 80 50 Q 270 105 460 50" fill="none" stroke="#FCD34D" strokeWidth="2" strokeDasharray="4 2" />
+
+              {/* Center sag arrow */}
+              <line x1="270" y1="50" x2="270" y2="78" stroke="#38BDF8" strokeWidth="1.5" markerEnd="url(#def_arr-c)" />
+              <text x="270" y="93" fill="#FCD34D" fontSize="9.5" textAnchor="middle" fontFamily="monospace" fontWeight="bold">
+                Elastic Deflection Sag δ &lt; Span / 350
+              </text>
+
+              {/* Dimension span */}
+              <text x="270" y="42" fill="#94A3B8" fontSize="9.5" textAnchor="middle" fontFamily="monospace">
+                Effective Span L = {Number(span).toFixed(2)} m · d = {d} mm
+              </text>
+
+              {/* Check Box */}
+              <rect x="100" y="115" width="340" height="42" fill="#0C1A2E" stroke="#34D399" strokeWidth="1" rx="4" />
+              <text x="270" y="132" fill="#34D399" fontSize="10" textAnchor="middle" fontFamily="monospace" fontWeight="bold">
+                (L/d)_actual = {num(LdActual, 1)} ≤ (L/d)_allow = {LdAllow} (PASS)
+              </text>
+              {Ld && (
+                <text x="270" y="148" fill="#FCD34D" fontSize="9" textAnchor="middle" fontFamily="monospace">
+                  Anchorage Development Length Ld = 47ϕ = {Ld} mm into support
+                </text>
+              )}
+            </svg>
+          );
+        })()}
+
+        {/* 10. SLAB REACTIONS ON SUPPORTING BEAMS */}
+        {diagramKey === "slab_reactions" && (() => {
+          const { Rlong = 12.5, Rshort = 8.2 } = diagData;
+          return (
+            <svg viewBox="0 0 540 185" className="w-full h-auto min-w-[500px] max-h-[190px]">
+              {renderDefs("sr_")}
+              {/* Panel Area */}
+              <rect x="130" y="35" width="280" height="110" fill="#0A1322" stroke="#38BDF8" strokeWidth="2" rx="3" />
+
+              {/* Trapezoidal reaction arrows on Top & Bottom Long Beams */}
+              {[170, 220, 270, 320, 370].map((x, i) => (
+                <line key={i} x1={x} y1="28" x2={x} y2="10" stroke="#FCD34D" strokeWidth="1.5" markerEnd="url(#sr_arr-a)" />
+              ))}
+              <text x="270" y="8" fill="#FCD34D" fontSize="9.5" textAnchor="middle" fontFamily="monospace" fontWeight="bold">
+                Long Supporting Beam Reaction R_long = {num(Rlong)} kN/m (Trapezoidal)
+              </text>
+
+              {/* Triangular reaction arrows on Left & Right Short Beams */}
+              <line x1="120" y1="90" x2="100" y2="90" stroke="#34D399" strokeWidth="1.5" markerEnd="url(#sr_arr-g)" />
+              <text x="92" y="93" fill="#34D399" fontSize="9" textAnchor="end" fontFamily="monospace" fontWeight="bold">
+                R_short = {num(Rshort)} kN/m
+              </text>
+
+              <line x1="420" y1="90" x2="440" y2="90" stroke="#34D399" strokeWidth="1.5" markerEnd="url(#sr_arr-g)" />
+              <text x="448" y="93" fill="#34D399" fontSize="9" textAnchor="start" fontFamily="monospace" fontWeight="bold">
+                R_short = {num(Rshort)} kN/m
+              </text>
+
+              {/* Fracture lines */}
+              <line x1="130" y1="35" x2="185" y2="90" stroke="#475569" strokeWidth="1" strokeDasharray="2 2" />
+              <line x1="130" y1="145" x2="185" y2="90" stroke="#475569" strokeWidth="1" strokeDasharray="2 2" />
+              <line x1="410" y1="35" x2="355" y2="90" stroke="#475569" strokeWidth="1" strokeDasharray="2 2" />
+              <line x1="410" y1="145" x2="355" y2="90" stroke="#475569" strokeWidth="1" strokeDasharray="2 2" />
+              <line x1="185" y1="90" x2="355" y2="90" stroke="#475569" strokeWidth="1.5" />
+
+              <rect x="130" y="155" width="280" height="20" fill="#0C1A2E" stroke="#1E293B" rx="3" />
+              <text x="270" y="169" fill="#38BDF8" fontSize="9.5" textAnchor="middle" fontFamily="monospace">
+                Tributary load transferred to supporting perimeter framing beams
+              </text>
+            </svg>
+          );
+        })()}
+
+        {/* 11. BEAM EFFECTIVE SPAN & GEOMETRY */}
+        {diagramKey === "beam_effective_span" && (() => {
+          const { clearSpan = 3.5, supportWidth = 230, d = 260, Leff = 3.73 } = diagData;
+          return (
+            <svg viewBox="0 0 540 180" className="w-full h-auto min-w-[500px] max-h-[185px]">
+              {renderDefs("bes_")}
+              {/* Columns on Left and Right */}
+              <rect x="70" y="45" width="60" height="100" fill="#1B293C" stroke="#475569" strokeWidth="1.5" />
+              <text x="100" y="105" fill="#94A3B8" fontSize="9" textAnchor="middle" fontFamily="monospace">Column</text>
+              <rect x="410" y="45" width="60" height="100" fill="#1B293C" stroke="#475569" strokeWidth="1.5" />
+              <text x="440" y="105" fill="#94A3B8" fontSize="9" textAnchor="middle" fontFamily="monospace">Column</text>
+
+              {/* Beam Stem resting on columns */}
+              <rect x="70" y="45" width="400" height="40" fill="url(#bes_concHatch)" stroke="#38BDF8" strokeWidth="1.5" />
+
+              {/* Bearing Width w_support */}
+              <line x1="70" y1="35" x2="130" y2="35" stroke="#FCD34D" strokeWidth="1.5" markerStart="url(#bes_arr-sa)" markerEnd="url(#bes_arr-a)" />
+              <text x="100" y="27" fill="#FCD34D" fontSize="9" textAnchor="middle" fontFamily="monospace">w={supportWidth}mm</text>
+
+              {/* Clear Span Lclear */}
+              <line x1="130" y1="100" x2="410" y2="100" stroke="#38BDF8" strokeWidth="1.5" markerStart="url(#bes_arr-sc)" markerEnd="url(#bes_arr-c)" />
+              <text x="270" y="115" fill="#38BDF8" fontSize="10.5" textAnchor="middle" fontFamily="monospace" fontWeight="bold">
+                L_clear = {clearSpan} m (Face-to-Face)
+              </text>
+
+              {/* Effective Span Leff (C/C of bearings) */}
+              <line x1="100" y1="140" x2="440" y2="140" stroke="#34D399" strokeWidth="1.5" markerStart="url(#bes_arr-sg)" markerEnd="url(#bes_arr-g)" />
+              <line x1="100" y1="45" x2="100" y2="148" stroke="#34D399" strokeWidth="1" strokeDasharray="3 2" />
+              <line x1="440" y1="45" x2="440" y2="148" stroke="#34D399" strokeWidth="1" strokeDasharray="3 2" />
+              <text x="270" y="156" fill="#34D399" fontSize="10.5" textAnchor="middle" fontFamily="monospace" fontWeight="bold">
+                Leff = min(Lclear + d, Lclear + w) = {num(Leff)} m
+              </text>
+            </svg>
+          );
+        })()}
+
+        {/* 12. BEAM SECTION & SLENDERNESS */}
+        {diagramKey === "beam_section_slenderness" && (() => {
+          const { b = 200, D = 300, w_self = 1.5 } = diagData;
+          return (
+            <svg viewBox="0 0 540 180" className="w-full h-auto min-w-[500px] max-h-[185px]">
+              {renderDefs("bss_")}
+              {/* Beam Cross Section */}
+              <rect x="210" y="25" width="120" height="120" fill="url(#bss_concHatch)" stroke="#38BDF8" strokeWidth="2" rx="3" />
+
+              {/* Width b */}
+              <line x1="210" y1="160" x2="330" y2="160" stroke="#38BDF8" strokeWidth="1.5" markerStart="url(#bss_arr-sc)" markerEnd="url(#bss_arr-c)" />
+              <text x="270" y="173" fill="#38BDF8" fontSize="10" textAnchor="middle" fontFamily="monospace" fontWeight="bold">
+                Web Width b = {b} mm
+              </text>
+
+              {/* Depth D */}
+              <line x1="190" y1="25" x2="190" y2="145" stroke="#FCD34D" strokeWidth="1.5" markerStart="url(#bss_arr-sa)" markerEnd="url(#bss_arr-a)" />
+              <text x="180" y="90" fill="#FCD34D" fontSize="10.5" textAnchor="middle" fontFamily="monospace" fontWeight="bold" transform="rotate(-90 180 90)">
+                D = {D} mm
+              </text>
+
+              {/* Self-weight Callout */}
+              <text x="350" y="70" fill="#34D399" fontSize="10" fontFamily="monospace" fontWeight="bold">
+                w_self = (b/1000) × (D/1000) × 25
+              </text>
+              <text x="350" y="88" fill="#34D399" fontSize="10.5" fontFamily="monospace" fontWeight="bold">
+                = {num(w_self)} kN/m
+              </text>
+              <text x="350" y="110" fill="#94A3B8" fontSize="9" fontFamily="monospace">
+                Lateral Stability L/b ≤ 60 (Safe)
+              </text>
+            </svg>
+          );
+        })()}
+
+        {/* 13. BEAM WALL LOAD & ARCHING */}
+        {diagramKey === "beam_wall_load" && (() => {
+          const { wallHeight = 2.7, arching = true, M_wall = 6.8 } = diagData;
+          return (
+            <svg viewBox="0 0 540 185" className="w-full h-auto min-w-[500px] max-h-[190px]">
+              {renderDefs("bwl_")}
+              {/* Beam */}
+              <rect x="80" y="125" width="380" height="25" fill="#132338" stroke="#38BDF8" strokeWidth="1.5" />
+              <text x="270" y="142" fill="#38BDF8" fontSize="10" textAnchor="middle" fontFamily="monospace">RCC Beam Stem</text>
+
+              {/* Wall Section above */}
+              <rect x="80" y="25" width="380" height="100" fill="#0C1522" stroke="#475569" strokeWidth="1" strokeDasharray="3 3" />
+              <text x="95" y="42" fill="#94A3B8" fontSize="9" fontFamily="monospace">Wall Height H={wallHeight}m</text>
+
+              {arching ? (
+                <g>
+                  {/* 60 deg equilateral triangle */}
+                  <polygon points="80,125 460,125 270,30" fill="#FCD34D" fillOpacity="0.18" stroke="#FCD34D" strokeWidth="2" strokeDasharray="4 2" />
+                  <text x="270" y="80" fill="#FCD34D" fontSize="10" textAnchor="middle" fontFamily="monospace" fontWeight="bold">
+                    60° Masonry Arching Prism (Apex Load Relief)
+                  </text>
+                </g>
+              ) : (
+                <text x="270" y="80" fill="#FCD34D" fontSize="10" textAnchor="middle" fontFamily="monospace">
+                  Full Rectangular Masonry UDL (No Arching Relief)
+                </text>
+              )}
+
+              {/* Result Pill */}
+              <rect x="80" y="157" width="380" height="20" fill="#0B1420" stroke="#1E293B" rx="3" />
+              <text x="270" y="171" fill="#34D399" fontSize="9.5" textAnchor="middle" fontFamily="monospace">
+                Superimposed Partition Wall Moment M_wall = {num(M_wall)} kNm
+              </text>
+            </svg>
+          );
+        })()}
+
+        {/* 14. BEAM SLAB UDL & 15. BEAM MOMENT & SHEAR */}
+        {(diagramKey === "beam_slab_udl" || diagramKey === "beam_moment_shear") && (() => {
+          const { Mu = 35.2, Vu = 42.1 } = diagData;
+          return (
+            <svg viewBox="0 0 540 180" className="w-full h-auto min-w-[500px] max-h-[185px]">
+              {renderDefs("bms_")}
+              {/* BMD Curve */}
+              <text x="130" y="20" fill="#FCD34D" fontSize="10" textAnchor="middle" fontFamily="monospace" fontWeight="bold">
+                Bending Moment Diagram (BMD)
+              </text>
+              <line x1="30" y1="50" x2="230" y2="50" stroke="#475569" strokeWidth="1.5" />
+              <path d="M 30 50 Q 130 135 230 50" fill="#FCD34D" fillOpacity="0.12" stroke="#FCD34D" strokeWidth="2" />
+              <text x="130" y="105" fill="#FCD34D" fontSize="10" textAnchor="middle" fontFamily="monospace" fontWeight="bold">
+                Mu = {num(Mu)} kNm
+              </text>
+
+              {/* SFD Diagram */}
+              <text x="390" y="20" fill="#38BDF8" fontSize="10" textAnchor="middle" fontFamily="monospace" fontWeight="bold">
+                Shear Force Diagram (SFD)
+              </text>
+              <line x1="290" y1="80" x2="490" y2="80" stroke="#475569" strokeWidth="1.5" />
+              <polygon points="290,40 390,80 390,80 290,80" fill="#38BDF8" fillOpacity="0.15" stroke="#38BDF8" strokeWidth="1.5" />
+              <polygon points="390,80 490,120 490,80 390,80" fill="#38BDF8" fillOpacity="0.15" stroke="#38BDF8" strokeWidth="1.5" />
+              <text x="300" y="35" fill="#38BDF8" fontSize="9" fontFamily="monospace">+Vu = {num(Vu)} kN</text>
+              <text x="480" y="135" fill="#38BDF8" fontSize="9" textAnchor="end" fontFamily="monospace">−Vu = −{num(Vu)} kN</text>
+            </svg>
+          );
+        })()}
+
+        {/* 16. BEAM TENSILE STEEL CROSS-SECTION */}
+        {diagramKey === "beam_tensile_steel" && (() => {
+          const { b = 200, D = 300, d = 260, bars = { n: 3, dia: 16, area: 603 }, pt = 1.15 } = diagData;
+          const nBars = Number(bars.n) || 3;
+          const barDia = bars.dia || 16;
+          const barXs = Array.from({ length: nBars }, (_, i) => 220 + (i * 100) / Math.max(nBars - 1, 1));
+          return (
+            <svg viewBox="0 0 540 205" className="w-full h-auto min-w-[500px] max-h-[210px]">
+              {renderDefs("bts_")}
+              {/* Beam Cross Section */}
+              <rect x="195" y="25" width="150" height="145" fill="url(#bts_concHatch)" stroke="#38BDF8" strokeWidth="2" rx="3" />
+
+              {/* Stirrup loop */}
+              <rect x="210" y="40" width="120" height="115" fill="none" stroke="#FCD34D" strokeWidth="1.5" rx="3" />
+
+              {/* 2 Top Hanger Bars */}
+              <circle cx="225" cy="55" r="5" fill="#64748B" stroke="#94A3B8" strokeWidth="1.2" />
+              <circle cx="315" cy="55" r="5" fill="#64748B" stroke="#94A3B8" strokeWidth="1.2" />
+              <text x="270" y="58" fill="#94A3B8" fontSize="8" textAnchor="middle" fontFamily="monospace">2 Nos 10ϕ Hangers</text>
+
+              {/* Bottom Main Tensile Bars */}
+              {barXs.map((x, i) => (
+                <g key={i}>
+                  <circle cx={x} cy="140" r="7.5" fill="#0284C7" stroke="#38BDF8" strokeWidth="1.5" />
+                  <circle cx={x} cy="140" r="2.5" fill="#BAE6FD" />
+                </g>
+              ))}
+
+              {/* Width b */}
+              <line x1="195" y1="180" x2="345" y2="180" stroke="#38BDF8" strokeWidth="1.5" markerStart="url(#bts_arr-sc)" markerEnd="url(#bts_arr-c)" />
+              <text x="270" y="193" fill="#38BDF8" fontSize="10" textAnchor="middle" fontFamily="monospace" fontWeight="bold">
+                b = {b} mm
+              </text>
+
+              {/* Depth D */}
+              <line x1="175" y1="25" x2="175" y2="170" stroke="#FCD34D" strokeWidth="1.5" markerStart="url(#bts_arr-sa)" markerEnd="url(#bts_arr-a)" />
+              <text x="165" y="100" fill="#FCD34D" fontSize="10" textAnchor="middle" fontFamily="monospace" fontWeight="bold" transform="rotate(-90 165 100)">
+                D = {D} mm
+              </text>
+
+              {/* Effective Depth d */}
+              <line x1="365" y1="25" x2="365" y2="140" stroke="#34D399" strokeWidth="1.5" markerStart="url(#bts_arr-sg)" markerEnd="url(#bts_arr-g)" />
+              <text x="380" y="85" fill="#34D399" fontSize="10" fontFamily="monospace" fontWeight="bold">
+                d = {d} mm
+              </text>
+
+              {/* Steel Spec Card */}
+              <rect x="370" y="125" width="150" height="35" fill="#0B1726" stroke="#38BDF8" strokeWidth="1" rx="4" />
+              <text x="445" y="140" fill="#38BDF8" fontSize="9.5" textAnchor="middle" fontFamily="monospace" fontWeight="bold">
+                {nBars} × {barDia}ϕ Bottom ({num(bars.area, 0)} mm²)
+              </text>
+              <text x="445" y="154" fill="#FCD34D" fontSize="8.5" textAnchor="middle" fontFamily="monospace">
+                pt = {pt}% (Tension Steel)
+              </text>
+            </svg>
+          );
+        })()}
+
+        {/* 17. BEAM BOUNDS GAUGE */}
+        {diagramKey === "beam_bounds" && (() => {
+          const { AstMin = 180, AstMax = 2400, provArea = 603 } = diagData;
+          return (
+            <svg viewBox="0 0 540 140" className="w-full h-auto min-w-[500px] max-h-[145px]">
+              {renderDefs("bb_")}
+              {/* Gauge Bar */}
+              <rect x="80" y="45" width="380" height="24" fill="#0E1726" stroke="#334155" strokeWidth="1.5" rx="4" />
+              {/* Safe Green Zone */}
+              <rect x="130" y="45" width="280" height="24" fill="#10B981" fillOpacity="0.15" />
+
+              {/* Ast Min Tick */}
+              <line x1="130" y1="35" x2="130" y2="80" stroke="#EF4444" strokeWidth="2" />
+              <text x="130" y="30" fill="#EF4444" fontSize="9" textAnchor="middle" fontFamily="monospace">
+                Ast,min = {num(AstMin, 0)} mm²
+              </text>
+
+              {/* Ast Prov Tick */}
+              <line x1="240" y1="35" x2="240" y2="80" stroke="#34D399" strokeWidth="3" />
+              <text x="240" y="95" fill="#34D399" fontSize="10" textAnchor="middle" fontFamily="monospace" fontWeight="bold">
+                ▲ Ast,prov = {num(provArea, 0)} mm²
+              </text>
+
+              {/* Ast Max Tick */}
+              <line x1="410" y1="35" x2="410" y2="80" stroke="#EF4444" strokeWidth="2" />
+              <text x="410" y="30" fill="#EF4444" fontSize="9" textAnchor="middle" fontFamily="monospace">
+                Ast,max = {num(AstMax, 0)} mm²
+              </text>
+
+              <text x="270" y="125" fill="#94A3B8" fontSize="9.5" textAnchor="middle" fontFamily="monospace">
+                IS 456 Bounds Check: Ast,min ≤ Ast,prov ≤ Ast,max (Zero Congestion & Ductile)
+              </text>
+            </svg>
+          );
+        })()}
+
+        {/* 18. BEAM STIRRUPS DETAILS */}
+        {diagramKey === "beam_stirrups" && (() => {
+          const { sv = 150, dia = 8, legs = 2, Asv = 100.5 } = diagData;
+          return (
+            <svg viewBox="0 0 540 185" className="w-full h-auto min-w-[500px] max-h-[190px]">
+              {renderDefs("bst_")}
+              {/* Stirrup Cross Section */}
+              <rect x="70" y="25" width="110" height="130" fill="none" stroke="#FCD34D" strokeWidth="2" rx="4" />
+              <text x="125" y="15" fill="#FCD34D" fontSize="9.5" textAnchor="middle" fontFamily="monospace" fontWeight="bold">
+                {legs}-Legged {dia}ϕ Vertical Link
+              </text>
+
+              {/* Longitudinal Side View */}
+              <rect x="230" y="45" width="260" height="90" fill="url(#bst_concHatch)" stroke="#334155" strokeWidth="1.5" rx="3" />
+              {/* Multiple stirrups spaced at sv */}
+              {[250, 290, 330, 370, 410, 450].map((x, i) => (
+                <line key={i} x1={x} y1="48" x2={x} y2="132" stroke="#FCD34D" strokeWidth="2" />
+              ))}
+
+              {/* Pitch sv */}
+              <line x1="290" y1="35" x2="330" y2="35" stroke="#38BDF8" strokeWidth="1.5" markerStart="url(#bst_arr-sc)" markerEnd="url(#bst_arr-c)" />
+              <text x="310" y="27" fill="#38BDF8" fontSize="9.5" textAnchor="middle" fontFamily="monospace" fontWeight="bold">
+                sv = {sv} mm c/c
+              </text>
+
+              {/* Summary */}
+              <rect x="230" y="148" width="260" height="24" fill="#0B1420" stroke="#1E293B" rx="3" />
+              <text x="360" y="164" fill="#34D399" fontSize="9.5" textAnchor="middle" fontFamily="monospace" fontWeight="bold">
+                Provide {legs}-Legged {dia}ϕ Stirrups @ {sv} mm c/c (Asv={Asv}mm²)
+              </text>
+            </svg>
+          );
+        })()}
+
+        {/* 19. WALL GROSS, DEDUCTIONS, NET AREA & VOLUME */}
+        {(diagramKey === "wall_gross_area" || diagramKey === "wall_deductions" || diagramKey === "wall_net_area" || diagramKey === "wall_volume") && (() => {
+          const { length = 4.0, height = 3.0, grossArea = 12.0, netArea = 9.5, thickMM = 200, netVolume = 1.9 } = diagData;
+          return (
+            <svg viewBox="0 0 540 185" className="w-full h-auto min-w-[500px] max-h-[190px]">
+              {renderDefs("wga_")}
+              {/* Wall Elevation Bounding Box */}
+              <rect x="100" y="30" width="340" height="110" fill="#132133" stroke="#38BDF8" strokeWidth="2" rx="3" />
+
+              {/* Opening Deductions */}
+              <rect x="180" y="70" width="50" height="70" fill="#070D17" stroke="#EF4444" strokeWidth="1.5" strokeDasharray="3 2" />
+              <text x="205" y="110" fill="#EF4444" fontSize="8.5" textAnchor="middle" fontFamily="monospace">Door</text>
+
+              <rect x="280" y="55" width="60" height="45" fill="#070D17" stroke="#EF4444" strokeWidth="1.5" strokeDasharray="3 2" />
+              <text x="310" y="82" fill="#EF4444" fontSize="8.5" textAnchor="middle" fontFamily="monospace">Window</text>
+
+              {/* Length L */}
+              <line x1="100" y1="18" x2="440" y2="18" stroke="#FCD34D" strokeWidth="1.5" markerStart="url(#wga_arr-sa)" markerEnd="url(#wga_arr-a)" />
+              <text x="270" y="12" fill="#FCD34D" fontSize="10.5" textAnchor="middle" fontFamily="monospace" fontWeight="bold">
+                Length L = {length} m · Wall Thickness t = {thickMM} mm
+              </text>
+
+              {/* Height H */}
+              <line x1="82" y1="30" x2="82" y2="140" stroke="#34D399" strokeWidth="1.5" markerStart="url(#wga_arr-sg)" markerEnd="url(#wga_arr-g)" />
+              <text x="72" y="85" fill="#34D399" fontSize="10" textAnchor="middle" fontFamily="monospace" fontWeight="bold" transform="rotate(-90 72 85)">
+                H = {height} m
+              </text>
+
+              {/* Bottom Result */}
+              <rect x="100" y="152" width="340" height="22" fill="#0C1A2E" stroke="#1E293B" rx="3" />
+              <text x="270" y="167" fill="#38BDF8" fontSize="9.5" textAnchor="middle" fontFamily="monospace" fontWeight="bold">
+                Agross = {num(grossArea, 2)} m²  →  Anet = {num(netArea, 2)} m²  |  Vol = {num(netVolume, 2)} m³
+              </text>
+            </svg>
+          );
+        })()}
+
+        {/* 20. WALL BLOCK UNIT & WASTAGE */}
+        {(diagramKey === "wall_block_unit" || diagramKey === "wall_wastage") && (() => {
+          const { blockL = 300, blockH = 150, blockT = 200, tj = 10, yield: bYield = 33.6, unitsCount = 1420 } = diagData;
+          return (
+            <svg viewBox="0 0 540 175" className="w-full h-auto min-w-[500px] max-h-[180px]">
+              {renderDefs("wbu_")}
+              {/* Isometric/3D Block Representation */}
+              <rect x="120" y="45" width="180" height="90" fill="#1B293C" stroke="#FCD34D" strokeWidth="2" rx="2" />
+
+              {/* Mortar Joint Boundary tj */}
+              <rect x="110" y="35" width="200" height="110" fill="none" stroke="#38BDF8" strokeWidth="1" strokeDasharray="3 2" />
+              <text x="210" y="27" fill="#38BDF8" fontSize="9" textAnchor="middle" fontFamily="monospace">
+                10 mm Mortar Bedding & Perp Joints (tj = {tj}mm)
+              </text>
+
+              {/* Dimensions */}
+              <text x="210" y="95" fill="#FCD34D" fontSize="12" textAnchor="middle" fontFamily="monospace" fontWeight="bold">
+                {blockL} × {blockH} × {blockT} mm
+              </text>
+
+              {/* Callout Card */}
+              <rect x="330" y="45" width="160" height="90" fill="#0C1A2E" stroke="#34D399" strokeWidth="1" rx="4" />
+              <text x="410" y="68" fill="#34D399" fontSize="10" textAnchor="middle" fontFamily="monospace" fontWeight="bold">
+                Modular Yield Rate:
+              </text>
+              <text x="410" y="88" fill="#FCD34D" fontSize="12" textAnchor="middle" fontFamily="monospace" fontWeight="bold">
+                {num(bYield, 1)} blocks/m³
+              </text>
+              <text x="410" y="112" fill="#94A3B8" fontSize="9" textAnchor="middle" fontFamily="monospace">
+                Total with +5% Wastage:
+              </text>
+              <text x="410" y="126" fill="#38BDF8" fontSize="9.5" textAnchor="middle" fontFamily="monospace" fontWeight="bold">
+                {unitsCount?.toLocaleString?.() || unitsCount} Units
+              </text>
+            </svg>
+          );
+        })()}
+
+        {/* 21. WALL MORTAR & PLASTERING */}
+        {(diagramKey === "wall_mortar" || diagramKey === "wall_plaster") && (() => {
+          const { cementBags = 8, sandCFT = 42, thickMM = 200, totalPlasterArea = 24.5 } = diagData;
+          return (
+            <svg viewBox="0 0 540 175" className="w-full h-auto min-w-[500px] max-h-[180px]">
+              {renderDefs("wmp_")}
+              {/* Wall Section Layer Cake */}
+              {/* External Plaster 15mm */}
+              <rect x="120" y="35" width="20" height="100" fill="#F59E0B" fillOpacity="0.4" stroke="#F59E0B" strokeWidth="1" />
+              <text x="100" y="90" fill="#F59E0B" fontSize="9" textAnchor="end" fontFamily="monospace">15mm Ext (1:4)</text>
+
+              {/* Concrete Block 200mm */}
+              <rect x="140" y="35" width="160" height="100" fill="#132133" stroke="#38BDF8" strokeWidth="1.5" />
+              <text x="220" y="90" fill="#38BDF8" fontSize="11" textAnchor="middle" fontFamily="monospace" fontWeight="bold">
+                Blockwork Core ({thickMM}mm)
+              </text>
+
+              {/* Internal Plaster 12mm */}
+              <rect x="300" y="35" width="16" height="100" fill="#34D399" fillOpacity="0.4" stroke="#34D399" strokeWidth="1" />
+              <text x="325" y="90" fill="#34D399" fontSize="9" fontFamily="monospace">12mm Int (1:5)</text>
+
+              {/* Material Take-off card */}
+              <rect x="375" y="35" width="135" height="100" fill="#0C1A2E" stroke="#1E293B" rx="4" />
+              <text x="442" y="58" fill="#FCD34D" fontSize="9.5" textAnchor="middle" fontFamily="monospace" fontWeight="bold">
+                OPC 53 Cement:
+              </text>
+              <text x="442" y="74" fill="#FCD34D" fontSize="11" textAnchor="middle" fontFamily="monospace" fontWeight="bold">
+                {cementBags} Bags
+              </text>
+              <text x="442" y="98" fill="#38BDF8" fontSize="9.5" textAnchor="middle" fontFamily="monospace" fontWeight="bold">
+                M-Sand / Sand:
+              </text>
+              <text x="442" y="114" fill="#38BDF8" fontSize="11" textAnchor="middle" fontFamily="monospace" fontWeight="bold">
+                {num(sandCFT, 1)} CFT
+              </text>
+            </svg>
+          );
+        })()}
+
+        {/* 22. LINTEL STEPS (ARCHING, BEARING, REBAR) */}
+        {(diagramKey?.startsWith("lintel_")) && (() => {
+          const { clearSpan = 1.5, bearing = 150, Leff = 1.8, D = 150, d = 125, arching = true, bars = { n: 2, dia: 12 } } = diagData;
+          return (
+            <svg viewBox="0 0 540 185" className="w-full h-auto min-w-[500px] max-h-[190px]">
+              {renderDefs("lin_")}
+              {/* Lintel Beam */}
+              <rect x="80" y="90" width="380" height="28" fill="#132338" stroke="#38BDF8" strokeWidth="1.5" />
+              <text x="270" y="108" fill="#38BDF8" fontSize="9.5" textAnchor="middle" fontFamily="monospace" fontWeight="bold">
+                RCC Lintel Beam (D = {D}mm, d = {d}mm)
+              </text>
+
+              {/* Bearings on Left & Right */}
+              <rect x="80" y="90" width="40" height="28" fill="#1B2A3F" stroke="#34D399" strokeWidth="1" />
+              <text x="100" y="82" fill="#34D399" fontSize="8" textAnchor="middle" fontFamily="monospace">{bearing}mm</text>
+              <rect x="420" y="90" width="40" height="28" fill="#1B2A3F" stroke="#34D399" strokeWidth="1" />
+              <text x="440" y="82" fill="#34D399" fontSize="8" textAnchor="middle" fontFamily="monospace">{bearing}mm</text>
+
+              {/* Opening Cutout */}
+              <rect x="120" y="118" width="300" height="35" fill="#070E18" stroke="#475569" strokeWidth="1" strokeDasharray="2 2" />
+              <text x="270" y="140" fill="#FCD34D" fontSize="10" textAnchor="middle" fontFamily="monospace" fontWeight="bold">
+                Clear Opening Span = {clearSpan} m
+              </text>
+
+              {/* Arching triangle */}
+              {arching && (
+                <polygon points="80,90 460,90 270,25" fill="#FCD34D" fillOpacity="0.15" stroke="#FCD34D" strokeWidth="1.5" strokeDasharray="3 2" />
+              )}
+
+              {/* Bottom Result */}
+              <rect x="80" y="160" width="380" height="20" fill="#0B1420" stroke="#1E293B" rx="3" />
+              <text x="270" y="174" fill="#34D399" fontSize="9.5" textAnchor="middle" fontFamily="monospace">
+                Leff = {num(Leff)} m  ·  Reinforcement: {bars?.n || 2} Nos × {bars?.dia || 12}ϕ  ·  Stirrups: 2L-8ϕ @ 150mm c/c
+              </text>
+            </svg>
+          );
+        })()}
+      </div>
+    </div>
+  );
+}
+
+// =====================================================================
 // DETAILED ENGINEERING MATH & COMPONENT ESTIMATE AUDIT SUITE
 // =====================================================================
 function DetailedEngineeringMathAudit({
@@ -9936,7 +10946,6 @@ function DetailedEngineeringMathAudit({
                 </div>
               </div>
 
-              {/* Steps List */}
               <div className="space-y-4 pt-1">
                 {mathSteps.map((step, idx) => (
                   <div key={idx} className="bg-[#070D17] border border-[#1B2A3F] hover:border-[#2A3B52] rounded-xl p-4 space-y-3 transition shadow-sm">
@@ -10000,6 +11009,11 @@ function DetailedEngineeringMathAudit({
                       </div>
                     )}
 
+                    {/* Visual Structural Diagram with Variables Annotated */}
+                    {step.diagramKey && (
+                      <StepVariableDiagram step={step} item={activeItem} settings={settings} />
+                    )}
+
                     {/* Numerical Substitution Box */}
                     {(step.latexSub || step.sub) && (
                       <div className="bg-[#0B1420]/70 border border-[#1B2A3F]/60 rounded-xl p-3 space-y-1">
@@ -10052,7 +11066,7 @@ function DetailedEngineeringMathAudit({
 // =====================================================================
 // CALC SHEET MODAL
 // =====================================================================
-function CalcSheet({ title, steps, onClose }) {
+function CalcSheet({ title, steps, onClose, activeItem, settings }) {
   const [copied, setCopied] = useState(false);
 
   const handleCopyText = () => {
@@ -10137,6 +11151,11 @@ function CalcSheet({ title, steps, onClose }) {
                     ))}
                   </div>
                 </div>
+              )}
+
+              {/* Visual Structural Diagram with Variables Annotated in Modal */}
+              {s.diagramKey && (
+                <StepVariableDiagram step={s} />
               )}
 
               {(s.latexSub || s.sub) && (
