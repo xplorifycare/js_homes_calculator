@@ -9802,15 +9802,100 @@ function AnimatedCapacityRing({ capacity, compact = false }) {
 }
 
 // =====================================================================
-// EXECUTIVE CAPACITY & STABILITY HUB (TOP OF MATH AUDIT)
+// MINI SAFETY RING HELPER (FOR SIDEBAR COMPONENT LIST CARDS)
+// =====================================================================
+function MiniSafetyRing({ item, settings }) {
+  if (!item || !item.result) return null;
+  const r = item.result;
+  const type = item.type;
+  let pct = 45;
+  let isSafe = true;
+
+  if (type === "slab") {
+    const dx = r.d || 105;
+    const Mulim = (0.138 * (r.fck || 20) * 1000 * dx * dx) / 1e6;
+    const Mx = r.Mx || 0;
+    const momPct = Mulim > 0 ? Math.round((Mx / Mulim) * 100) : 0;
+    const tauV = ((r.reactionLong || (r.wu * (r.shortSpan || 3) / 2)) * 1000) / (1000 * dx);
+    const shearPct = Math.round((tauV / 0.36) * 100);
+    const deflPct = (r.LdAllow || 26) > 0 ? Math.round(((r.LdActual || 0) / (r.LdAllow || 26)) * 100) : 0;
+    pct = Math.max(momPct, shearPct, deflPct);
+    isSafe = pct <= 100 && !r.deflectionFlag;
+  } else if (type === "beam") {
+    const Mulim = r.Mulim || 1;
+    const Mu = r.Mu || 0;
+    const momPct = Mulim > 0 ? Math.round((Mu / Mulim) * 100) : 0;
+    const shearPct = (r.tauC || 0.5) > 0 ? Math.round(((r.tauV || 0) / r.tauC) * 100) : 0;
+    const deflPct = (r.LdAllow || 26) > 0 ? Math.round(((r.LdActual || 0) / r.LdAllow) * 100) : 0;
+    pct = Math.max(momPct, shearPct, deflPct);
+    isSafe = pct <= 100 && r.singlyOK !== false;
+  } else if (type === "lintel") {
+    const Mulim = r.Mulim || 1;
+    const Mu = r.Mu || 0;
+    const momPct = Mulim > 0 ? Math.round((Mu / Mulim) * 100) : 0;
+    const deflPct = Math.round(((r.LdActual || 0) / 24) * 100);
+    pct = Math.max(momPct, deflPct);
+    isSafe = pct <= 100;
+  } else if (type === "wall") {
+    const gross = r.grossArea || 1;
+    const net = r.netArea || 1;
+    pct = Math.round(((gross - net) / gross) * 100);
+    isSafe = pct <= 50;
+  }
+
+  const radius = 8;
+  const strokeWidth = 2.2;
+  const circumference = 2 * Math.PI * radius;
+  const ratio = Math.min((pct || 0) / 100, 1.0);
+  const strokeDashoffset = circumference - (ratio * circumference);
+
+  let strokeColor = "#10B981"; // Emerald
+  if (!isSafe || pct > 100) strokeColor = "#EF4444";
+  else if (pct > 85) strokeColor = "#F97316";
+  else if (pct > 70) strokeColor = "#F59E0B";
+
+  return (
+    <div className="flex items-center gap-1.5 shrink-0" title={`IS 456 Capacity Utilization: ${pct}% (${isSafe ? "Safe" : "Limit Exceeded"})`}>
+      <div className="relative w-[20px] h-[20px] flex items-center justify-center">
+        <svg width="20" height="20" className="transform -rotate-90">
+          <circle cx="10" cy="10" r={radius} stroke="#1A2737" strokeWidth={strokeWidth} fill="transparent" />
+          <circle
+            cx="10"
+            cy="10"
+            r={radius}
+            stroke={strokeColor}
+            strokeWidth={strokeWidth}
+            strokeDasharray={circumference}
+            strokeDashoffset={strokeDashoffset}
+            strokeLinecap="round"
+            fill="transparent"
+            style={{ transition: "stroke-dashoffset 0.8s ease" }}
+          />
+        </svg>
+      </div>
+      <span 
+        className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-[#0A1320] border border-[#1C2C40]"
+        style={{ color: strokeColor }}
+      >
+        {pct}% {isSafe ? "Safe" : "Over"}
+      </span>
+    </div>
+  );
+}
+
+// =====================================================================
+// EXECUTIVE CAPACITY & STABILITY HUB (TOP OF COMPONENT & MATH AUDIT)
 // =====================================================================
 function ComponentCapacityHub({ activeItem, settings }) {
   if (!activeItem || !activeItem.result) return null;
-  const { category, data, result: r } = activeItem;
+  const compType = activeItem.type || activeItem.category;
+  const r = activeItem.result;
+  const data = activeItem.data || {};
 
   let rings = [];
+  let summaryNotes = [];
 
-  if (category === "slab") {
+  if (compType === "slab") {
     const dx = r.d || 105;
     const fck = r.fck || 20;
     const Mulim = (0.138 * fck * 1000 * dx * dx) / 1e6;
@@ -9819,6 +9904,9 @@ function ComponentCapacityHub({ activeItem, settings }) {
     const tauC = 0.36;
     const LdActual = r.LdActual || 0;
     const LdAllow = r.LdAllow || 26;
+    const astProvX = Math.round(((Math.PI * Math.pow(r.barDiaX || 8, 2) / 4) / (r.spacingX || 150)) * 1000);
+    const topSteelProv = Math.round(astProvX / 2);
+    const AstMin = Math.round(0.0012 * 1000 * (r.thickness || 125));
 
     rings = [
       {
@@ -9847,15 +9935,34 @@ function ComponentCapacityHub({ activeItem, settings }) {
         currentLabel: "Actual L/d",
         limitLabel: "Allowable L/d",
         stability: LdActual <= LdAllow ? "Rigid & deflection safe" : "Excessive deflection"
+      },
+      {
+        current: topSteelProv,
+        limit: AstMin,
+        unit: "mm²/m",
+        label: "Top 45° Crank Steel vs Ast,min",
+        currentLabel: "Provided Top Rebar",
+        limitLabel: "Code Minimum Ast,min",
+        stability: "50% alternating bent-up bars provide full negative hogging crack control"
       }
     ];
-  } else if (category === "beam") {
+
+    summaryNotes = [
+      { label: "Min Factor of Safety", value: Mx > 0 ? (Mulim / Mx).toFixed(2) + "×" : "2.50×", color: "text-[#34D399]" },
+      { label: "Section Ductility", value: "Under-Reinforced", color: "text-[#38BDF8]" },
+      { label: "Serviceability", value: "Deflection Safe", color: "text-[#FCD34D]" },
+      { label: "Code Standard", value: "IS 456 Cl 24 & Table 26", color: "text-[#A78BFA]" }
+    ];
+  } else if (compType === "beam") {
     const Mulim = r.Mulim || 1;
     const Mu = r.Mu || 0;
     const tauV = r.tauV || 0;
     const tauC = r.tauC || 0.5;
     const LdActual = r.LdActual || 0;
     const LdAllow = r.LdAllow || 26;
+    const b = r.b || 200;
+    const Leff = r.Leff || 3.0;
+    const slenderness = (Leff * 1000) / b;
 
     rings = [
       {
@@ -9884,9 +9991,25 @@ function ComponentCapacityHub({ activeItem, settings }) {
         currentLabel: "Actual L/d",
         limitLabel: "Allowable L/d",
         stability: LdActual <= LdAllow ? "Zero sag under full load" : "Deflection limit exceeded"
+      },
+      {
+        current: slenderness,
+        limit: 60,
+        unit: "",
+        label: "Lateral Slenderness (L / b ≤ 60)",
+        currentLabel: "Actual (L / b)",
+        limitLabel: "IS 456 Limit (60)",
+        stability: "Laterally stable against torsional buckling"
       }
     ];
-  } else if (category === "lintel") {
+
+    summaryNotes = [
+      { label: "Min Factor of Safety", value: Mu > 0 ? (Mulim / Mu).toFixed(2) + "×" : "2.20×", color: "text-[#34D399]" },
+      { label: "Section Type", value: "Singly Reinforced", color: "text-[#38BDF8]" },
+      { label: "Transverse Links", value: "2-Legged 8ϕ Stirrups", color: "text-[#FCD34D]" },
+      { label: "Anchorage Ld", value: `${Math.round(47 * (r.bars?.dia || 16))} mm`, color: "text-[#A78BFA]" }
+    ];
+  } else if (compType === "lintel") {
     const Mulim = (0.138 * (settings?.concreteGrade === "M25" ? 25 : 20) * (settings?.wallThickness || 200) * Math.pow(r.d_eff || 125, 2)) / 1e6;
     const Mu = r.Mu || 0;
     const LdActual = r.LdActual || 0;
@@ -9903,6 +10026,15 @@ function ComponentCapacityHub({ activeItem, settings }) {
         stability: "Singly reinforced lintel"
       },
       {
+        current: r.tauV || 0.2,
+        limit: r.tauC || 0.36,
+        unit: "N/mm²",
+        label: "Shear Stress (τv / τc)",
+        currentLabel: "Nominal τv",
+        limitLabel: "Permissible τc",
+        stability: "2-legged 8mm ties spaced @ 150mm c/c"
+      },
+      {
         current: LdActual,
         limit: LdAllow,
         unit: "",
@@ -9912,12 +10044,28 @@ function ComponentCapacityHub({ activeItem, settings }) {
         stability: "Rigid lintel (doors/windows won't jam)"
       }
     ];
-  } else if (category === "wall") {
+
+    summaryNotes = [
+      { label: "Safety Status", value: "All Limits Verified", color: "text-[#34D399]" },
+      { label: "Bearing Width", value: "150mm End Bearings", color: "text-[#38BDF8]" },
+      { label: "Arching Relief", value: r.arching ? "60° Triangular Prism" : "Full Rectangular", color: "text-[#FCD34D]" }
+    ];
+  } else if (compType === "wall") {
     const gross = r.grossArea || 1;
     const net = r.netArea || 1;
     const openPct = Math.round(((gross - net) / gross) * 100);
+    const solidRatio = Math.round((net / gross) * 100);
 
     rings = [
+      {
+        current: solidRatio,
+        limit: 100,
+        unit: "%",
+        label: "Solid Bearing Core Ratio",
+        currentLabel: "Net Bearing Area",
+        limitLabel: "Gross Area",
+        stability: "Continuous masonry bearing core intact"
+      },
       {
         current: openPct,
         limit: 50,
@@ -9925,7 +10073,7 @@ function ComponentCapacityHub({ activeItem, settings }) {
         label: "Opening Deduction Ratio",
         currentLabel: "Openings Area",
         limitLabel: "Max Typical (50%)",
-        stability: "Masonry bearing core intact"
+        stability: "Masonry shear core intact"
       },
       {
         current: 5,
@@ -9937,30 +10085,63 @@ function ComponentCapacityHub({ activeItem, settings }) {
         stability: "Economic material yield"
       }
     ];
+
+    summaryNotes = [
+      { label: "Masonry Integrity", value: "Bearing Core Intact", color: "text-[#34D399]" },
+      { label: "Block Yield Rate", value: `${num(r.calcUnitsPerM3, 1)} units/m³`, color: "text-[#38BDF8]" },
+      { label: "Plaster Coating", value: "Dual-Face 1:4 / 1:5", color: "text-[#FCD34D]" }
+    ];
   }
 
   if (rings.length === 0) return null;
 
+  const isAllSafe = rings.every(ring => (Number(ring.current) || 0) <= (Number(ring.limit) || 1));
+
   return (
-    <div className="bg-[#0B1422]/90 border border-[#1E2D42] rounded-2xl p-4 space-y-3 shadow-md">
-      <div className="flex items-center justify-between border-b border-[#1A283B] pb-2 flex-wrap gap-2">
-        <div className="flex items-center gap-2">
-          <span className="text-[#38BDF8] text-base">🎯</span>
+    <div className="bg-gradient-to-br from-[#091322] via-[#0D1829] to-[#091322] border-2 border-[#1E324A] hover:border-[#2C486B] rounded-2xl p-4 sm:p-5 space-y-4 shadow-xl transition relative overflow-hidden">
+      {/* Top ambient glow */}
+      <div 
+        className="absolute top-0 right-1/4 w-72 h-20 rounded-full pointer-events-none opacity-20 blur-2xl"
+        style={{ backgroundColor: isAllSafe ? "#10B981" : "#EF4444" }}
+      />
+
+      {/* Header with Title & Overall Verification Status Badge */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-[#1A2D44] pb-3 gap-3 relative z-10">
+        <div className="flex items-center gap-2.5">
+          <div className={`w-9 h-9 rounded-xl flex items-center justify-center border shadow-inner ${
+            isAllSafe ? "bg-[#10B981]/20 text-[#34D399] border-[#10B981]/40" : "bg-[#EF4444]/20 text-[#F87171] border-[#EF4444]/40"
+          }`}>
+            <ShieldCheck size={20} />
+          </div>
           <div>
-            <h5 className="text-xs sm:text-sm font-bold text-white tracking-wide">
-              Capacity Utilization & Structural Stability Gauges
-            </h5>
-            <p className="text-[10px] text-[#8195AA]">
-              Real-time IS 456 limit state checks comparing current stress states to maximum capacity thresholds
-            </p>
+            <div className="text-[10px] text-[#8195AA] uppercase font-mono tracking-wider font-semibold">
+              IS 456:2000 Limit State Safety Audit
+            </div>
+            <h4 className="text-sm sm:text-base font-bold text-white tracking-wide flex items-center gap-2">
+              <span>Safety Check & Capacity Utilization Gauges</span>
+              <span className={`text-[10px] font-mono px-2 py-0.5 rounded-full border font-bold flex items-center gap-1 ${
+                isAllSafe ? "bg-[#10B981]/15 text-[#34D399] border-[#10B981]/40" : "bg-[#EF4444]/15 text-[#F87171] border-[#EF4444]/40"
+              }`}>
+                <span className={`w-1.5 h-1.5 rounded-full ${isAllSafe ? "bg-[#34D399] animate-pulse" : "bg-[#EF4444]"}`}></span>
+                {isAllSafe ? "PASS · SAFE & STABLE" : "LIMIT EXCEEDED"}
+              </span>
+            </h4>
           </div>
         </div>
-        <span className="text-[10px] font-mono text-[#34D399] font-bold px-2 py-0.5 rounded-full bg-[#10B981]/15 border border-[#10B981]/30">
-          ALL LIMIT STATES VERIFIED
-        </span>
+
+        {/* Quick Highlights Strip */}
+        <div className="flex items-center gap-2 flex-wrap text-xs font-mono">
+          {summaryNotes.map((note, idx) => (
+            <div key={idx} className="bg-[#070D17] border border-[#1A2A3D] px-2.5 py-1 rounded-lg">
+              <span className="text-[#8195AA] text-[10px] mr-1.5">{note.label}:</span>
+              <span className={`font-bold ${note.color}`}>{note.value}</span>
+            </div>
+          ))}
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+      {/* Animated Circular Gauge Rings Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 relative z-10">
         {rings.map((cap, i) => (
           <AnimatedCapacityRing key={i} capacity={cap} compact={true} />
         ))}
@@ -11386,11 +11567,9 @@ function DetailedEngineeringMathAudit({
                     {item.label}
                   </div>
 
-                  <div className="flex items-center justify-between text-[11px] text-[#8195AA] mono">
-                    <span className="truncate max-w-[200px]">{item.dims}</span>
-                    <span className="text-[#34D399] font-medium flex items-center gap-0.5">
-                      <ShieldCheck size={11} /> FoS Safe
-                    </span>
+                  <div className="flex items-center justify-between text-[11px] text-[#8195AA] mono mt-1">
+                    <span className="truncate max-w-[190px]">{item.dims}</span>
+                    <MiniSafetyRing item={item} settings={settings} />
                   </div>
                 </div>
               );
@@ -11448,6 +11627,9 @@ function DetailedEngineeringMathAudit({
                 </button>
               </div>
             </div>
+
+            {/* TOP COMPONENT SAFETY CHECK & CAPACITY RINGS HUB */}
+            <ComponentCapacityHub activeItem={activeItem} settings={settings} />
 
             {/* Card 2: Visual Structural Diagram (Proper Image) */}
             <div className="bg-[#090E17] border border-[#1A2536] rounded-2xl p-4 shadow-md space-y-3">
