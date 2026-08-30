@@ -8879,8 +8879,16 @@ function Stat({ label, value }) {
 }
 function TabBtn({ active, onClick, icon, children }) {
   return (
-    <button onClick={onClick} className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg border transition ${active ? "bg-[#132133] border-[#5CC8E0] text-[#5CC8E0] shadow-sm" : "border-[#1B2A3F] text-[#8195AA] hover:border-[#2A3B52] hover:text-[#E6EDF2]"}`}>
-      {icon} {children}
+    <button 
+      onClick={onClick} 
+      className={`relative flex items-center gap-2 px-3.5 py-2 text-xs md:text-sm font-medium rounded-xl border transition-all duration-150 select-none ${
+        active 
+          ? "bg-[#102235] border-[#5CC8E0] text-[#5CC8E0] shadow-[0_0_15px_rgba(92,200,224,0.22)] font-semibold" 
+          : "bg-[#0B1420]/80 border-[#1B2A3F] text-[#8195AA] hover:border-[#2A3B52] hover:text-[#F2F5F8] hover:bg-[#0F1B2B]"
+      }`}
+    >
+      <span className={active ? "text-[#5CC8E0]" : "text-[#64748B]"}>{icon}</span>
+      <span>{children}</span>
     </button>
   );
 }
@@ -10292,52 +10300,76 @@ export default function StructuralDesignSuite() {
   const rw = activeWall && wallResults[activeWall.id];
 
   return (
-    <div style={{ fontFamily: "'IBM Plex Sans', -apple-system, sans-serif" }} className="min-h-screen w-full bg-[#0B1420] text-[#E6EDF2] p-3 md:p-8">
+    <div style={{ fontFamily: "'IBM Plex Sans', -apple-system, sans-serif" }} className="min-h-screen w-full bg-[#070D17] text-[#E6EDF2] p-3 md:p-6 lg:p-8 selection:bg-[#5CC8E0]/30 selection:text-white">
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
         .mono { font-family: 'IBM Plex Mono', monospace; }
-        .input { width: 100%; background: #0B1420; border: 1px solid #2A3B52; border-radius: 6px; padding: 6px 10px; font-size: 13px; color: #E6EDF2; font-family: 'IBM Plex Mono', monospace; transition: border-color 0.2s; }
-        .input:focus { outline: none; border-color: #5CC8E0; }
-        .input-sm { width: 100%; background: #0B1420; border: 1px solid #2A3B52; border-radius: 5px; padding: 4px 6px; font-size: 11px; color: #E6EDF2; font-family: 'IBM Plex Mono', monospace; transition: border-color 0.2s; }
-        .input-sm:focus { outline: none; border-color: #5CC8E0; }
+        .input { width: 100%; background: #070D17; border: 1px solid #24354D; border-radius: 8px; padding: 7px 10px; font-size: 13px; color: #E6EDF2; font-family: 'IBM Plex Mono', monospace; transition: all 0.2s; }
+        .input:focus { outline: none; border-color: #5CC8E0; box-shadow: 0 0 0 2px rgba(92, 200, 224, 0.20); background: #0B1420; }
+        .input-sm { width: 100%; background: #070D17; border: 1px solid #24354D; border-radius: 6px; padding: 5px 8px; font-size: 11px; color: #E6EDF2; font-family: 'IBM Plex Mono', monospace; transition: all 0.2s; }
+        .input-sm:focus { outline: none; border-color: #5CC8E0; box-shadow: 0 0 0 2px rgba(92, 200, 224, 0.20); background: #0B1420; }
         @keyframes fadeIn {
-          from { opacity: 0; transform: translateY(4px); }
+          from { opacity: 0; transform: translateY(5px); }
           to { opacity: 1; transform: translateY(0); }
         }
-        .animate-fadeIn { animation: fadeIn 0.2s ease-out forwards; }
+        .animate-fadeIn { animation: fadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
       `}</style>
 
-      <div className="max-w-7xl mx-auto">
-        {/* Header Bar */}
-        <header className="mb-5 border-b border-[#1B2A3F] pb-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="max-w-7xl mx-auto space-y-4">
+        {/* Modern Executive Header Bar */}
+        <header className="bg-gradient-to-b from-[#0F1B2D]/90 to-[#0B1420]/95 backdrop-blur-md border border-[#1B2A3F] rounded-2xl p-4 md:p-5 shadow-[0_10px_30px_rgba(0,0,0,0.5)] flex flex-col md:flex-row md:items-center justify-between gap-4 transition-all">
           <div>
-            <div className="flex items-center gap-2 text-[#E8C547] mono text-xs uppercase tracking-widest mb-1 font-semibold">
-              <Building2 size={15} /> Your Plan: Ground Floor (2-Bed + Sitout + Living + Dining + Kitchen) + First Floor
+            <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold tracking-wide uppercase bg-[#10B981]/15 text-[#34D399] border border-[#10B981]/30">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#10B981] animate-pulse"></span>
+                IS 456:2000 & IS 1893 Verified Engine
+              </span>
+              <span className="text-[#8195AA] text-xs font-mono">·</span>
+              <span className="text-[#E8C547] text-xs font-mono font-medium">Mayyanad, Kollam Residence (GND + FF)</span>
             </div>
-            <h1 className="text-2xl md:text-3xl font-bold text-[#F2F5F8]">Structural Design & BIM Suite</h1>
-            <p className="text-[#8195AA] text-xs md:text-sm mt-0.5">IS 456:2000 compliant · Interactive 3D BIM Model · Slabs S1-S15 · Beams B1-B6 · Lintels D1-D10, W1-W17 · BOQ</p>
+            <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-white flex items-center gap-2">
+              <Building2 className="text-[#5CC8E0]" size={28} />
+              Structural Design & 3D BIM Suite
+            </h1>
+            <p className="text-[#8195AA] text-xs md:text-sm mt-1">
+              Real-time Limit State Solver · Interactive 3D Canvas · Slabs S1-S17 · Beams B1-B32 · Solid Block Courses · Live BOQ
+            </p>
           </div>
           
           <div className="flex items-center gap-2 flex-wrap">
-            <button onClick={() => setShowContractorModal(true)} className="flex items-center gap-1.5 text-xs bg-[#FFA333]/20 border border-[#FFA333] text-[#FFA333] hover:bg-[#FFA333]/30 px-3 py-2 rounded-lg transition font-bold shadow-md">
-              <ShieldCheck size={14} /> 👷 Contractor BBS & Site Guide
+            <button 
+              onClick={() => setShowContractorModal(true)} 
+              className="flex items-center gap-1.5 text-xs bg-gradient-to-r from-[#D97706] to-[#B45309] hover:from-[#F59E0B] hover:to-[#D97706] text-white px-3.5 py-2 rounded-xl transition-all font-bold shadow-[0_0_15px_rgba(245,158,11,0.25)] hover:shadow-[0_0_20px_rgba(245,158,11,0.4)]"
+            >
+              <ShieldCheck size={15} /> 👷 Contractor BBS & Site Guide
             </button>
-            <button onClick={resetToCADPlan} className="flex items-center gap-1.5 text-xs bg-[#132133] border border-[#E8C547]/60 text-[#E8C547] hover:bg-[#E8C547]/10 px-3 py-2 rounded-lg transition font-medium">
-              <RefreshCw size={13} /> Reset CAD Plan
+            <button 
+              onClick={resetToCADPlan} 
+              className="flex items-center gap-1.5 text-xs bg-[#101E30] hover:bg-[#15273F] border border-[#2A3B52] hover:border-[#E8C547] text-[#E8C547] px-3 py-2 rounded-xl transition-all font-medium"
+              title="Reset to original CAD Floor Plan layout"
+            >
+              <RefreshCw size={13} /> Reset CAD
             </button>
-            <button onClick={exportJSON} className="flex items-center gap-1.5 text-xs bg-[#101E30] border border-[#2A3B52] hover:border-[#5CC8E0] text-[#5CC8E0] px-3 py-2 rounded-lg transition font-medium">
-              <Download size={14} /> Export JSON
+            <button 
+              onClick={exportJSON} 
+              className="flex items-center gap-1.5 text-xs bg-[#101E30] hover:bg-[#15273F] border border-[#2A3B52] hover:border-[#5CC8E0] text-[#5CC8E0] px-3 py-2 rounded-xl transition-all font-medium"
+              title="Export complete project state to JSON file"
+            >
+              <Download size={14} /> Export
             </button>
-            <button onClick={() => fileInputRef.current?.click()} className="flex items-center gap-1.5 text-xs bg-[#101E30] border border-[#2A3B52] hover:border-[#5CC8E0] text-[#5CC8E0] px-3 py-2 rounded-lg transition font-medium">
+            <button 
+              onClick={() => fileInputRef.current?.click()} 
+              className="flex items-center gap-1.5 text-xs bg-[#101E30] hover:bg-[#15273F] border border-[#2A3B52] hover:border-[#5CC8E0] text-[#8195AA] hover:text-[#E6EDF2] px-3 py-2 rounded-xl transition-all font-medium"
+              title="Import previously saved project JSON"
+            >
               <Upload size={14} /> Import
             </button>
             <input type="file" ref={fileInputRef} onChange={importJSON} accept=".json" className="hidden" />
           </div>
         </header>
 
-        {/* Navigation Tabs + Floor Filter */}
-        <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
-          <div className="flex gap-2 flex-wrap">
+        {/* Modern Segmented Navigation Tabs + Floor Filter */}
+        <div className="flex items-center justify-between gap-3 mb-2 flex-wrap">
+          <div className="flex gap-1.5 md:gap-2 flex-wrap">
             <TabBtn active={tab === "3dhouse"} onClick={() => setTab("3dhouse")} icon={<Building2 size={15} />}>
               Full House 3D BIM (Clickable)
             </TabBtn>
@@ -10362,22 +10394,44 @@ export default function StructuralDesignSuite() {
           </div>
 
           <div className="flex items-center gap-2">
-            <div className="flex items-center bg-[#0B1420] border border-[#2A3B52] rounded-lg p-0.5 text-xs mono">
+            <div className="flex items-center bg-[#0B1420] border border-[#1E293B] rounded-xl p-1 text-xs mono shadow-inner">
               <span className="text-[#8195AA] px-2 flex items-center gap-1"><Filter size={12} /> Floor:</span>
-              <button onClick={() => setFloorFilter("ALL")} className={`px-2.5 py-1 rounded transition ${floorFilter === "ALL" ? "bg-[#132133] text-[#5CC8E0] font-semibold" : "text-[#8195AA]"}`}>All</button>
-              <button onClick={() => setFloorFilter("GF")} className={`px-2.5 py-1 rounded transition ${floorFilter === "GF" ? "bg-[#132133] text-[#5CC8E0] font-semibold" : "text-[#8195AA]"}`}>GND</button>
-              <button onClick={() => setFloorFilter("FF")} className={`px-2.5 py-1 rounded transition ${floorFilter === "FF" ? "bg-[#132133] text-[#5CC8E0] font-semibold" : "text-[#8195AA]"}`}>1st Floor</button>
+              <button 
+                onClick={() => setFloorFilter("ALL")} 
+                className={`px-3 py-1 rounded-lg transition font-medium ${floorFilter === "ALL" ? "bg-[#102235] text-[#5CC8E0] border border-[#5CC8E0]/40 font-semibold shadow-sm" : "text-[#8195AA] hover:text-[#E6EDF2]"}`}
+              >
+                All
+              </button>
+              <button 
+                onClick={() => setFloorFilter("GF")} 
+                className={`px-3 py-1 rounded-lg transition font-medium ${floorFilter === "GF" ? "bg-[#102235] text-[#5CC8E0] border border-[#5CC8E0]/40 font-semibold shadow-sm" : "text-[#8195AA] hover:text-[#E6EDF2]"}`}
+              >
+                GND
+              </button>
+              <button 
+                onClick={() => setFloorFilter("FF")} 
+                className={`px-3 py-1 rounded-lg transition font-medium ${floorFilter === "FF" ? "bg-[#102235] text-[#5CC8E0] border border-[#5CC8E0]/40 font-semibold shadow-sm" : "text-[#8195AA] hover:text-[#E6EDF2]"}`}
+              >
+                1st Floor
+              </button>
             </div>
-            <button onClick={() => setShowSettings(!showSettings)} className="flex items-center gap-1.5 text-xs text-[#8195AA] hover:text-[#5CC8E0] bg-[#101E30] border border-[#1B2A3F] px-3 py-1.5 rounded-lg transition">
-              <Settings2 size={14} /> {showSettings ? "Hide Settings" : "Settings"}
+            <button 
+              onClick={() => setShowSettings(!showSettings)} 
+              className={`flex items-center gap-1.5 text-xs px-3.5 py-2 rounded-xl transition font-medium border ${
+                showSettings 
+                  ? "bg-[#102235] border-[#5CC8E0] text-[#5CC8E0] shadow-sm" 
+                  : "bg-[#0B1420] border-[#1E293B] text-[#8195AA] hover:border-[#2A3B52] hover:text-[#E6EDF2]"
+              }`}
+            >
+              <Settings2 size={14} className={showSettings ? "animate-spin-slow" : ""} /> {showSettings ? "Hide Settings" : "Settings"}
             </button>
           </div>
         </div>
 
         {transferNote && (
-          <div className="mb-4 flex items-center justify-between bg-[#132133] border border-[#5CC8E0]/40 rounded-lg px-4 py-2.5 text-xs text-[#5CC8E0]">
-            <span className="flex items-center gap-2"><Info size={14} /> {transferNote}</span>
-            <button onClick={() => setTransferNote(null)} className="text-[#8195AA] hover:text-[#E6EDF2] text-lg font-bold">×</button>
+          <div className="flex items-center justify-between bg-gradient-to-r from-[#102235] to-[#0F1E2E] border border-[#5CC8E0]/50 rounded-xl px-4 py-3 text-xs text-[#5CC8E0] shadow-[0_4px_20px_rgba(92,200,224,0.15)] animate-fadeIn">
+            <span className="flex items-center gap-2"><Info size={15} /> {transferNote}</span>
+            <button onClick={() => setTransferNote(null)} className="text-[#8195AA] hover:text-white text-lg font-bold transition w-6 h-6 flex items-center justify-center rounded-md hover:bg-white/10">×</button>
           </div>
         )}
 
@@ -10449,7 +10503,7 @@ export default function StructuralDesignSuite() {
                     <div 
                       key={w.id} 
                       onClick={() => setActiveWallId(w.id)} 
-                      className={`rounded-lg border p-3 cursor-pointer transition ${activeWallId === w.id ? "border-[#5CC8E0] bg-[#132133] shadow-md" : "border-[#1B2A3F] bg-[#101E30] hover:border-[#2A3B52]"}`}
+                      className={`rounded-xl border p-3.5 cursor-pointer transition-all duration-150 ${activeWallId === w.id ? "border-[#5CC8E0] bg-gradient-to-r from-[#102235] to-[#0B1420] shadow-md ring-1 ring-[#5CC8E0]/40" : "border-[#1E293B] bg-[#0B1420] hover:border-[#2A3B52] hover:bg-[#0F1B2B]"}`}
                     >
                       <div className="flex items-center justify-between gap-2">
                         <div className="flex items-center gap-1.5 flex-1">
@@ -10771,7 +10825,7 @@ export default function StructuralDesignSuite() {
                   const rr = slabResults[s.id]; 
                   const flagged = rr ? rr.deflectionFlag : false;
                   return (
-                    <div key={s.id} onClick={() => setActiveSlabId(s.id)} className={`rounded-lg border p-3 cursor-pointer transition ${activeSlabId === s.id ? "border-[#5CC8E0] bg-[#132133] shadow-md" : "border-[#1B2A3F] bg-[#101E30] hover:border-[#2A3B52]"}`}>
+                    <div key={s.id} onClick={() => setActiveSlabId(s.id)} className={`rounded-xl border p-3.5 cursor-pointer transition-all duration-150 ${activeSlabId === s.id ? "border-[#5CC8E0] bg-gradient-to-r from-[#102235] to-[#0B1420] shadow-md ring-1 ring-[#5CC8E0]/40" : "border-[#1E293B] bg-[#0B1420] hover:border-[#2A3B52] hover:bg-[#0F1B2B]"}`}>
                       <div className="flex items-center justify-between gap-2">
                         <div className="flex items-center gap-1.5 flex-1">
                           <span className="text-[10px] bg-[#0B1420] text-[#E8C547] border border-[#2A3B52] px-1.5 py-0.5 rounded mono font-semibold">{s.floor || "GF"}</span>
@@ -10893,7 +10947,7 @@ export default function StructuralDesignSuite() {
                   const rr = beamResults[b.id]; 
                   const flagged = rr ? (rr.overMax || rr.deflectionFlag || !rr.singlyOK) : false;
                   return (
-                    <div key={b.id} onClick={() => setActiveBeamId(b.id)} className={`rounded-lg border p-3 cursor-pointer transition ${activeBeamId === b.id ? "border-[#5CC8E0] bg-[#132133] shadow-md" : "border-[#1B2A3F] bg-[#101E30] hover:border-[#2A3B52]"}`}>
+                    <div key={b.id} onClick={() => setActiveBeamId(b.id)} className={`rounded-xl border p-3.5 cursor-pointer transition-all duration-150 ${activeBeamId === b.id ? "border-[#5CC8E0] bg-gradient-to-r from-[#102235] to-[#0B1420] shadow-md ring-1 ring-[#5CC8E0]/40" : "border-[#1E293B] bg-[#0B1420] hover:border-[#2A3B52] hover:bg-[#0F1B2B]"}`}>
                       <div className="flex items-center justify-between gap-2">
                         <div className="flex items-center gap-1.5 flex-1">
                           <span className="text-[10px] bg-[#0B1420] text-[#E8C547] border border-[#2A3B52] px-1.5 py-0.5 rounded mono font-semibold">{b.floor || "GF"}</span>
@@ -11020,7 +11074,7 @@ export default function StructuralDesignSuite() {
                   const rr = lintelResults[o.id]; 
                   const flagged = rr ? (rr.overMax || rr.deflectionFlag || !rr.singlyOK) : false;
                   return (
-                    <div key={o.id} onClick={() => setActiveLintelId(o.id)} className={`rounded-lg border p-3 cursor-pointer transition ${activeLintelId === o.id ? "border-[#5CC8E0] bg-[#132133] shadow-md" : "border-[#1B2A3F] bg-[#101E30] hover:border-[#2A3B52]"}`}>
+                    <div key={o.id} onClick={() => setActiveLintelId(o.id)} className={`rounded-xl border p-3.5 cursor-pointer transition-all duration-150 ${activeLintelId === o.id ? "border-[#5CC8E0] bg-gradient-to-r from-[#102235] to-[#0B1420] shadow-md ring-1 ring-[#5CC8E0]/40" : "border-[#1E293B] bg-[#0B1420] hover:border-[#2A3B52] hover:bg-[#0F1B2B]"}`}>
                       <div className="flex items-center justify-between gap-2">
                         <div className="flex items-center gap-1.5 flex-1">
                           <span className="text-[10px] bg-[#0B1420] text-[#E8C547] border border-[#2A3B52] px-1.5 py-0.5 rounded mono font-semibold">{o.floor || "GF"}</span>
