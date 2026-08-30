@@ -12267,6 +12267,9 @@ function DetailedEngineeringMathAudit({
   const [selectedKey, setSelectedKey] = useState("slab-1");
   const [copied, setCopied] = useState(false);
   const [mobileView, setMobileView] = useState("list"); // "list" | "detail"
+  const [activeSectionTab, setActiveSectionTab] = useState("math"); // "math" | "diagram" | "boq" | "safety" | "all"
+  const [activeStepIndex, setActiveStepIndex] = useState(0);
+  const [viewAllSteps, setViewAllSteps] = useState(false);
 
   // Compile unified list of all components
   const allItems = useMemo(() => {
@@ -12408,6 +12411,26 @@ function DetailedEngineeringMathAudit({
     if (type === "lintel") return buildLintelSteps(data, settings, result);
     return [];
   }, [activeItem, settings]);
+
+  // Auto-select first failing step (or step 0) when component changes
+  useEffect(() => {
+    if (mathSteps && mathSteps.length > 0) {
+      const failIdx = mathSteps.findIndex(s => s.capacity && Number(s.capacity.current) > Number(s.capacity.limit));
+      if (failIdx !== -1) {
+        setActiveStepIndex(failIdx);
+      } else {
+        setActiveStepIndex(0);
+      }
+    }
+  }, [activeItem?.key]);
+
+  const issueCount = useMemo(() => {
+    return mathSteps.filter(s => {
+      const isExceeded = s.capacity && Number(s.capacity.current) > Number(s.capacity.limit);
+      const isDefl = s.title?.includes("Deflection") && activeItem?.result?.deflectionFlag;
+      return isExceeded || isDefl;
+    }).length;
+  }, [mathSteps, activeItem]);
 
   // Copy report handler
   const handleCopyReport = () => {
@@ -12664,252 +12687,94 @@ function DetailedEngineeringMathAudit({
               </div>
             </div>
 
-            {/* TOP COMPONENT SAFETY CHECK & CAPACITY RINGS HUB */}
-            <ComponentCapacityHub
-              activeItem={activeItem}
-              settings={settings}
-              onUpdateSlab={onUpdateSlab}
-              onUpdateBeam={onUpdateBeam}
-              onUpdateWall={onUpdateWall}
-              onUpdateOpening={onUpdateOpening}
-            />
-
-            {/* Card 2: Visual Structural Diagram (Proper Image) */}
-            <div className="bg-[#090E17] border border-[#1A2536] rounded-2xl p-4 shadow-md space-y-3">
-              <div className="flex items-center justify-between border-b border-[#1A2536] pb-2.5">
-                <div className="flex items-center gap-2">
-                  <Ruler size={16} className="text-[#5CC8E0]" />
-                  <h4 className="text-sm font-bold text-white tracking-wide">
-                    Structural Engineering Diagram & Load Vector Plan
-                  </h4>
-                </div>
-                <span className="text-[11px] text-[#8195AA] mono">
-                  Dynamic Vector Render (IS 456 Scale)
+            {/* PRIMARY COMPONENT SECTION NAVIGATION TABS */}
+            <div className="flex items-center gap-1.5 p-1 bg-[#090E17] border border-[#1A2536] rounded-2xl overflow-x-auto shadow-md">
+              <button
+                onClick={() => setActiveSectionTab("math")}
+                className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition cursor-pointer shrink-0 ${
+                  activeSectionTab === "math" 
+                    ? "bg-[#5CC8E0] text-black shadow-md" 
+                    : "text-[#8195AA] hover:text-white hover:bg-[#101E30]"
+                }`}
+              >
+                <Activity size={15} />
+                <span>IS 456 Math Steps</span>
+                <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono font-bold ${
+                  activeSectionTab === "math" ? "bg-black/20 text-black" : "bg-[#102235] text-[#5CC8E0]"
+                }`}>
+                  {mathSteps.length}
                 </span>
-              </div>
+                {issueCount > 0 && (
+                  <span className="w-2 h-2 rounded-full bg-[#EF4444] animate-ping" title={`${issueCount} limit state issues`} />
+                )}
+              </button>
 
-              {/* Dynamic Diagram Canvas */}
-              <div className="max-w-2xl mx-auto rounded-xl overflow-hidden border border-[#1B2A3F] bg-[#070D17] p-2 shadow-inner">
-                {activeItem.type === "slab" && <SlabDiagram panel={activeItem.data} r={activeItem.result} />}
-                {activeItem.type === "beam" && <BeamDiagram beam={activeItem.data} r={activeItem.result} settings={settings} />}
-                {activeItem.type === "wall" && <WallDiagram wall={activeItem.data} r={activeItem.result} />}
-                {activeItem.type === "lintel" && <LintelDiagram op={activeItem.data} result={activeItem.result} settings={settings} />}
-              </div>
+              <button
+                onClick={() => setActiveSectionTab("diagram")}
+                className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition cursor-pointer shrink-0 ${
+                  activeSectionTab === "diagram" 
+                    ? "bg-[#5CC8E0] text-black shadow-md" 
+                    : "text-[#8195AA] hover:text-white hover:bg-[#101E30]"
+                }`}
+              >
+                <Ruler size={15} />
+                <span>CAD Diagram & Vector Plan</span>
+              </button>
 
-              <div className="text-[11px] text-[#8195AA] text-center italic">
-                Diagram illustrates exact boundary span lengths, rebar layouts, stirrup spacing, and load distribution paths for this component.
-              </div>
-            </div>
+              <button
+                onClick={() => setActiveSectionTab("boq")}
+                className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition cursor-pointer shrink-0 ${
+                  activeSectionTab === "boq" 
+                    ? "bg-[#5CC8E0] text-black shadow-md" 
+                    : "text-[#8195AA] hover:text-white hover:bg-[#101E30]"
+                }`}
+              >
+                <Calculator size={15} />
+                <span>Procurement BOQ & Rates</span>
+                <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono font-bold ${
+                  activeSectionTab === "boq" ? "bg-black/20 text-black" : "bg-[#102235] text-[#FCD34D]"
+                }`}>
+                  ₹ {Math.round(activeItem.cost).toLocaleString("en-IN")}
+                </span>
+              </button>
 
-            {/* Card 3: Itemized Material Take-off & Cost Estimation Table */}
-            <div className="bg-[#090E17] border border-[#1A2536] rounded-2xl p-4 shadow-md space-y-3">
-              <div className="flex items-center justify-between border-b border-[#1A2536] pb-2.5">
-                <div className="flex items-center gap-2">
-                  <Calculator size={16} className="text-[#FCD34D]" />
-                  <h4 className="text-sm font-bold text-white tracking-wide">
-                    Itemized Material Take-Off & Cost Derivation
-                  </h4>
-                </div>
-                <div className="text-xs font-bold text-[#FCD34D] mono">
-                  Total Component Cost: ₹ {Math.round(activeItem.cost).toLocaleString("en-IN")}
-                </div>
-              </div>
-
-              <div className="overflow-x-auto border border-[#1B2A3F] rounded-xl">
-                <table className="w-full text-left text-xs">
-                  <thead className="bg-[#0B1420] text-[#8195AA] uppercase mono text-[10px] border-b border-[#1B2A3F]">
-                    <tr>
-                      <th className="py-2.5 px-3">Item / Material Description</th>
-                      <th className="py-2.5 px-3">Engineering Quantity</th>
-                      <th className="py-2.5 px-3">Standard Unit Rate</th>
-                      <th className="py-2.5 px-3 text-right">Estimated Cost (₹)</th>
-                      <th className="py-2.5 px-3 text-right">Cost Share</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-[#1B2A3F] mono">
-                    {/* For Slabs, Beams, Lintels: RCC Concrete */}
-                    {(activeItem.type === "slab" || activeItem.type === "beam" || activeItem.type === "lintel") && (
-                      <>
-                        <tr className="hover:bg-[#132133]/50 transition">
-                          <td className="py-2 px-3 text-[#E6EDF2] font-medium">
-                            Structural Concrete ({settings.concreteGrade || "M20"} Grade)
-                          </td>
-                          <td className="py-2 px-3 text-[#5CC8E0]">
-                            {num(activeItem.result.concreteVol, 3)} m³
-                          </td>
-                          <td className="py-2 px-3 text-[#8195AA]">
-                            ₹ {settings.rateConcrete} / m³
-                          </td>
-                          <td className="py-2 px-3 text-right font-bold text-[#E6EDF2]">
-                            ₹ {Math.round(activeItem.result.concreteVol * settings.rateConcrete).toLocaleString("en-IN")}
-                          </td>
-                          <td className="py-2 px-3 text-right text-[#8195AA]">
-                            {Math.round(((activeItem.result.concreteVol * settings.rateConcrete) / (activeItem.cost || 1)) * 100)}%
-                          </td>
-                        </tr>
-
-                        <tr className="hover:bg-[#132133]/50 transition">
-                          <td className="py-2 px-3 text-[#E6EDF2] font-medium">
-                            High-Yield TMT Rebar ({settings.steelGrade || "Fe500"})
-                          </td>
-                          <td className="py-2 px-3 text-[#FFA333]">
-                            {num(activeItem.result.steelKg, 1)} kg
-                          </td>
-                          <td className="py-2 px-3 text-[#8195AA]">
-                            ₹ {settings.rateSteel} / kg
-                          </td>
-                          <td className="py-2 px-3 text-right font-bold text-[#E6EDF2]">
-                            ₹ {Math.round(activeItem.result.steelKg * settings.rateSteel).toLocaleString("en-IN")}
-                          </td>
-                          <td className="py-2 px-3 text-right text-[#8195AA]">
-                            {Math.round(((activeItem.result.steelKg * settings.rateSteel) / (activeItem.cost || 1)) * 100)}%
-                          </td>
-                        </tr>
-
-                        <tr className="hover:bg-[#132133]/50 transition">
-                          <td className="py-2 px-3 text-[#E6EDF2] font-medium">
-                            Formwork / Shuttering & Scaffolding
-                          </td>
-                          <td className="py-2 px-3 text-[#8195AA]">
-                            {num(activeItem.type === "slab" ? activeItem.result.shutteringM2 : activeItem.result.formworkM2, 2)} m²
-                          </td>
-                          <td className="py-2 px-3 text-[#8195AA]">
-                            ₹ {settings.rateFormwork} / m²
-                          </td>
-                          <td className="py-2 px-3 text-right font-bold text-[#E6EDF2]">
-                            ₹ {Math.round((activeItem.type === "slab" ? activeItem.result.shutteringM2 : activeItem.result.formworkM2) * settings.rateFormwork).toLocaleString("en-IN")}
-                          </td>
-                          <td className="py-2 px-3 text-right text-[#8195AA]">
-                            {Math.round((((activeItem.type === "slab" ? activeItem.result.shutteringM2 : activeItem.result.formworkM2) * settings.rateFormwork) / (activeItem.cost || 1)) * 100)}%
-                          </td>
-                        </tr>
-                      </>
-                    )}
-
-                    {/* For Masonry Walls */}
-                    {activeItem.type === "wall" && (
-                      <>
-                        <tr className="hover:bg-[#132133]/50 transition">
-                          <td className="py-2 px-3 text-[#E6EDF2] font-medium">
-                            Modular Masonry Blocks ({activeItem.data.material || "solid_block"})
-                          </td>
-                          <td className="py-2 px-3 text-[#5CC8E0]">
-                            {activeItem.result.unitsCount} Units (5% waste)
-                          </td>
-                          <td className="py-2 px-3 text-[#8195AA]">
-                            ₹ {activeItem.data.costPerUnit || 34} / unit
-                          </td>
-                          <td className="py-2 px-3 text-right font-bold text-[#E6EDF2]">
-                            ₹ {Math.round(activeItem.result.unitsCount * (activeItem.data.costPerUnit || 34)).toLocaleString("en-IN")}
-                          </td>
-                          <td className="py-2 px-3 text-right text-[#8195AA]">
-                            {Math.round(((activeItem.result.unitsCount * (activeItem.data.costPerUnit || 34)) / (activeItem.cost || 1)) * 100)}%
-                          </td>
-                        </tr>
-
-                        <tr className="hover:bg-[#132133]/50 transition">
-                          <td className="py-2 px-3 text-[#E6EDF2] font-medium">
-                            Mortar Cement ({activeItem.data.mortarMix || "1:5"} Mix)
-                          </td>
-                          <td className="py-2 px-3 text-[#FFA333]">
-                            {num(activeItem.result.cementBags, 1)} Bags (OPC 53)
-                          </td>
-                          <td className="py-2 px-3 text-[#8195AA]">
-                            ₹ {settings.cementPrice || 420} / bag
-                          </td>
-                          <td className="py-2 px-3 text-right font-bold text-[#E6EDF2]">
-                            ₹ {Math.round(activeItem.result.cementBags * (settings.cementPrice || 420)).toLocaleString("en-IN")}
-                          </td>
-                          <td className="py-2 px-3 text-right text-[#8195AA]">
-                            {Math.round(((activeItem.result.cementBags * (settings.cementPrice || 420)) / (activeItem.cost || 1)) * 100)}%
-                          </td>
-                        </tr>
-
-                        <tr className="hover:bg-[#132133]/50 transition">
-                          <td className="py-2 px-3 text-[#E6EDF2] font-medium">
-                            Mortar River Sand / M-Sand
-                          </td>
-                          <td className="py-2 px-3 text-[#8195AA]">
-                            {num(activeItem.result.sandCFT, 0)} CFT ({num(activeItem.result.sandTonnes, 2)} T)
-                          </td>
-                          <td className="py-2 px-3 text-[#8195AA]">
-                            ₹ {settings.sandPricePerCFT || 55} / CFT
-                          </td>
-                          <td className="py-2 px-3 text-right font-bold text-[#E6EDF2]">
-                            ₹ {Math.round(activeItem.result.sandCFT * (settings.sandPricePerCFT || 55)).toLocaleString("en-IN")}
-                          </td>
-                          <td className="py-2 px-3 text-right text-[#8195AA]">
-                            {Math.round(((activeItem.result.sandCFT * (settings.sandPricePerCFT || 55)) / (activeItem.cost || 1)) * 100)}%
-                          </td>
-                        </tr>
-
-                        <tr className="hover:bg-[#132133]/50 transition">
-                          <td className="py-2 px-3 text-[#E6EDF2] font-medium">
-                            Two-Coat Plastering (Internal 12mm + External 15mm)
-                          </td>
-                          <td className="py-2 px-3 text-[#34D399]">
-                            {num(activeItem.result.totalPlasterArea, 2)} m²
-                          </td>
-                          <td className="py-2 px-3 text-[#8195AA]">
-                            ₹ {settings.ratePlaster || 180} / m²
-                          </td>
-                          <td className="py-2 px-3 text-right font-bold text-[#E6EDF2]">
-                            ₹ {Math.round(activeItem.result.totalPlasterArea * (settings.ratePlaster || 180)).toLocaleString("en-IN")}
-                          </td>
-                          <td className="py-2 px-3 text-right text-[#8195AA]">
-                            {Math.round(((activeItem.result.totalPlasterArea * (settings.ratePlaster || 180)) / (activeItem.cost || 1)) * 100)}%
-                          </td>
-                        </tr>
-                      </>
-                    )}
-                  </tbody>
-                  <tfoot className="bg-[#0B1420] text-[#E6EDF2] font-bold border-t border-[#1B2A3F] mono">
-                    <tr>
-                      <td colSpan={3} className="py-2.5 px-3 text-[#E8C547]">
-                        Grand Total Estimated Procurement Cost
-                      </td>
-                      <td className="py-2.5 px-3 text-right text-sm text-[#FCD34D]">
-                        ₹ {Math.round(activeItem.cost).toLocaleString("en-IN")}
-                      </td>
-                      <td className="py-2.5 px-3 text-right text-[#34D399]">
-                        100%
-                      </td>
-                    </tr>
-                  </tfoot>
-                </table>
-              </div>
-            </div>
-
-            {/* Card 4: Step-by-Step Engineering Mathematics & IS 456 Derivations */}
-            <div className="bg-[#090E17] border border-[#1A2536] rounded-2xl p-4 sm:p-5 shadow-md space-y-4">
-              <div className="flex items-center justify-between border-b border-[#1A2536] pb-3 flex-wrap gap-2">
-                <div className="flex items-center gap-2">
-                  <Activity size={18} className="text-[#5CC8E0]" />
-                  <div>
-                    <h4 className="text-sm font-bold text-white tracking-wide">
-                      IS 456:2000 & IS 875 Step-by-Step Mathematical Derivations
-                    </h4>
-                    <p className="text-[11px] text-[#8195AA]">
-                      Formatted equations with LaTeX typography, numerical substitutions, and engineering rationale
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={handleCopyReport}
-                    className="flex items-center gap-1 text-xs bg-[#101E30] hover:bg-[#15273F] border border-[#2A3B52] hover:border-[#5CC8E0] text-[#5CC8E0] px-2.5 py-1 rounded-xl transition font-mono"
-                    title="Copy plain-text engineering dossier"
-                  >
-                    {copied ? <Check size={13} className="text-[#34D399]" /> : <Copy size={13} />}
-                    {copied ? "Copied" : "Copy Plain Text"}
-                  </button>
-                  <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded bg-[#10B981]/15 text-[#34D399] border border-[#10B981]/30 mono">
-                    IS 456 Verified
+              <button
+                onClick={() => setActiveSectionTab("safety")}
+                className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition cursor-pointer shrink-0 ${
+                  activeSectionTab === "safety" 
+                    ? "bg-[#5CC8E0] text-black shadow-md" 
+                    : "text-[#8195AA] hover:text-white hover:bg-[#101E30]"
+                }`}
+              >
+                <ShieldCheck size={15} />
+                <span>Capacity Hub & Optimizer</span>
+                {issueCount > 0 ? (
+                  <span className="text-[9px] px-1.5 py-0.2 rounded-full bg-[#EF4444]/20 text-[#F87171] font-mono font-bold border border-[#EF4444]/30">
+                    {issueCount} Exceeded
                   </span>
-                </div>
-              </div>
+                ) : (
+                  <span className="text-[9px] px-1.5 py-0.2 rounded-full bg-[#10B981]/20 text-[#34D399] font-mono font-bold">
+                    Pass
+                  </span>
+                )}
+              </button>
 
-              {/* Component Executive Capacity Utilization & Stability Hub */}
+              <button
+                onClick={() => setActiveSectionTab("all")}
+                className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition cursor-pointer shrink-0 ml-auto ${
+                  activeSectionTab === "all" 
+                    ? "bg-[#E8C547] text-black shadow-md" 
+                    : "text-[#8195AA] hover:text-white hover:bg-[#101E30]"
+                }`}
+                title="View complete continuous dossier (all sections stacked)"
+              >
+                <FileText size={15} />
+                <span>Full Dossier (All-in-One)</span>
+              </button>
+            </div>
+
+            {/* TAB 1: SAFETY CAPACITY HUB & OPTIMIZER */}
+            {(activeSectionTab === "safety" || activeSectionTab === "all") && (
               <ComponentCapacityHub
                 activeItem={activeItem}
                 settings={settings}
@@ -12918,132 +12783,470 @@ function DetailedEngineeringMathAudit({
                 onUpdateWall={onUpdateWall}
                 onUpdateOpening={onUpdateOpening}
               />
+            )}
 
-              <div className="space-y-4 pt-1">
-                {mathSteps.map((step, idx) => (
-                  <div key={idx} className="bg-[#070D17] border border-[#1B2A3F] hover:border-[#2A3B52] rounded-xl p-4 space-y-3 transition shadow-sm">
-                    {/* Header */}
-                    <div className="flex items-center justify-between border-b border-[#1A2536]/80 pb-2 flex-wrap gap-2">
-                      <div className="flex items-center gap-2">
-                        <span className="w-5 h-5 rounded-full bg-[#102235] text-[#5CC8E0] border border-[#5CC8E0]/40 flex items-center justify-center text-[10px] font-bold mono">
-                          {idx + 1}
-                        </span>
-                        <span className="text-xs font-bold text-white tracking-wide">
-                          {step.title}
-                        </span>
-                      </div>
-                      {step.clause && (
-                        <span className="text-[10px] bg-[#101E30] text-[#E8C547] border border-[#2A3B52] px-2 py-0.5 rounded-full mono font-semibold">
-                          {step.clause}
-                        </span>
+            {/* TAB 2: CAD STRUCTURAL DIAGRAM & LOAD VECTOR PLAN */}
+            {(activeSectionTab === "diagram" || activeSectionTab === "all") && (
+              <div className="bg-[#090E17] border border-[#1A2536] rounded-2xl p-4 sm:p-5 shadow-md space-y-3">
+                <div className="flex items-center justify-between border-b border-[#1A2536] pb-2.5 flex-wrap gap-2">
+                  <div className="flex items-center gap-2">
+                    <Ruler size={16} className="text-[#5CC8E0]" />
+                    <h4 className="text-sm font-bold text-white tracking-wide">
+                      Structural Engineering Diagram & Load Vector Plan
+                    </h4>
+                  </div>
+                  <span className="text-[11px] text-[#8195AA] mono">
+                    Dynamic Vector Render (IS 456 Scale)
+                  </span>
+                </div>
+
+                {/* Dynamic Diagram Canvas */}
+                <div className="max-w-3xl mx-auto rounded-xl overflow-hidden border border-[#1B2A3F] bg-[#070D17] p-3 sm:p-4 shadow-inner">
+                  {activeItem.type === "slab" && <SlabDiagram panel={activeItem.data} r={activeItem.result} />}
+                  {activeItem.type === "beam" && <BeamDiagram beam={activeItem.data} r={activeItem.result} settings={settings} />}
+                  {activeItem.type === "wall" && <WallDiagram wall={activeItem.data} r={activeItem.result} />}
+                  {activeItem.type === "lintel" && <LintelDiagram op={activeItem.data} result={activeItem.result} settings={settings} />}
+                </div>
+
+                <div className="text-[11px] text-[#8195AA] text-center italic">
+                  Diagram illustrates exact boundary span lengths, rebar layouts, stirrup spacing, and load distribution paths for this component.
+                </div>
+              </div>
+            )}
+
+            {/* TAB 3: PROCUREMENT BOQ & MATERIAL RATE ANALYSIS */}
+            {(activeSectionTab === "boq" || activeSectionTab === "all") && (
+              <div className="bg-[#090E17] border border-[#1A2536] rounded-2xl p-4 shadow-md space-y-3">
+                <div className="flex items-center justify-between border-b border-[#1A2536] pb-2.5 flex-wrap gap-2">
+                  <div className="flex items-center gap-2">
+                    <Calculator size={16} className="text-[#FCD34D]" />
+                    <h4 className="text-sm font-bold text-white tracking-wide">
+                      Itemized Material Take-Off & Cost Derivation
+                    </h4>
+                  </div>
+                  <div className="text-xs font-bold text-[#FCD34D] mono">
+                    Total Component Cost: ₹ {Math.round(activeItem.cost).toLocaleString("en-IN")}
+                  </div>
+                </div>
+
+                <div className="overflow-x-auto border border-[#1B2A3F] rounded-xl">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-[#0B1420] text-[#8195AA] uppercase mono text-[10px] border-b border-[#1B2A3F]">
+                      <tr>
+                        <th className="py-2.5 px-3">Item / Material Description</th>
+                        <th className="py-2.5 px-3">Engineering Quantity</th>
+                        <th className="py-2.5 px-3">Standard Unit Rate</th>
+                        <th className="py-2.5 px-3 text-right">Estimated Cost (₹)</th>
+                        <th className="py-2.5 px-3 text-right">Cost Share</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[#1B2A3F] mono">
+                      {/* For Slabs, Beams, Lintels: RCC Concrete */}
+                      {(activeItem.type === "slab" || activeItem.type === "beam" || activeItem.type === "lintel") && (
+                        <>
+                          <tr className="hover:bg-[#132133]/50 transition">
+                            <td className="py-2 px-3 text-[#E6EDF2] font-medium">
+                              Structural Concrete ({settings.concreteGrade || "M20"} Grade)
+                            </td>
+                            <td className="py-2 px-3 text-[#5CC8E0]">
+                              {num(activeItem.result.concreteVol, 3)} m³
+                            </td>
+                            <td className="py-2 px-3 text-[#8195AA]">
+                              ₹ {settings.rateConcrete} / m³
+                            </td>
+                            <td className="py-2 px-3 text-right font-bold text-[#E6EDF2]">
+                              ₹ {Math.round(activeItem.result.concreteVol * settings.rateConcrete).toLocaleString("en-IN")}
+                            </td>
+                            <td className="py-2 px-3 text-right text-[#8195AA]">
+                              {Math.round(((activeItem.result.concreteVol * settings.rateConcrete) / (activeItem.cost || 1)) * 100)}%
+                            </td>
+                          </tr>
+
+                          <tr className="hover:bg-[#132133]/50 transition">
+                            <td className="py-2 px-3 text-[#E6EDF2] font-medium">
+                              High-Yield TMT Rebar ({settings.steelGrade || "Fe500"})
+                            </td>
+                            <td className="py-2 px-3 text-[#FFA333]">
+                              {num(activeItem.result.steelKg, 1)} kg
+                            </td>
+                            <td className="py-2 px-3 text-[#8195AA]">
+                              ₹ {settings.rateSteel} / kg
+                            </td>
+                            <td className="py-2 px-3 text-right font-bold text-[#E6EDF2]">
+                              ₹ {Math.round(activeItem.result.steelKg * settings.rateSteel).toLocaleString("en-IN")}
+                            </td>
+                            <td className="py-2 px-3 text-right text-[#8195AA]">
+                              {Math.round(((activeItem.result.steelKg * settings.rateSteel) / (activeItem.cost || 1)) * 100)}%
+                            </td>
+                          </tr>
+
+                          <tr className="hover:bg-[#132133]/50 transition">
+                            <td className="py-2 px-3 text-[#E6EDF2] font-medium">
+                              Formwork / Shuttering & Scaffolding
+                            </td>
+                            <td className="py-2 px-3 text-[#8195AA]">
+                              {num(activeItem.type === "slab" ? activeItem.result.shutteringM2 : activeItem.result.formworkM2, 2)} m²
+                            </td>
+                            <td className="py-2 px-3 text-[#8195AA]">
+                              ₹ {settings.rateFormwork} / m²
+                            </td>
+                            <td className="py-2 px-3 text-right font-bold text-[#E6EDF2]">
+                              ₹ {Math.round((activeItem.type === "slab" ? activeItem.result.shutteringM2 : activeItem.result.formworkM2) * settings.rateFormwork).toLocaleString("en-IN")}
+                            </td>
+                            <td className="py-2 px-3 text-right text-[#8195AA]">
+                              {Math.round((((activeItem.type === "slab" ? activeItem.result.shutteringM2 : activeItem.result.formworkM2) * settings.rateFormwork) / (activeItem.cost || 1)) * 100)}%
+                            </td>
+                          </tr>
+                        </>
                       )}
+
+                      {/* For Walls: Units, Mortar, Plaster */}
+                      {activeItem.type === "wall" && (
+                        <>
+                          <tr className="hover:bg-[#132133]/50 transition">
+                            <td className="py-2 px-3 text-[#E6EDF2] font-medium">
+                              Solid Masonry Blocks ({activeItem.data.material})
+                            </td>
+                            <td className="py-2 px-3 text-[#5CC8E0]">
+                              {Math.round(activeItem.result.calcUnitsWithWaste)} units
+                            </td>
+                            <td className="py-2 px-3 text-[#8195AA]">
+                              ₹ {activeItem.data.unitRate || 48} / unit
+                            </td>
+                            <td className="py-2 px-3 text-right font-bold text-[#E6EDF2]">
+                              ₹ {Math.round(activeItem.result.unitsCost).toLocaleString("en-IN")}
+                            </td>
+                            <td className="py-2 px-3 text-right text-[#8195AA]">
+                              {Math.round((activeItem.result.unitsCost / (activeItem.cost || 1)) * 100)}%
+                            </td>
+                          </tr>
+
+                          <tr className="hover:bg-[#132133]/50 transition">
+                            <td className="py-2 px-3 text-[#E6EDF2] font-medium">
+                              Cement for Mortar (1:6 mix)
+                            </td>
+                            <td className="py-2 px-3 text-[#FFA333]">
+                              {num(activeItem.result.calcCementBags, 1)} bags
+                            </td>
+                            <td className="py-2 px-3 text-[#8195AA]">
+                              ₹ {settings.rateCement || 420} / bag
+                            </td>
+                            <td className="py-2 px-3 text-right font-bold text-[#E6EDF2]">
+                              ₹ {Math.round(activeItem.result.cementCost).toLocaleString("en-IN")}
+                            </td>
+                            <td className="py-2 px-3 text-right text-[#8195AA]">
+                              {Math.round((activeItem.result.cementCost / (activeItem.cost || 1)) * 100)}%
+                            </td>
+                          </tr>
+
+                          <tr className="hover:bg-[#132133]/50 transition">
+                            <td className="py-2 px-3 text-[#E6EDF2] font-medium">
+                              Sand for Mortar
+                            </td>
+                            <td className="py-2 px-3 text-[#E8C547]">
+                              {num(activeItem.result.calcSandM3, 2)} m³
+                            </td>
+                            <td className="py-2 px-3 text-[#8195AA]">
+                              ₹ {settings.rateSand || 1400} / m³
+                            </td>
+                            <td className="py-2 px-3 text-right font-bold text-[#E6EDF2]">
+                              ₹ {Math.round(activeItem.result.sandCost).toLocaleString("en-IN")}
+                            </td>
+                            <td className="py-2 px-3 text-right text-[#8195AA]">
+                              {Math.round((activeItem.result.sandCost / (activeItem.cost || 1)) * 100)}%
+                            </td>
+                          </tr>
+
+                          <tr className="hover:bg-[#132133]/50 transition">
+                            <td className="py-2 px-3 text-[#E6EDF2] font-medium">
+                              Plastering (Both faces, 1:4 / 1:5)
+                            </td>
+                            <td className="py-2 px-3 text-[#34D399]">
+                              {num(activeItem.result.totalPlasterArea, 2)} m²
+                            </td>
+                            <td className="py-2 px-3 text-[#8195AA]">
+                              ₹ {settings.ratePlaster || 180} / m²
+                            </td>
+                            <td className="py-2 px-3 text-right font-bold text-[#E6EDF2]">
+                              ₹ {Math.round(activeItem.result.totalPlasterArea * (settings.ratePlaster || 180)).toLocaleString("en-IN")}
+                            </td>
+                            <td className="py-2 px-3 text-right text-[#8195AA]">
+                              {Math.round(((activeItem.result.totalPlasterArea * (settings.ratePlaster || 180)) / (activeItem.cost || 1)) * 100)}%
+                            </td>
+                          </tr>
+                        </>
+                      )}
+                    </tbody>
+                    <tfoot className="bg-[#0B1420] text-[#E6EDF2] font-bold border-t border-[#1B2A3F] mono">
+                      <tr>
+                        <td colSpan={3} className="py-2.5 px-3 text-[#E8C547]">
+                          Grand Total Estimated Procurement Cost
+                        </td>
+                        <td className="py-2.5 px-3 text-right text-sm text-[#FCD34D]">
+                          ₹ {Math.round(activeItem.cost).toLocaleString("en-IN")}
+                        </td>
+                        <td className="py-2.5 px-3 text-right text-[#34D399]">
+                          100%
+                        </td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {/* TAB 4: IS 456 STEP-BY-STEP MATHEMATICAL DERIVATIONS */}
+            {(activeSectionTab === "math" || activeSectionTab === "all") && (
+              <div className="space-y-4">
+                {/* Math Step Navigator Bar */}
+                <div className="bg-[#090E17] border border-[#1A2536] rounded-2xl p-3 sm:p-4 space-y-3 shadow-md">
+                  <div className="flex items-center justify-between flex-wrap gap-2">
+                    <div className="flex items-center gap-2">
+                      <Activity size={17} className="text-[#5CC8E0]" />
+                      <div>
+                        <h4 className="text-sm font-bold text-white tracking-wide flex items-center gap-2">
+                          <span>IS 456:2000 & IS 875 Step-by-Step Derivations</span>
+                          {!viewAllSteps && (
+                            <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-[#102235] text-[#5CC8E0] border border-[#5CC8E0]/30">
+                              Step {activeStepIndex + 1} of {mathSteps.length}
+                            </span>
+                          )}
+                        </h4>
+                        <p className="text-[11px] text-[#8195AA]">
+                          {viewAllSteps ? "Viewing all mathematical derivations continuously" : "Focused single-step inspection mode"}
+                        </p>
+                      </div>
                     </div>
 
-                    {/* Governing Equation Box */}
-                    {(step.latexEq || step.formula) && (
-                      <div className="bg-[#0B1420] border border-[#1E293B] rounded-xl p-3 space-y-1">
-                        <div className="text-[10px] font-bold text-[#8195AA] uppercase tracking-wider flex items-center gap-1.5">
-                          <span className="text-[#E8C547]">📐</span> Governing Law / IS Code Equation:
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {/* Stepper buttons (when in focused single-step mode) */}
+                      {!viewAllSteps && (
+                        <div className="flex items-center gap-1">
+                          <button
+                            onClick={() => setActiveStepIndex((p) => Math.max(0, p - 1))}
+                            disabled={activeStepIndex === 0}
+                            className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[#102235] hover:bg-[#162D45] disabled:opacity-30 text-xs font-mono font-bold text-[#5CC8E0] border border-[#5CC8E0]/30 transition cursor-pointer"
+                            title="Previous step"
+                          >
+                            <ChevronLeft size={14} /> Prev
+                          </button>
+                          <button
+                            onClick={() => setActiveStepIndex((p) => Math.min(mathSteps.length - 1, p + 1))}
+                            disabled={activeStepIndex === mathSteps.length - 1}
+                            className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[#102235] hover:bg-[#162D45] disabled:opacity-30 text-xs font-mono font-bold text-[#5CC8E0] border border-[#5CC8E0]/30 transition cursor-pointer"
+                            title="Next step"
+                          >
+                            Next <ChevronRight size={14} />
+                          </button>
                         </div>
-                        <div className="text-[#FCD34D] font-mono text-xs sm:text-sm pl-1 overflow-x-auto py-0.5">
-                          <MathView math={step.latexEq || step.formula} displayMode={true} />
-                        </div>
-                      </div>
-                    )}
+                      )}
 
-                    {/* Variable Definitions & Nomenclature */}
-                    {step.vars && step.vars.length > 0 && (
-                      <div className="bg-[#0A121E]/90 border border-[#1E293B] rounded-xl p-3 space-y-2">
-                        <div className="text-[10px] font-bold text-[#8195AA] uppercase tracking-wider flex items-center justify-between">
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-[#38BDF8]">📖</span>
-                            <span>Variable Definitions & Physical Meaning:</span>
-                          </div>
-                          <span className="text-[9px] text-[#5CC8E0] font-mono lowercase">
-                            {step.vars.length} parameters
+                      {/* Toggle View All Steps */}
+                      <button
+                        onClick={() => setViewAllSteps((p) => !p)}
+                        className={`px-3 py-1 rounded-lg text-xs font-mono font-bold transition border cursor-pointer ${
+                          viewAllSteps 
+                            ? "bg-[#5CC8E0] text-black border-[#5CC8E0] shadow-sm" 
+                            : "bg-[#102235] text-[#8195AA] hover:text-white border-[#1B2A3F]"
+                        }`}
+                      >
+                        {viewAllSteps ? "⚡ Focused Step View" : "📑 View All Steps (Stacked)"}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Horizontal Step Selector Pills */}
+                  <div className="flex items-center gap-1.5 overflow-x-auto pb-1.5 pt-0.5 scrollbar-thin">
+                    {mathSteps.map((step, idx) => {
+                      const isSelected = activeStepIndex === idx && !viewAllSteps;
+                      const isExceeded = step.capacity && Number(step.capacity.current) > Number(step.capacity.limit);
+                      const isDefl = step.title?.includes("Deflection") && activeItem.result?.deflectionFlag;
+                      const hasIssue = isExceeded || isDefl;
+
+                      const cleanTitle = step.title.replace(/^\d+\.\s*/, "");
+                      const shortTitle = cleanTitle.length > 20 ? cleanTitle.slice(0, 18) + "…" : cleanTitle;
+
+                      return (
+                        <button
+                          key={idx}
+                          onClick={() => {
+                            setActiveStepIndex(idx);
+                            setViewAllSteps(false);
+                          }}
+                          className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-mono font-bold transition shrink-0 cursor-pointer border ${
+                            isSelected
+                              ? "bg-[#5CC8E0] text-black border-[#5CC8E0] shadow-md"
+                              : hasIssue
+                              ? "bg-[#EF4444]/15 text-[#F87171] border-[#EF4444]/40 hover:bg-[#EF4444]/25"
+                              : "bg-[#0B1524] text-[#8195AA] hover:text-white border-[#1A2C42] hover:border-[#2F4E75]"
+                          }`}
+                          title={step.title}
+                        >
+                          <span className={`w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-bold ${
+                            isSelected ? "bg-black text-[#5CC8E0]" : hasIssue ? "bg-[#EF4444] text-white" : "bg-[#162940] text-[#5CC8E0]"
+                          }`}>
+                            {idx + 1}
                           </span>
+                          <span>{shortTitle}</span>
+                          {hasIssue && <span className="w-1.5 h-1.5 rounded-full bg-[#EF4444] animate-pulse" />}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Steps Content: Focused Step or All Steps */}
+                <div className="space-y-4">
+                  {(viewAllSteps ? mathSteps : [mathSteps[activeStepIndex]]).filter(Boolean).map((step, idx) => {
+                    const stepActualIdx = viewAllSteps ? idx : activeStepIndex;
+                    return (
+                      <div key={stepActualIdx} className="bg-[#070D17] border border-[#1B2A3F] hover:border-[#2A3B52] rounded-xl p-4 sm:p-5 space-y-3.5 transition shadow-sm">
+                        {/* Header */}
+                        <div className="flex items-center justify-between border-b border-[#1A2536]/80 pb-2.5 flex-wrap gap-2">
+                          <div className="flex items-center gap-2">
+                            <span className="w-6 h-6 rounded-full bg-[#102235] text-[#5CC8E0] border border-[#5CC8E0]/40 flex items-center justify-center text-xs font-bold mono">
+                              {stepActualIdx + 1}
+                            </span>
+                            <h5 className="text-sm font-bold text-white tracking-wide">
+                              {step.title}
+                            </h5>
+                          </div>
+                          {step.clause && (
+                            <span className="text-[10px] bg-[#101E30] text-[#E8C547] border border-[#2A3B52] px-2.5 py-0.5 rounded-full mono font-semibold">
+                              {step.clause}
+                            </span>
+                          )}
                         </div>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-                          {step.vars.map((v, vIdx) => (
-                            <div key={vIdx} className="bg-[#0E1726] border border-[#1E2A3B] hover:border-[#2A3C52] rounded-lg px-2.5 py-1.5 text-xs flex items-start gap-2 transition">
-                              <div className="text-[#FCD34D] font-mono font-bold shrink-0 pt-0.5 min-w-[22px]">
-                                <MathView math={v.symbol} displayMode={false} />
-                              </div>
-                              <div className="min-w-0 flex-1">
-                                <div className="text-white font-medium text-[11px] leading-tight flex items-center gap-1 flex-wrap">
-                                  <span>{v.name}</span>
-                                  {v.unit && <span className="text-[#5CC8E0] text-[10px] font-mono font-semibold">[{v.unit}]</span>}
-                                </div>
-                                <div className="text-[#8195AA] text-[10px] leading-snug mt-0.5">{v.def}</div>
-                              </div>
+
+                        {/* Governing Equation Box */}
+                        {(step.latexEq || step.formula) && (
+                          <div className="bg-[#0B1420] border border-[#1E293B] rounded-xl p-3 space-y-1">
+                            <div className="text-[10px] font-bold text-[#8195AA] uppercase tracking-wider flex items-center gap-1.5">
+                              <span className="text-[#E8C547]">📐</span> Governing Law / IS Code Equation:
                             </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
+                            <div className="text-[#FCD34D] font-mono text-xs sm:text-sm pl-1 overflow-x-auto py-0.5">
+                              <MathView math={step.latexEq || step.formula} displayMode={true} />
+                            </div>
+                          </div>
+                        )}
 
-                    {/* Visual Structural Diagram with Variables Annotated */}
-                    {step.diagramKey && (
-                      <StepVariableDiagram step={step} item={activeItem} settings={settings} />
-                    )}
+                        {/* Variable Definitions & Nomenclature */}
+                        {step.vars && step.vars.length > 0 && (
+                          <div className="bg-[#0A121E]/90 border border-[#1E293B] rounded-xl p-3 space-y-2">
+                            <div className="text-[10px] font-bold text-[#8195AA] uppercase tracking-wider flex items-center justify-between">
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-[#38BDF8]">📖</span>
+                                <span>Variable Definitions & Physical Meaning:</span>
+                              </div>
+                              <span className="text-[9px] text-[#5CC8E0] font-mono lowercase">
+                                {step.vars.length} parameters
+                              </span>
+                            </div>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                              {step.vars.map((v, vIdx) => (
+                                <div key={vIdx} className="bg-[#0E1726] border border-[#1E2A3B] hover:border-[#2A3C52] rounded-lg px-2.5 py-1.5 text-xs flex items-start gap-2 transition">
+                                  <div className="text-[#FCD34D] font-mono font-bold shrink-0 pt-0.5 min-w-[22px]">
+                                    <MathView math={v.symbol} displayMode={false} />
+                                  </div>
+                                  <div className="min-w-0 flex-1">
+                                    <div className="text-white font-medium text-[11px] leading-tight flex items-center gap-1 flex-wrap">
+                                      <span>{v.name}</span>
+                                      {v.unit && <span className="text-[#5CC8E0] text-[10px] font-mono font-semibold">[{v.unit}]</span>}
+                                    </div>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
 
-                    {/* Maximum Limit Animated Capacity & Stability Ring */}
-                    {step.capacity && (
-                      <div className="space-y-3">
-                        <AnimatedCapacityRing capacity={step.capacity} />
-                        {/* Interactive Safe-State Variable Optimizer if capacity exceeded or deflection check */}
-                        {(Number(step.capacity.current) > Number(step.capacity.limit) || step.title?.includes("Deflection")) && (
-                          <SafeStateOptimizer
-                            activeItem={activeItem}
-                            step={step}
-                            settings={settings}
-                            onUpdateSlab={onUpdateSlab}
-                            onUpdateBeam={onUpdateBeam}
-                            onUpdateWall={onUpdateWall}
-                            onUpdateOpening={onUpdateOpening}
-                          />
+                        {/* Visual Structural Diagram with Variables Annotated */}
+                        {step.diagramKey && (
+                          <StepVariableDiagram step={step} item={activeItem} settings={settings} />
+                        )}
+
+                        {/* Maximum Limit Animated Capacity & Stability Ring */}
+                        {step.capacity && (
+                          <div className="space-y-3">
+                            <AnimatedCapacityRing capacity={step.capacity} />
+                            {/* Interactive Safe-State Variable Optimizer if capacity exceeded or deflection check */}
+                            {(Number(step.capacity.current) > Number(step.capacity.limit) || step.title?.includes("Deflection")) && (
+                              <SafeStateOptimizer
+                                activeItem={activeItem}
+                                step={step}
+                                settings={settings}
+                                onUpdateSlab={onUpdateSlab}
+                                onUpdateBeam={onUpdateBeam}
+                                onUpdateWall={onUpdateWall}
+                                onUpdateOpening={onUpdateOpening}
+                              />
+                            )}
+                          </div>
+                        )}
+
+                        {/* Numerical Substitution Box */}
+                        {(step.latexSub || step.sub) && (
+                          <div className="bg-[#0B1420]/70 border border-[#1B2A3F]/60 rounded-xl p-3 space-y-1">
+                            <div className="text-[10px] font-bold text-[#8195AA] uppercase tracking-wider flex items-center gap-1.5">
+                              <span className="text-[#5CC8E0]">🔢</span> Numerical Substitution & Unit Conversion:
+                            </div>
+                            <div className="text-[#93C5FD] font-mono text-xs sm:text-sm pl-1 overflow-x-auto py-0.5">
+                              <MathView math={step.latexSub || step.sub} displayMode={true} />
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Calculated Output Box */}
+                        {(step.latexResult || step.result) && (
+                          <div className="bg-[#102235]/70 border border-[#5CC8E0]/40 rounded-xl p-3 space-y-1 shadow-[0_0_12px_rgba(92,200,224,0.08)]">
+                            <div className="text-[10px] font-bold text-[#5CC8E0] uppercase tracking-wider flex items-center gap-1.5">
+                              <span className="text-[#34D399]">🎯</span> Calculated Engineering Output & Code Verification:
+                            </div>
+                            <div className="text-[#34D399] font-mono text-xs sm:text-sm font-bold pl-1 overflow-x-auto py-0.5">
+                              <MathView math={step.latexResult || step.result} displayMode={true} />
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Plain English Engineering Meaning */}
+                        {step.explanation && (
+                          <div className="text-xs text-[#94A3B8] leading-relaxed pt-2 border-t border-[#1A2536]/80 flex items-start gap-2">
+                            <Info size={15} className="text-[#5CC8E0] shrink-0 mt-0.5" />
+                            <div>
+                              <strong className="text-[#E2E8F0] font-semibold">Engineering Rationale: </strong>
+                              <span>{step.explanation}</span>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Quick Step Navigation Footer in Single-Step Mode */}
+                        {!viewAllSteps && (
+                          <div className="flex items-center justify-between pt-3 border-t border-[#1A2536] flex-wrap gap-2 text-xs font-mono">
+                            {stepActualIdx > 0 ? (
+                              <button
+                                onClick={() => setActiveStepIndex(stepActualIdx - 1)}
+                                className="flex items-center gap-1.5 text-[#8195AA] hover:text-[#5CC8E0] transition cursor-pointer px-2.5 py-1 rounded-lg hover:bg-[#102235]"
+                              >
+                                <ChevronLeft size={14} /> Previous: {mathSteps[stepActualIdx - 1]?.title.replace(/^\d+\.\s*/, "").slice(0, 24)}…
+                              </button>
+                            ) : <div />}
+
+                            {stepActualIdx < mathSteps.length - 1 ? (
+                              <button
+                                onClick={() => setActiveStepIndex(stepActualIdx + 1)}
+                                className="flex items-center gap-1.5 text-[#5CC8E0] hover:text-white font-bold transition cursor-pointer px-2.5 py-1 rounded-lg hover:bg-[#102235] ml-auto"
+                              >
+                                Next: {mathSteps[stepActualIdx + 1]?.title.replace(/^\d+\.\s*/, "").slice(0, 24)}… <ChevronRight size={14} />
+                              </button>
+                            ) : <div />}
+                          </div>
                         )}
                       </div>
-                    )}
-
-                    {/* Numerical Substitution Box */}
-                    {(step.latexSub || step.sub) && (
-                      <div className="bg-[#0B1420]/70 border border-[#1B2A3F]/60 rounded-xl p-3 space-y-1">
-                        <div className="text-[10px] font-bold text-[#8195AA] uppercase tracking-wider flex items-center gap-1.5">
-                          <span className="text-[#5CC8E0]">🔢</span> Numerical Substitution & Unit Conversion:
-                        </div>
-                        <div className="text-[#93C5FD] font-mono text-xs sm:text-sm pl-1 overflow-x-auto py-0.5">
-                          <MathView math={step.latexSub || step.sub} displayMode={true} />
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Calculated Output Box */}
-                    {(step.latexResult || step.result) && (
-                      <div className="bg-[#102235]/70 border border-[#5CC8E0]/40 rounded-xl p-3 space-y-1 shadow-[0_0_12px_rgba(92,200,224,0.08)]">
-                        <div className="text-[10px] font-bold text-[#5CC8E0] uppercase tracking-wider flex items-center gap-1.5">
-                          <span className="text-[#34D399]">🎯</span> Calculated Engineering Output & Code Verification:
-                        </div>
-                        <div className="text-[#34D399] font-mono text-xs sm:text-sm font-bold pl-1 overflow-x-auto py-0.5">
-                          <MathView math={step.latexResult || step.result} displayMode={true} />
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Plain English Engineering Meaning */}
-                    {step.explanation && (
-                      <div className="text-xs text-[#94A3B8] leading-relaxed pt-2 border-t border-[#1A2536]/80 flex items-start gap-2">
-                        <Info size={15} className="text-[#5CC8E0] shrink-0 mt-0.5" />
-                        <div>
-                          <strong className="text-[#E2E8F0] font-semibold">Engineering Rationale: </strong>
-                          <span>{step.explanation}</span>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                ))}
+                    );
+                  })}
+                </div>
               </div>
-            </div>
+            )}
           </div>
         ) : (
           <div className="flex-1 bg-[#0A101C] border border-[#1B2A3F] rounded-2xl p-12 text-center text-xs text-[#8195AA]">
