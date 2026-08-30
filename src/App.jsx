@@ -5762,115 +5762,35 @@ function FullHouse3DViewer({ openings, slabs, beams, walls = [], lintelResults, 
         ? "fixed inset-0 z-[9999] w-screen h-screen bg-[#070D17] flex flex-col p-3 sm:p-4 overflow-hidden select-none" 
         : "bg-[#101E30] border border-[#1B2A3F] rounded-xl p-4 shadow-xl relative"
     }>
-      {/* 3D Viewport Controls Bar */}
-      <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
-        <div className="flex items-center gap-2">
-          <div className="flex items-center gap-1.5 text-xs text-[#E8C547] mono font-bold uppercase tracking-wider">
-            <Building2 size={16} /> Interactive 3D BIM House Model {isFullscreen && "· FULLSCREEN"}
-          </div>
-          <span className="text-[11px] text-[#5CC8E0] mono hidden sm:inline">· Click any Slab, Beam or Lintel to inspect & resize!</span>
-        </div>
-
+      {/* 🚀 MODERN CAD BIM VIEWPORT TOOLBAR: ROW 1 (Primary Modes, Floor & Quick Actions) */}
+      <div className="flex items-center justify-between gap-2.5 pb-2.5 border-b border-[#1B2A3F]/80 flex-wrap">
+        {/* Left: View Mode Segmented Pill + Floor Selector */}
         <div className="flex items-center gap-2 flex-wrap">
-          {/* Beam Framing Possibility & Engineering Priority Switcher */}
-          <div className="flex items-center bg-[#0B1420] border border-[#2A3B52] rounded-lg p-0.5 text-xs mono flex-wrap">
-            <span className="text-[#8195AA] px-2 text-[10px] uppercase font-semibold">Framing Mode:</span>
-            <button 
-              onClick={() => setBeamFilter("normal")} 
-              className={`px-2 py-1 rounded transition text-[11px] ${beamFilter === "normal" ? "bg-[#132133] text-[#5CC8E0] border border-[#5CC8E0]/60 font-bold" : "text-[#8195AA] hover:text-[#E6EDF2]"}`}
-              title="Full Frame Mode: Shows all 41 structural framing beams in standard uniform blue"
-            >
-              🏛️ All Beams (Full Frame)
-            </button>
-            <button 
-              onClick={() => setBeamFilter("economical")} 
-              className={`px-2 py-1 rounded transition text-[11px] ${beamFilter === "economical" ? "bg-[#064E3B] text-[#6EE7B7] border border-[#10B981] font-bold shadow-[0_0_8px_#10B981]/40" : "text-[#8195AA] hover:text-[#E6EDF2]"}`}
-              title="Economical Mode: Keeps ONLY stability-determining primary beams (saves ~35% concrete & steel by omitting redundant beams on solid walls while keeping 100% IS 456 stability)"
-            >
-              💰 Economical (Stability Only)
-            </button>
-            <button 
-              onClick={() => setBeamFilter("critical")} 
-              className={`px-2 py-1 rounded transition text-[11px] ${beamFilter === "critical" ? "bg-[#3D1414] text-[#FF8888] border border-[#EF4444] font-bold shadow-[0_0_8px_#EF4444]/40" : "text-[#8195AA] hover:text-[#E6EDF2]"}`}
-              title="Mandatory Only: Shows ONLY high-stress transfer girders spanning voids and cantilevers that cannot be omitted"
-            >
-              🔴 Mandatory Girders
-            </button>
-            <button 
-              onClick={() => setBeamFilter("concealed")} 
-              className={`px-2 py-1 rounded transition text-[11px] ${beamFilter === "concealed" ? "bg-[#3D2C14] text-[#FFE28A] border border-[#F59E0B] font-bold" : "text-[#8195AA] hover:text-[#E6EDF2]"}`}
-              title="Flat Ceiling Hybrid: Mandatory girders + 350×125mm wide concealed flush beams inside slabs for 100% flat ceilings without sagging"
-            >
-              🟡 Flat Ceiling (Concealed)
-            </button>
-            <button 
-              onClick={() => setBeamFilter("seismic")} 
-              className={`px-2 py-1 rounded transition text-[11px] ${beamFilter === "seismic" ? "bg-[#143D24] text-[#8AFFB2] border border-[#22C55E] font-bold shadow-[0_0_8px_#22C55E]/40" : "text-[#8195AA] hover:text-[#E6EDF2]"}`}
-              title="Earthquake Resisting Frame (IS 13920 / IS 1893): Full ductile moment frame with continuous perimeter ring ties and dense 80mm hinge confinement"
-            >
-              🛡️ Seismic Frame (IS 13920)
-            </button>
-            <button 
-              onClick={() => setBeamFilter("all_shaded")} 
-              className={`px-2 py-1 rounded transition text-[11px] ${beamFilter === "all_shaded" ? "bg-[#1E3A5F] text-[#8FB2D6] border border-[#5CC8E0] font-bold" : "text-[#8195AA] hover:text-[#E6EDF2]"}`}
-              title="Color-Coded Priority: Shows all beams color-coded by structural classification"
-            >
-              🎨 Color Shaded
-            </button>
-          </div>
-
-          {/* 📊 Live Framing Mode Stability Tracker Pill */}
-          {(() => {
-            const mode = FRAMING_MODE_STABILITY[beamFilter] || FRAMING_MODE_STABILITY.normal;
-            const dynamicFos = (mode.baseFos / simLoadMultiplier).toFixed(2);
-            return (
-              <div className="flex items-center gap-2 bg-[#070D17]/90 border border-[#1B2A3F] rounded-lg px-2.5 py-1 text-xs mono">
-                <span className="text-sm">{mode.icon}</span>
-                <div className="flex items-center gap-1.5">
-                  <span className="font-bold text-[#F2F5F8] text-[11px]">{mode.shortName}:</span>
-                  <span className="text-[10px] text-[#5CC8E0] font-semibold">{mode.beamCount}/{mode.totalBeams} Beams</span>
-                  <span className="text-[10px] text-[#62778C]">·</span>
-                  <span className="text-[10px] text-[#8195AA]">Global FoS:</span>
-                  <span className={`text-[10px] font-bold ${dynamicFos >= 2.0 ? 'text-[#22C55E]' : (dynamicFos >= 1.5 ? 'text-[#EAB308]' : 'text-[#EF4444]')}`}>
-                    {dynamicFos}×
-                  </span>
-                  <span className="text-[10px] text-[#62778C]">·</span>
-                  <span className={`text-[9px] px-1.5 py-0.2 rounded border font-bold ${mode.badgeColor}`}>
-                    {mode.savings}
-                  </span>
-                  <span className="text-[10px] text-[#62778C] hidden md:inline">·</span>
-                  <span className="text-[10px] text-[#5FBF7A] hidden md:inline font-semibold">{mode.is456Status}</span>
-                </div>
-              </div>
-            );
-          })()}
-
-          {/* View Mode Toggle (Realistic vs BIM Structural vs X-Ray vs FEA Simulation) */}
-          <div className="flex items-center bg-[#0B1420] border border-[#2A3B52] rounded-lg p-0.5 text-xs mono">
-            <span className="text-[#8195AA] px-2 text-[10px] uppercase font-semibold">View:</span>
+          {/* View Mode Segmented Switcher */}
+          <div className="flex items-center bg-[#070D17] border border-[#1E293B] rounded-xl p-1 text-xs mono shadow-inner">
             <button 
               onClick={() => setViewMode("structural")} 
-              className={`px-2.5 py-1 rounded transition ${viewMode === "structural" ? "bg-[#132133] text-[#5CC8E0] border border-[#5CC8E0]/40 font-bold" : "text-[#8195AA] hover:text-[#E6EDF2]"}`}
+              className={`px-3 py-1 rounded-lg transition font-medium ${viewMode === "structural" ? "bg-[#102235] text-[#5CC8E0] border border-[#5CC8E0]/40 font-bold shadow-sm" : "text-[#8195AA] hover:text-[#E6EDF2]"}`}
+              title="BIM Structural Mode: Structural frame with concrete members and transparent infill"
             >
-              BIM Structural
+              🏛️ Structural
             </button>
             <button 
               onClick={() => setViewMode("realistic")} 
-              className={`px-2.5 py-1 rounded transition ${viewMode === "realistic" ? "bg-[#132133] text-[#5CC8E0] border border-[#5CC8E0]/40 font-bold" : "text-[#8195AA] hover:text-[#E6EDF2]"}`}
+              className={`px-3 py-1 rounded-lg transition font-medium ${viewMode === "realistic" ? "bg-[#102235] text-[#5CC8E0] border border-[#5CC8E0]/40 font-bold shadow-sm" : "text-[#8195AA] hover:text-[#E6EDF2]"}`}
+              title="Solid Walls Mode: Full architectural rendering with solid masonry walls"
             >
-              Solid Walls
+              🏡 Solid Walls
             </button>
             <button 
               onClick={() => {
                 const next = !showBlockStacking;
                 setShowBlockStacking(next);
-                if (next && (viewMode === "xray" || viewMode === "simulation")) {
-                  setViewMode("realistic");
-                }
+                if (next && (viewMode === "xray" || viewMode === "simulation")) setViewMode("realistic");
               }} 
-              className={`flex items-center gap-1 px-2.5 py-1 rounded transition text-xs font-bold ${
+              className={`flex items-center gap-1 px-3 py-1 rounded-lg transition font-medium ${
                 showBlockStacking 
-                  ? "bg-[#D97706]/25 text-[#FCD34D] border border-[#F59E0B] shadow-[0_0_10px_#F59E0B]/50" 
+                  ? "bg-[#D97706]/25 text-[#FCD34D] border border-[#F59E0B] shadow-[0_0_8px_#F59E0B]/50 font-bold" 
                   : "text-[#8195AA] hover:text-[#F59E0B]"
               }`}
               title="Toggle Individual Concrete Solid Blocks & Mortar Stacking View (Shortcut: B)"
@@ -5879,98 +5799,247 @@ function FullHouse3DViewer({ openings, slabs, beams, walls = [], lintelResults, 
             </button>
             <button 
               onClick={() => setViewMode("xray")} 
-              className={`px-2.5 py-1 rounded transition ${viewMode === "xray" ? "bg-[#132133] text-[#5CC8E0] border border-[#5CC8E0]/40 font-bold" : "text-[#8195AA] hover:text-[#E6EDF2]"}`}
+              className={`px-3 py-1 rounded-lg transition font-medium ${viewMode === "xray" ? "bg-[#102235] text-[#5CC8E0] border border-[#5CC8E0]/40 font-bold shadow-sm" : "text-[#8195AA] hover:text-[#E6EDF2]"}`}
+              title="X-Ray Mode: Semi-transparent see-through inspection of internal framing"
             >
-              X-Ray
+              🔍 X-Ray
             </button>
             <button 
               onClick={() => setViewMode("simulation")} 
-              className={`flex items-center gap-1 px-2.5 py-1 rounded transition ${viewMode === "simulation" ? "bg-[#3D1414] text-[#FF8888] border border-[#EF4444] font-bold shadow-[0_0_10px_#EF4444]/40" : "text-[#8195AA] hover:text-[#FFA333]"}`}
+              className={`flex items-center gap-1 px-3 py-1 rounded-lg transition font-medium ${viewMode === "simulation" ? "bg-[#3D1414] text-[#FF8888] border border-[#EF4444] font-bold shadow-[0_0_10px_#EF4444]/40" : "text-[#8195AA] hover:text-[#FFA333]"}`}
               title="3D Structural Load & Stability Simulation Mode (FEA Stress Heatmaps, Load Vectors, and Capacity Testing)"
             >
-              <Activity size={12} /> 🌪️ FEA Simulation
+              <Activity size={12} /> 🌪️ FEA Sim
             </button>
             <button 
               onClick={() => {
                 const next = !envSimActive;
                 setEnvSimActive(next);
-                if (next) {
-                  setViewMode("realistic");
-                }
+                if (next) setViewMode("realistic");
               }} 
-              className={`flex items-center gap-1 px-2.5 py-1 rounded transition text-xs font-bold ${
+              className={`flex items-center gap-1 px-3 py-1 rounded-lg transition font-medium ${
                 envSimActive 
-                  ? "bg-[#064E3B] text-[#6EE7B7] border border-[#10B981] shadow-[0_0_12px_#10B981]/50" 
+                  ? "bg-[#064E3B] text-[#6EE7B7] border border-[#10B981] shadow-[0_0_10px_#10B981]/50 font-bold" 
                   : "text-[#8195AA] hover:text-[#FFA333]"
               }`}
               title="3D Mayyanad, Kollam Sun Lighting, Dynamic Shadows & Coastal Wind Flow Simulation"
             >
-              <Sun size={12} className={envSimActive ? "text-[#E8C547]" : ""} /> ☀️ Sun & Wind
+              <Sun size={12} className={envSimActive ? "text-[#E8C547]" : ""} /> ☀️ Sun/Wind
             </button>
             <button 
               onClick={() => setShowCompass(!showCompass)} 
-              className={`flex items-center gap-1 px-2.5 py-1 rounded transition text-xs font-bold ${
+              className={`flex items-center gap-1 px-2.5 py-1 rounded-lg transition font-medium ${
                 showCompass 
-                  ? "bg-[#132133] text-[#5CC8E0] border border-[#5CC8E0]/50 shadow-[0_0_10px_#5CC8E0]/30" 
+                  ? "bg-[#102235] text-[#5CC8E0] border border-[#5CC8E0]/40 shadow-sm" 
                   : "text-[#8195AA] hover:text-[#FFA333]"
               }`}
               title="Toggle Architectural 3D Compass Rose HUD"
             >
-              <Compass size={12} className={showCompass ? "text-[#5CC8E0]" : ""} /> 🧭 Compass
+              <Compass size={12} className={showCompass ? "text-[#5CC8E0]" : ""} /> 🧭
             </button>
           </div>
 
           {/* Floor Level Filter */}
-          <div className="flex items-center bg-[#0B1420] border border-[#2A3B52] rounded-lg p-0.5 text-xs mono">
-            <span className="text-[#8195AA] px-2 text-[10px] uppercase font-semibold">Floor:</span>
-            {["all", "gf", "ff", "exploded"].map(f => (
+          <div className="flex items-center bg-[#070D17] border border-[#1E293B] rounded-xl p-1 text-xs mono shadow-inner">
+            {[
+              { id: "all", label: "Full House" },
+              { id: "gf", label: "Ground" },
+              { id: "ff", label: "1st Floor" },
+              { id: "exploded", label: "Exploded" }
+            ].map(f => (
               <button 
-                key={f}
-                onClick={() => setFloorDisplay(f)} 
-                className={`px-2 py-1 rounded transition uppercase ${floorDisplay === f ? "bg-[#132133] text-[#5CC8E0] border border-[#5CC8E0]/40 font-bold" : "text-[#8195AA] hover:text-[#E6EDF2]"}`}
+                key={f.id}
+                onClick={() => setFloorDisplay(f.id)} 
+                className={`px-2.5 py-1 rounded-lg transition font-medium ${floorDisplay === f.id ? "bg-[#102235] text-[#5CC8E0] border border-[#5CC8E0]/40 font-bold shadow-sm" : "text-[#8195AA] hover:text-[#E6EDF2]"}`}
               >
-                {f === "all" ? "Full House" : (f === "gf" ? "Ground" : (f === "ff" ? "1st Floor" : "Exploded"))}
+                {f.label}
               </button>
             ))}
           </div>
+        </div>
 
-          {/* SketchUp Orbit / Pan Navigation Switcher */}
-          <div className="flex items-center bg-[#0B1420] border border-[#2A3B52] rounded-lg p-0.5 text-xs mono">
-            <button 
-              onClick={() => setNavMode("orbit")} 
-              className={`flex items-center gap-1 px-2.5 py-1 rounded transition ${navMode === "orbit" ? "bg-[#132133] text-[#5CC8E0] border border-[#5CC8E0]/40 font-bold" : "text-[#8195AA]"}`}
-              title="Orbit Mode (Shortcut: O) - Click & drag to rotate 3D view"
-            >
-              <RotateCw size={12} /> Orbit (O)
-            </button>
-            <button 
-              onClick={() => setNavMode("pan")} 
-              className={`flex items-center gap-1 px-2.5 py-1 rounded transition ${navMode === "pan" ? "bg-[#132133] text-[#E8C547] border border-[#E8C547]/40 font-bold" : "text-[#8195AA]"}`}
-              title="Pan Mode (Shortcut: H) - Click & drag to pan the model"
-            >
-              <Hand size={12} /> Pan / Drag (H)
-            </button>
-          </div>
+        {/* Right: Framing Mode Dropdown + Action Buttons */}
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* Framing Mode Dropdown with Live FoS */}
+          {(() => {
+            const mode = FRAMING_MODE_STABILITY[beamFilter] || FRAMING_MODE_STABILITY.normal;
+            const dynamicFos = (mode.baseFos / simLoadMultiplier).toFixed(2);
+            return (
+              <div className="flex items-center bg-[#070D17] border border-[#1E293B] rounded-xl p-1 text-xs mono">
+                <span className="text-[#8195AA] pl-2 pr-1 text-[11px] font-semibold flex items-center gap-1">
+                  🏛️ Framing:
+                </span>
+                <select 
+                  value={beamFilter} 
+                  onChange={(e) => setBeamFilter(e.target.value)} 
+                  className="bg-[#102235] text-[#5CC8E0] border border-[#5CC8E0]/40 rounded-lg px-2.5 py-1 text-xs font-bold outline-none cursor-pointer"
+                >
+                  <option value="normal">All Beams (Full Frame: 32)</option>
+                  <option value="economical">💰 Economical (Stability Only: Save ~35%)</option>
+                  <option value="critical">🔴 Mandatory Girders (Skeleton)</option>
+                  <option value="concealed">🟡 Flat Ceiling (Concealed 125mm)</option>
+                  <option value="seismic">🛡️ Seismic Frame (IS 13920 / IS 1893)</option>
+                  <option value="all_shaded">🎨 Color Shaded by Category</option>
+                </select>
+                <span className="text-[10px] px-2 py-0.5 ml-1 rounded font-bold font-mono text-[#34D399]">
+                  {dynamicFos}× FoS
+                </span>
+              </div>
+            );
+          })()}
 
-          {/* Dedicated Full Screen Toggle Button */}
+          {/* 3D Rebar Steel Pill */}
+          <button 
+            onClick={() => setShowRebar(!showRebar)}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-bold transition mono ${
+              showRebar 
+                ? "bg-[#FFA333]/20 border-[#FFA333] text-[#FFA333] shadow-[0_0_10px_rgba(245,158,11,0.3)]" 
+                : "bg-[#070D17] border-[#1E293B] text-[#8195AA] hover:border-[#FFA333]/60 hover:text-[#FFA333]"
+            }`}
+            title="Toggle 3D Steel Rebar Cages & Meshes (Shortcut: R)"
+          >
+            <span className="w-2 h-2 rounded-full bg-[#FFA333] inline-block shadow-[0_0_5px_#FFA333]" />
+            🔩 Rebar (R)
+          </button>
+
+          {/* Exploded Studio */}
+          <button 
+            onClick={() => setRebarStudioTarget(selectedEntity || { type: "slab", id: 5 })} 
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition mono border bg-[#102235] border-[#2A3B52] hover:border-[#FFA333] text-[#FFA333] shadow-sm hover:shadow-[0_0_10px_rgba(245,158,11,0.25)]"
+            title="Open 3D Exploded Rebar Studio with Layer Sliders & BBS Detailing"
+          >
+            <Sparkles size={13} /> 🔬 Exploded Studio
+          </button>
+
+          {/* Live BOQ & Material Rates */}
+          <button 
+            onClick={() => setShowCostModal(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition mono border bg-[#064E3B]/80 border-[#10B981] text-[#6EE7B7] hover:bg-[#10B981]/20 shadow-sm"
+            title="Open Live Material BOQ & Cost Estimator with User Rate Customizer"
+          >
+            <Calculator size={13} /> 💰 Live BOQ
+            <span className="text-[10px] px-1.5 py-0.2 bg-[#10B981]/30 rounded text-[#A7F3D0] ml-0.5">
+              ₹{(liveTotals.grandTotal / 100000).toFixed(2)}L
+            </span>
+          </button>
+
+          {/* Full Screen */}
           <button 
             onClick={() => setIsFullscreen(!isFullscreen)} 
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition mono border ${
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition mono border ${
               isFullscreen 
                 ? "bg-[#E06B5C]/20 border-[#E06B5C] text-[#FF8888] hover:bg-[#E06B5C]/30 shadow-lg" 
-                : "bg-[#132133] border-[#5CC8E0]/60 text-[#5CC8E0] hover:bg-[#5CC8E0]/15"
+                : "bg-[#070D17] border-[#1E293B] text-[#5CC8E0] hover:border-[#5CC8E0] hover:bg-[#102235]"
             }`}
             title={isFullscreen ? "Exit Fullscreen (Shortcut: ESC or F)" : "Expand 3D View to Full Screen (Shortcut: F)"}
           >
             {isFullscreen ? <Minimize2 size={13} /> : <Maximize2 size={13} />}
-            {isFullscreen ? "Exit Full Screen (ESC)" : "Full Screen (F)"}
+            {isFullscreen ? "Exit (ESC)" : "Full Screen (F)"}
           </button>
+        </div>
+      </div>
+
+      {/* 🚀 MODERN CAD BIM VIEWPORT TOOLBAR: ROW 2 (Thin Layer Strip & Camera Navigation) */}
+      <div className="flex items-center justify-between py-2 text-xs mono text-[#8195AA] flex-wrap gap-2">
+        {/* Left: Layer Visibility Chips */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-[10px] uppercase font-bold text-[#64748B] mr-0.5">Layers:</span>
+          <label className={`flex items-center gap-1.5 cursor-pointer px-2.5 py-1 rounded-lg border text-[11px] transition ${
+            showSlabs ? "bg-[#102235] border-[#5CC8E0]/50 text-[#5CC8E0] font-semibold" : "bg-[#070D17] border-[#1E293B] text-[#64748B] hover:text-[#E6EDF2]"
+          }`}>
+            <input type="checkbox" checked={showSlabs} onChange={(e) => setShowSlabs(e.target.checked)} className="accent-[#5CC8E0]" />
+            <span className="w-2 h-2 rounded-sm bg-[#5CC8E0]" /> Slabs (17)
+          </label>
+          <label className={`flex items-center gap-1.5 cursor-pointer px-2.5 py-1 rounded-lg border text-[11px] transition ${
+            showBeams ? "bg-[#102235] border-[#5CC8E0]/50 text-[#5CC8E0] font-semibold" : "bg-[#070D17] border-[#1E293B] text-[#64748B] hover:text-[#E6EDF2]"
+          }`}>
+            <input type="checkbox" checked={showBeams} onChange={(e) => setShowBeams(e.target.checked)} className="accent-[#5CC8E0]" />
+            <span className="w-2 h-2 rounded-sm bg-[#38BDF8]" /> Beams ({beamFilter === "critical" ? "9" : (beamFilter === "concealed" ? "11" : "32")})
+          </label>
+          <label className={`flex items-center gap-1.5 cursor-pointer px-2.5 py-1 rounded-lg border text-[11px] transition ${
+            showLintels ? "bg-[#102235] border-[#E8C547]/50 text-[#E8C547] font-semibold" : "bg-[#070D17] border-[#1E293B] text-[#64748B] hover:text-[#E6EDF2]"
+          }`}>
+            <input type="checkbox" checked={showLintels} onChange={(e) => setShowLintels(e.target.checked)} className="accent-[#E8C547]" />
+            <span className="w-2 h-2 rounded-sm bg-[#E8C547]" /> Lintels (30)
+          </label>
+          {showLintels && (
+            <button
+              onClick={() => setContinuousLintel(!continuousLintel)}
+              className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition border ${
+                continuousLintel
+                  ? "bg-[#E8C547]/20 border-[#E8C547] text-[#E8C547] shadow-[0_0_6px_#E8C547]/30"
+                  : "bg-[#070D17] border-[#1E293B] text-[#8195AA] hover:text-[#E6EDF2]"
+              }`}
+              title="Continuous Lintel Band / Belt (Kerala Standard IS 4326): Monolithic perimeter seismic tie at 2.10m"
+            >
+              🌴 Ring Band: {continuousLintel ? "ON" : "OFF"}
+            </button>
+          )}
+          <label className={`flex items-center gap-1.5 cursor-pointer px-2.5 py-1 rounded-lg border text-[11px] transition ${
+            showFoundationPlinth 
+              ? "bg-[#5CC8E0]/15 border-[#5CC8E0] text-[#5CC8E0] font-semibold" 
+              : "bg-[#070D17] border-[#1E293B] text-[#64748B] hover:text-[#E6EDF2]"
+          }`} title="Toggle 16 Foundation Footing Pads and 9x45 Plinth Beams (Z=0)">
+            <input type="checkbox" checked={showFoundationPlinth} onChange={(e) => setShowFoundationPlinth(e.target.checked)} className="accent-[#5CC8E0]" />
+            🏛️ 16-Pillar Plinth (Z=0)
+          </label>
+          <label className={`flex items-center gap-1.5 cursor-pointer px-2.5 py-1 rounded-lg border text-[11px] transition ${
+            showRoof ? "bg-[#102235] border-[#5CC8E0]/40 text-[#5CC8E0]" : "bg-[#070D17] border-[#1E293B] text-[#64748B] hover:text-[#E6EDF2]"
+          }`}>
+            <input type="checkbox" checked={showRoof} onChange={(e) => setShowRoof(e.target.checked)} className="accent-[#5CC8E0]" />
+            Upper Roof
+          </label>
+        </div>
+
+        {/* Right: 3D Labels, Camera Presets & Navigation */}
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* In-Canvas 3D Labels */}
+          <div className="flex items-center bg-[#070D17] border border-[#1E293B] rounded-xl p-0.5 text-xs mono">
+            <span className="text-[#64748B] px-1.5 text-[10px] uppercase font-bold">🏷️ Labels:</span>
+            <button onClick={() => setLabelSlabs(prev => !prev)} className={`px-2 py-0.5 rounded text-[10px] font-bold transition ${labelSlabs ? "bg-[#102235] text-[#5CC8E0] border border-[#5CC8E0]/40" : "text-[#8195AA] hover:text-white"}`}>Slabs</button>
+            <button onClick={() => setLabelBeams(prev => !prev)} className={`px-2 py-0.5 rounded text-[10px] font-bold transition ${labelBeams ? "bg-[#3D2C14] text-[#FFA333] border border-[#FFA333]/40" : "text-[#8195AA] hover:text-white"}`}>Beams</button>
+            <button onClick={() => setLabelLintels(prev => !prev)} className={`px-2 py-0.5 rounded text-[10px] font-bold transition ${labelLintels ? "bg-[#3D3410] text-[#E8C547] border border-[#E8C547]/40" : "text-[#8195AA] hover:text-white"}`}>Lintels</button>
+            <button onClick={() => setLabelRooms(prev => !prev)} className={`px-2 py-0.5 rounded text-[10px] font-bold transition ${labelRooms ? "bg-[#143324] text-[#5FBF7A] border border-[#5FBF7A]/40" : "text-[#8195AA] hover:text-white"}`}>Rooms</button>
+            <button onClick={() => {
+              const allOn = labelSlabs && labelBeams && labelLintels && labelRooms;
+              setLabelSlabs(!allOn); setLabelBeams(!allOn); setLabelLintels(!allOn); setLabelRooms(!allOn);
+            }} className="px-1.5 py-0.5 rounded text-[9px] font-semibold text-[#8195AA] hover:text-[#5CC8E0] ml-0.5">
+              {(labelSlabs && labelBeams && labelLintels && labelRooms) ? "Clear" : "All"}
+            </button>
+          </div>
+
+          {/* Camera View Angle Presets */}
+          <div className="flex items-center bg-[#070D17] border border-[#1E293B] rounded-xl p-0.5 text-xs mono">
+            <span className="text-[#64748B] px-1.5 text-[10px] uppercase font-bold">Cam:</span>
+            <button onClick={() => setCameraPreset("iso")} className="px-2 py-0.5 hover:bg-[#102235] rounded text-[10px] text-[#5CC8E0] transition font-medium">3D</button>
+            <button onClick={() => setCameraPreset("top")} className="px-2 py-0.5 hover:bg-[#102235] rounded text-[10px] text-[#5CC8E0] transition font-medium">Top</button>
+            <button onClick={() => setCameraPreset("front")} className="px-2 py-0.5 hover:bg-[#102235] rounded text-[10px] text-[#5CC8E0] transition font-medium">Front</button>
+            <button onClick={() => setCameraPreset("side")} className="px-2 py-0.5 hover:bg-[#102235] rounded text-[10px] text-[#5CC8E0] transition font-medium">Side</button>
+          </div>
+
+          {/* Orbit / Pan Switcher */}
+          <div className="flex items-center bg-[#070D17] border border-[#1E293B] rounded-xl p-0.5 text-xs mono">
+            <button 
+              onClick={() => setNavMode("orbit")} 
+              className={`flex items-center gap-1 px-2.5 py-0.5 rounded transition ${navMode === "orbit" ? "bg-[#102235] text-[#5CC8E0] border border-[#5CC8E0]/40 font-bold" : "text-[#8195AA] hover:text-white"}`}
+              title="Orbit Mode (Shortcut: O)"
+            >
+              <RotateCw size={11} /> Orbit (O)
+            </button>
+            <button 
+              onClick={() => setNavMode("pan")} 
+              className={`flex items-center gap-1 px-2.5 py-0.5 rounded transition ${navMode === "pan" ? "bg-[#102235] text-[#E8C547] border border-[#E8C547]/40 font-bold" : "text-[#8195AA] hover:text-white"}`}
+              title="Pan Mode (Shortcut: H)"
+            >
+              <Hand size={11} /> Pan (H)
+            </button>
+          </div>
         </div>
       </div>
 
       {/* 🌪️ FEA Simulation Controls & Multi-Physics Testing Bar */}
       {viewMode === "simulation" && (
-        <div className="mb-3 p-3 bg-[#0B1524] border border-[#EF4444]/40 rounded-xl shadow-lg flex flex-col lg:flex-row items-start lg:items-center justify-between gap-3 text-xs mono">
+        <div className="mb-2.5 p-3 bg-[#0B1524] border border-[#EF4444]/40 rounded-xl shadow-lg flex flex-col lg:flex-row items-start lg:items-center justify-between gap-3 text-xs mono">
           <div className="flex items-center gap-3 flex-wrap">
             <div className="flex items-center gap-1.5 text-[#FF8888] font-bold">
               <Activity size={15} className="animate-pulse" />
@@ -5978,125 +6047,86 @@ function FullHouse3DViewer({ openings, slabs, beams, walls = [], lintelResults, 
             </div>
 
             {/* Load Type Mode Switcher: Gravity vs Wind vs Seismic */}
-            <div className="flex items-center bg-[#070D17] border border-[#1B2A3F] rounded-lg p-0.5">
-              <button
-                onClick={() => setSimLoadType("gravity")}
-                className={`px-2 py-1 rounded transition text-[11px] font-bold ${
-                  simLoadType === "gravity"
-                    ? "bg-[#132133] text-[#5CC8E0] border border-[#5CC8E0]/60"
-                    : "text-[#8195AA] hover:text-[#E6EDF2]"
-                }`}
-                title="Gravity Load Combination (1.5 DL + 1.5 LL)"
+            <div className="flex items-center bg-[#070D17] border border-[#2A3B52] rounded-lg p-0.5">
+              <button 
+                onClick={() => setSimLoadType("gravity")} 
+                className={`px-2 py-0.5 rounded transition ${simLoadType === "gravity" ? "bg-[#1E3A5F] text-[#5CC8E0] font-bold" : "text-[#8195AA]"}`}
               >
-                ⬇️ Gravity
+                ⬇️ Gravity (1.5 DL + 1.5 LL)
               </button>
-              <button
-                onClick={() => setSimLoadType("wind")}
-                className={`px-2 py-1 rounded transition text-[11px] font-bold ${
-                  simLoadType === "wind"
-                    ? "bg-[#0C2A3E] text-[#38BDF8] border border-[#38BDF8]"
-                    : "text-[#8195AA] hover:text-[#38BDF8]"
-                }`}
-                title="Lateral Wind Load Combination (1.2 DL + 1.2 LL + 1.2 WL @ 39 m/s)"
+              <button 
+                onClick={() => setSimLoadType("wind")} 
+                className={`px-2 py-0.5 rounded transition ${simLoadType === "wind" ? "bg-[#164E63] text-[#38BDF8] font-bold" : "text-[#8195AA]"}`}
               >
-                🌪️ Wind (39 m/s)
+                💨 Coastal Wind (Vb=39 m/s)
               </button>
-              <button
-                onClick={() => setSimLoadType("seismic")}
-                className={`px-2 py-1 rounded transition text-[11px] font-bold ${
-                  simLoadType === "seismic"
-                    ? "bg-[#3D2C10] text-[#FACC15] border border-[#FACC15]"
-                    : "text-[#8195AA] hover:text-[#FACC15]"
-                }`}
-                title="Earthquake Base Shear (1.5 DL + 1.5 EL - Zone III Kerala)"
+              <button 
+                onClick={() => setSimLoadType("seismic")} 
+                className={`px-2 py-0.5 rounded transition ${simLoadType === "seismic" ? "bg-[#451A03] text-[#F97316] font-bold" : "text-[#8195AA]"}`}
               >
-                ⚡ Seismic (Zone III)
+                ⚡ Seismic (Zone III, Ah=0.08)
               </button>
             </div>
 
-            {/* Load Multiplier Presets & Slider */}
-            <div className="flex items-center gap-2 bg-[#070D17] px-3 py-1 rounded-lg border border-[#1B2A3F]">
-              <span className="text-[#8195AA] text-[10px] font-semibold">Load Multiplier:</span>
-              {[
-                { mul: 0.5, label: "0.5×", desc: "Light Unfurnished" },
-                { mul: 1.0, label: "1.0×", desc: "Design 2.0 kN/m²" },
-                { mul: 1.5, label: "1.5×", desc: "IS 456 Factored" },
-                { mul: 2.0, label: "2.0×", desc: "Heavy Overload" },
-                { mul: 3.0, label: "3.0×", desc: "Failure Envelope" }
-              ].map(p => (
-                <button
-                  key={p.mul}
-                  onClick={() => setSimLoadMultiplier(p.mul)}
-                  className={`px-1.5 py-0.5 rounded text-[10px] font-bold transition border ${
-                    simLoadMultiplier === p.mul
-                      ? "bg-[#EF4444]/20 border-[#EF4444] text-[#FF8888] shadow-[0_0_8px_#EF4444]/40"
-                      : "bg-[#101E30] border-[#1B2A3F] text-[#8195AA] hover:text-[#E6EDF2]"
-                  }`}
-                  title={p.desc}
-                >
-                  {p.label}
-                </button>
-              ))}
+            {/* Live Load Stress Multiplier Slider */}
+            <div className="flex items-center gap-2 bg-[#070D17] px-2.5 py-1 rounded-lg border border-[#2A3B52]">
+              <span className="text-[#8195AA] text-[10px] uppercase">Load Test:</span>
               <input 
                 type="range" 
                 min="0.5" 
                 max="3.0" 
                 step="0.1" 
                 value={simLoadMultiplier} 
-                onChange={(e) => setSimLoadMultiplier(parseFloat(e.target.value))}
-                className="w-20 accent-[#EF4444] cursor-pointer"
-                title={`Applied Load Multiplier: ${simLoadMultiplier.toFixed(1)}×`}
+                onChange={(e) => setSimLoadMultiplier(+e.target.value)} 
+                className="w-24 accent-[#EF4444] cursor-pointer"
               />
-              <span className="text-[#EF4444] font-bold w-7 text-right">{simLoadMultiplier.toFixed(1)}×</span>
+              <span className={`font-bold ${simLoadMultiplier > 2.0 ? 'text-[#EF4444]' : (simLoadMultiplier > 1.3 ? 'text-[#F59E0B]' : 'text-[#22C55E]')}`}>
+                {simLoadMultiplier.toFixed(1)}×
+              </span>
             </div>
+
+            {/* Multi-Physics Visualization Toggles */}
+            <label className="flex items-center gap-1.5 cursor-pointer text-[#8195AA] hover:text-[#E6EDF2]">
+              <input 
+                type="checkbox" 
+                checked={simShowLoadVectors} 
+                onChange={(e) => setSimShowLoadVectors(e.target.checked)} 
+                className="accent-[#EF4444]"
+              />
+              <span>🔻 Vectors</span>
+            </label>
+            <label className="flex items-center gap-1.5 cursor-pointer text-[#8195AA] hover:text-[#E6EDF2]">
+              <input 
+                type="checkbox" 
+                checked={simShowBMD} 
+                onChange={(e) => setSimShowBMD(e.target.checked)} 
+                className="accent-[#FFA333]"
+              />
+              <span>📈 BMD Moment</span>
+            </label>
+            <label className="flex items-center gap-1.5 cursor-pointer text-[#8195AA] hover:text-[#E6EDF2]">
+              <input 
+                type="checkbox" 
+                checked={simShowFoundationStress} 
+                onChange={(e) => setSimShowFoundationStress(e.target.checked)} 
+                className="accent-[#5CC8E0]"
+              />
+              <span>🏛️ Soil Bearing</span>
+            </label>
           </div>
 
-          <div className="flex items-center gap-2 flex-wrap">
-            {/* Deflection Scale Slider */}
-            <div className="flex items-center gap-1.5 bg-[#070D17] px-2 py-1 rounded-lg border border-[#1B2A3F]">
-              <span className="text-[#8195AA] text-[10px]">Deflection:</span>
-              <input 
-                type="range" 
-                min="1" 
-                max="50" 
-                step="1" 
-                value={simDeflectionScale} 
-                onChange={(e) => setSimDeflectionScale(parseInt(e.target.value))}
-                className="w-14 accent-[#5CC8E0] cursor-pointer"
-              />
-              <span className="text-[#5CC8E0] font-bold text-[10px]">{simDeflectionScale}×</span>
-            </div>
-
-            {/* Visual Toggles */}
-            <label className="flex items-center gap-1 cursor-pointer bg-[#070D17] px-2 py-1 rounded-lg border border-[#1B2A3F] text-[10px] text-[#B9C6D4] hover:text-[#5CC8E0]">
-              <input type="checkbox" checked={simShowLoadVectors} onChange={(e) => setSimShowLoadVectors(e.target.checked)} className="accent-[#5CC8E0]" />
-              ⬇️ Vectors
-            </label>
-            <label className="flex items-center gap-1 cursor-pointer bg-[#070D17] px-2 py-1 rounded-lg border border-[#1B2A3F] text-[10px] text-[#B9C6D4] hover:text-[#5CC8E0]">
-              <input type="checkbox" checked={simShowBMD} onChange={(e) => setSimShowBMD(e.target.checked)} className="accent-[#5CC8E0]" />
-              📈 3D BMD
-            </label>
-            <label className="flex items-center gap-1 cursor-pointer bg-[#070D17] px-2 py-1 rounded-lg border border-[#1B2A3F] text-[10px] text-[#B9C6D4] hover:text-[#5CC8E0]">
-              <input type="checkbox" checked={simShowFoundationStress} onChange={(e) => setSimShowFoundationStress(e.target.checked)} className="accent-[#5CC8E0]" />
-              🪨 Soil Footprint
-            </label>
-
-            {/* What-If Member Removal Reset Button */}
+          <div className="flex items-center gap-2">
             {simRemovedBeams.length > 0 && (
-              <button
-                onClick={() => setSimRemovedBeams([])}
-                className="flex items-center gap-1 px-2 py-1 rounded-lg bg-[#EF4444]/20 border border-[#EF4444] text-[#FF8888] font-bold text-[10px] animate-pulse"
-                title="Restore all temporarily removed beams"
+              <button 
+                onClick={() => setSimRemovedBeams([])} 
+                className="px-2.5 py-1 bg-[#EF4444]/20 border border-[#EF4444] text-[#FF8888] rounded-lg hover:bg-[#EF4444]/30 transition"
               >
-                <Zap size={11} /> Reset ({simRemovedBeams.length} Removed)
+                Reset {simRemovedBeams.length} Cut Beams
               </button>
             )}
-
-            {/* One-Click IS 456 Structural Audit Report Button */}
-            <button
-              onClick={() => setSimAuditModalOpen(true)}
-              className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[#5CC8E0]/20 border border-[#5CC8E0] text-[#5CC8E0] hover:bg-[#5CC8E0]/30 font-bold text-[11px] shadow-md transition"
-              title="Open full printable IS 456 / IS 1893 Structural Stability Certificate & Audit"
+            <button 
+              onClick={() => setShowAuditModal(true)} 
+              className="flex items-center gap-1.5 px-3 py-1 bg-[#10B981]/20 border border-[#10B981] text-[#34D399] rounded-lg hover:bg-[#10B981]/30 transition font-bold"
             >
               <FileText size={12} /> 📑 Audit Report
             </button>
@@ -6104,192 +6134,10 @@ function FullHouse3DViewer({ openings, slabs, beams, walls = [], lintelResults, 
         </div>
       )}
 
-      {/* Visibility Toggles, Beam Priority Legend & Camera View Presets */}
-      <div className="flex items-center justify-between mb-2 text-xs mono text-[#8195AA] flex-wrap gap-2">
-        <div className="flex items-center gap-2.5 flex-wrap">
-          {/* 3D Rebar Toggle with Vibrant Badge & Keyboard Shortcut 'R' */}
-          <label className={`flex items-center gap-1.5 cursor-pointer px-2.5 py-1 rounded-lg border font-bold transition ${
-            showRebar 
-              ? "bg-[#FFA333]/20 border-[#FFA333] text-[#FFA333] shadow-[0_0_10px_#FFA333]/30" 
-              : "bg-[#0B1420] border-[#2A3B52] text-[#B9C6D4] hover:border-[#FFA333]/60 hover:text-[#FFA333]"
-          }`} title="Toggle 3D Steel Rebar Cages & Meshes (Shortcut: R)">
-            <input type="checkbox" checked={showRebar} onChange={(e) => setShowRebar(e.target.checked)} className="accent-[#FFA333]" />
-            <span className="w-2.5 h-2.5 rounded-full bg-[#FFA333] inline-block shadow-[0_0_6px_#FFA333]" /> 🔩 3D Rebar Steel (IS 456) <kbd className="text-[9px] px-1 bg-[#132133] border border-[#FFA333]/40 rounded text-[#FFA333]">R</kbd>
-          </label>
-
-          {/* Dedicated Exploded Rebar Studio Modal Opener */}
-          <button 
-            onClick={() => setRebarStudioTarget(selectedEntity || { type: "slab", id: 5 })} 
-            className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold transition mono border bg-[#1E3A5F]/80 border-[#FFA333] text-[#FFA333] hover:bg-[#FFA333]/20 shadow-md"
-            title="Open 3D Exploded Rebar Studio with Layer Sliders & BBS Detailing"
-          >
-            <Sparkles size={13} /> 🔬 Exploded Studio
-          </button>
-
-          {/* Live BOQ & Material Cost Estimator Modal Opener */}
-          <button 
-            onClick={() => setShowCostModal(true)}
-            className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold transition mono border bg-[#064E3B]/80 border-[#10B981] text-[#6EE7B7] hover:bg-[#10B981]/20 shadow-md"
-            title="Open Live Material BOQ & Cost Estimator with User Rate Customizer"
-          >
-            <Calculator size={13} /> 💰 Live BOQ & Rates
-            <span className="text-[10px] px-1.5 py-0.2 bg-[#10B981]/30 rounded text-[#A7F3D0] ml-0.5">
-              ₹{(liveTotals.grandTotal / 100000).toFixed(2)}L
-            </span>
-          </button>
-
-          <label className="flex items-center gap-1.5 cursor-pointer hover:text-[#5CC8E0]">
-            <input type="checkbox" checked={showSlabs} onChange={(e) => setShowSlabs(e.target.checked)} />
-            <span className="w-2.5 h-2.5 rounded-sm bg-[#1f3c5c] border border-[#5CC8E0] inline-block" /> Slabs (S1-S17)
-          </label>
-          <label className="flex items-center gap-1.5 cursor-pointer hover:text-[#5CC8E0]">
-            <input type="checkbox" checked={showBeams} onChange={(e) => setShowBeams(e.target.checked)} />
-            <span className="w-2.5 h-2.5 rounded-sm bg-[#5CC8E0] inline-block" /> Beams ({beamFilter === "critical" ? "9" : (beamFilter === "concealed" ? "11" : "32")})
-          </label>
-          <label className="flex items-center gap-1.5 cursor-pointer hover:text-[#E8C547]">
-            <input type="checkbox" checked={showLintels} onChange={(e) => setShowLintels(e.target.checked)} />
-            <span className="w-2.5 h-2.5 rounded-sm bg-[#E8C547] inline-block" /> Lintels (30)
-          </label>
-          {showLintels && (
-            <button
-              onClick={() => setContinuousLintel(!continuousLintel)}
-              className={`px-2 py-0.5 rounded text-[10px] font-bold transition border ${
-                continuousLintel
-                  ? "bg-[#E8C547]/20 border-[#E8C547] text-[#E8C547] shadow-[0_0_6px_#E8C547]/30"
-                  : "bg-[#101E30] border-[#1B2A3F] text-[#8195AA] hover:text-[#E6EDF2]"
-              }`}
-              title="Continuous Lintel Band / Belt (Kerala Standard IS 4326): Binds all perimeter walls at 2.10m level into a monolithic seismic ring"
-            >
-              🌴 Continuous Band: {continuousLintel ? "ON" : "OFF"}
-            </button>
-          )}
-          <button
-            onClick={() => {
-              const next = !showBlockStacking;
-              setShowBlockStacking(next);
-              if (next && (viewMode === "xray" || viewMode === "simulation")) setViewMode("realistic");
-            }}
-            className={`flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold transition border ${
-              showBlockStacking
-                ? "bg-[#D97706]/25 border-[#F59E0B] text-[#FCD34D] shadow-[0_0_6px_#F59E0B]/40"
-                : "bg-[#101E30] border-[#1B2A3F] text-[#8195AA] hover:text-[#FCD34D]"
-            }`}
-            title="Toggle individual 3D concrete solid blocks & 10mm mortar joints (Shortcut: B)"
-          >
-            🧱 Block Stacking: {showBlockStacking ? "ON" : "OFF"}
-          </button>
-          <label className="flex items-center gap-1.5 cursor-pointer hover:text-[#E6EDF2]">
-            <input type="checkbox" checked={showRoof} onChange={(e) => setShowRoof(e.target.checked)} /> Upper Roof Slabs
-          </label>
-          <label className={`flex items-center gap-1.5 cursor-pointer px-2 py-0.5 rounded border transition ${
-            showFoundationPlinth 
-              ? "bg-[#5CC8E0]/15 border-[#5CC8E0] text-[#5CC8E0]" 
-              : "bg-[#101E30] border-[#1B2A3F] text-[#8195AA] hover:text-[#E6EDF2]"
-          }`} title="Toggle 16 Foundation Footing Pads and 9x45 Plinth Beams (Z=0)">
-            <input type="checkbox" checked={showFoundationPlinth} onChange={(e) => setShowFoundationPlinth(e.target.checked)} className="accent-[#5CC8E0]" />
-            🏛️ 16-Pillar Plinth (Z=0)
-          </label>
-
-          {/* 3D In-Canvas Labels Toggles */}
-          <div className="flex items-center bg-[#0B1420] border border-[#2A3B52] rounded-lg p-0.5 text-xs mono">
-            <span className="text-[#8195AA] px-1.5 text-[10px] uppercase font-bold flex items-center gap-1">
-              🏷️ 3D Labels:
-            </span>
-            <button
-              onClick={() => setLabelSlabs(prev => !prev)}
-              className={`px-2 py-0.5 rounded text-[10px] font-bold transition border ${
-                labelSlabs 
-                  ? "bg-[#1f3c5c] text-[#5CC8E0] border-[#5CC8E0] shadow-[0_0_6px_#5CC8E0]/30" 
-                  : "text-[#8195AA] border-transparent hover:text-[#E6EDF2]"
-              }`}
-              title="Toggle Slab ID & Dimensions (e.g. S5: Bed 2)"
-            >
-              Slabs
-            </button>
-            <button
-              onClick={() => setLabelBeams(prev => !prev)}
-              className={`px-2 py-0.5 rounded text-[10px] font-bold transition border ${
-                labelBeams 
-                  ? "bg-[#3D2C14] text-[#FFA333] border-[#FFA333] shadow-[0_0_6px_#FFA333]/30" 
-                  : "text-[#8195AA] border-transparent hover:text-[#E6EDF2]"
-              }`}
-              title="Toggle Beam ID, Span & Size (e.g. B19: Sitout Header)"
-            >
-              Beams
-            </button>
-            <button
-              onClick={() => setLabelLintels(prev => !prev)}
-              className={`px-2 py-0.5 rounded text-[10px] font-bold transition border ${
-                labelLintels 
-                  ? "bg-[#3D3410] text-[#E8C547] border-[#E8C547] shadow-[0_0_6px_#E8C547]/30" 
-                  : "text-[#8195AA] border-transparent hover:text-[#E6EDF2]"
-              }`}
-              title="Toggle Lintel / Opening ID & Width (e.g. SD1, W10, D1)"
-            >
-              Lintels
-            </button>
-            <button
-              onClick={() => setLabelRooms(prev => !prev)}
-              className={`px-2 py-0.5 rounded text-[10px] font-bold transition border ${
-                labelRooms 
-                  ? "bg-[#143324] text-[#5FBF7A] border-[#5FBF7A] shadow-[0_0_6px_#5FBF7A]/30" 
-                  : "text-[#8195AA] border-transparent hover:text-[#E6EDF2]"
-              }`}
-              title="Toggle Room & Space Names (e.g. Living Void, Dining, Kitchen)"
-            >
-              Rooms/Walls
-            </button>
-            <button
-              onClick={() => {
-                const allOn = labelSlabs && labelBeams && labelLintels && labelRooms;
-                setLabelSlabs(!allOn);
-                setLabelBeams(!allOn);
-                setLabelLintels(!allOn);
-                setLabelRooms(!allOn);
-              }}
-              className="px-1.5 py-0.5 rounded text-[9px] font-semibold text-[#8195AA] hover:text-[#5CC8E0] ml-0.5 border border-[#1B2A3F]"
-              title="Toggle All Labels On or Off (Shortcut: L)"
-            >
-              {(labelSlabs && labelBeams && labelLintels && labelRooms) ? "Clear All" : "All On"}
-            </button>
-          </div>
-        </div>
-
-        {/* Shading Legend Index */}
-        <div className="flex items-center gap-3 text-[11px] bg-[#070D17]/80 px-2.5 py-1 rounded-lg border border-[#1B2A3F] flex-wrap">
-          {beamFilter === "normal" ? (
-            <span className="flex items-center gap-1.5 text-[#5CC8E0]">
-              <span className="w-2 h-2 rounded-full bg-[#5CC8E0] inline-block" /> Normal Uniform View (All 32 Beams)
-            </span>
-          ) : (
-            <>
-              <span className="text-[#8195AA] text-[10px] uppercase font-bold">Priority Shade:</span>
-              <span className="flex items-center gap-1 text-[#FF8888]">
-                <span className="w-2 h-2 rounded-full bg-[#EF4444] inline-block shadow-[0_0_6px_#EF4444]" /> Critical (Mandatory)
-              </span>
-              <span className="flex items-center gap-1 text-[#FFE28A]">
-                <span className="w-2 h-2 rounded-full bg-[#F59E0B] inline-block" /> Concealed (Flush)
-              </span>
-              <span className="flex items-center gap-1 text-[#8FB2D6]">
-                <span className="w-2 h-2 rounded-full bg-[#325272] inline-block" /> Wall-Supported
-              </span>
-            </>
-          )}
-        </div>
-
-        <div className="flex items-center gap-1">
-          <span className="text-[10px] text-[#8195AA] mr-1">View Angle:</span>
-          <button onClick={() => setCameraPreset("iso")} className="px-2 py-0.5 bg-[#0B1420] border border-[#2A3B52] hover:border-[#5CC8E0] rounded text-[10px] text-[#5CC8E0]">3D Isometric</button>
-          <button onClick={() => setCameraPreset("top")} className="px-2 py-0.5 bg-[#0B1420] border border-[#2A3B52] hover:border-[#5CC8E0] rounded text-[10px] text-[#5CC8E0]">Plan (Top-Down)</button>
-          <button onClick={() => setCameraPreset("front")} className="px-2 py-0.5 bg-[#0B1420] border border-[#2A3B52] hover:border-[#5CC8E0] rounded text-[10px] text-[#5CC8E0]">Front View</button>
-          <button onClick={() => setCameraPreset("side")} className="px-2 py-0.5 bg-[#0B1420] border border-[#2A3B52] hover:border-[#5CC8E0] rounded text-[10px] text-[#5CC8E0]">Side View</button>
-        </div>
-      </div>
-
       {/* 3D WebGL Canvas with Hover/HUD & Selected Entity Card */}
       <div 
-        className={`w-full rounded-xl overflow-hidden border border-[#1B2A3F] relative ${isFullscreen ? "flex-1 min-h-0" : ""}`} 
-        style={{ height: isFullscreen ? "100%" : 580, background: "#070D17" }}
+        className={`w-full rounded-2xl overflow-hidden border border-[#1E293B] relative shadow-[0_15px_40px_rgba(0,0,0,0.6)] ${isFullscreen ? "flex-1 min-h-0" : ""}`} 
+        style={{ height: isFullscreen ? "100%" : 650, background: "#070D17" }}
       >
         {/* Dedicated 3D Canvas Mount - No React children inside */}
         <div 
@@ -8881,7 +8729,7 @@ function TabBtn({ active, onClick, icon, children }) {
   return (
     <button 
       onClick={onClick} 
-      className={`relative flex items-center gap-2 px-3.5 py-2 text-xs md:text-sm font-medium rounded-xl border transition-all duration-150 select-none ${
+      className={`relative flex items-center gap-2 px-3.5 py-1.5 text-xs md:text-sm font-medium rounded-xl border transition-all duration-150 select-none whitespace-nowrap shrink-0 ${
         active 
           ? "bg-[#102235] border-[#5CC8E0] text-[#5CC8E0] shadow-[0_0_15px_rgba(92,200,224,0.22)] font-semibold" 
           : "bg-[#0B1420]/80 border-[#1B2A3F] text-[#8195AA] hover:border-[#2A3B52] hover:text-[#F2F5F8] hover:bg-[#0F1B2B]"
@@ -10368,16 +10216,16 @@ export default function StructuralDesignSuite() {
         </header>
 
         {/* Modern Segmented Navigation Tabs + Floor Filter */}
-        <div className="flex items-center justify-between gap-3 mb-2 flex-wrap">
-          <div className="flex gap-1.5 md:gap-2 flex-wrap">
+        <div className="flex items-center justify-between gap-3 mb-2 flex-wrap lg:flex-nowrap">
+          <div className="flex items-center gap-1.5 md:gap-2 overflow-x-auto no-scrollbar py-1 flex-nowrap shrink min-w-0">
             <TabBtn active={tab === "3dhouse"} onClick={() => setTab("3dhouse")} icon={<Building2 size={15} />}>
-              Full House 3D BIM (Clickable)
+              Full House 3D BIM
             </TabBtn>
             <TabBtn active={tab === "seismic"} onClick={() => setTab("seismic")} icon={<Activity size={15} />}>
-              ⚡ IS 1893 Seismic Audit
+              IS 1893 Seismic
             </TabBtn>
             <TabBtn active={tab === "wall"} onClick={() => setTab("wall")} icon={<Home size={15} />}>
-              Walls & Masonry ({filteredWalls.length})
+              Walls ({filteredWalls.length})
             </TabBtn>
             <TabBtn active={tab === "slab"} onClick={() => setTab("slab")} icon={<Layers size={15} />}>
               Slabs ({filteredSlabs.length})
@@ -10389,11 +10237,11 @@ export default function StructuralDesignSuite() {
               Lintels ({filteredOpenings.length})
             </TabBtn>
             <TabBtn active={tab === "boq"} onClick={() => setTab("boq")} icon={<Calculator size={15} />}>
-              💰 Quantity & Cost Estimator
+              Quantity & Cost BOQ
             </TabBtn>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 shrink-0">
             <div className="flex items-center bg-[#0B1420] border border-[#1E293B] rounded-xl p-1 text-xs mono shadow-inner">
               <span className="text-[#8195AA] px-2 flex items-center gap-1"><Filter size={12} /> Floor:</span>
               <button 
@@ -10423,7 +10271,7 @@ export default function StructuralDesignSuite() {
                   : "bg-[#0B1420] border-[#1E293B] text-[#8195AA] hover:border-[#2A3B52] hover:text-[#E6EDF2]"
               }`}
             >
-              <Settings2 size={14} className={showSettings ? "animate-spin-slow" : ""} /> {showSettings ? "Hide Settings" : "Settings"}
+              <Settings2 size={14} className={showSettings ? "animate-spin-slow" : ""} /> {showSettings ? "Hide" : "Settings"}
             </button>
           </div>
         </div>
