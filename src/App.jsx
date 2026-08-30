@@ -403,21 +403,19 @@ const MASONRY_SPECS = {
     ]
   },
   solid_block: {
-    label: "Solid Concrete Block (Cement Block)",
+    label: "Solid Concrete Block (30×20×15 cm, 20cm Wall)",
     defaultL: 300,
     defaultH: 150,
-    defaultT: 150,
+    defaultT: 200,
     defaultJoint: 10,
-    costPerUnit: 34,
+    costPerUnit: 38,
     density: 21.0,
-    unitSize: "300 × 150 × 150 mm (6-inch)",
+    unitSize: "300 × 150 × 200 mm (20cm Wall)",
     presets: [
-      { label: "30 × 15 × 15 cm (300×150×150 mm 6-inch Main)", L: 300, H: 150, T: 150, joint: 10, cost: 34 },
-      { label: "30 × 15 × 10 cm (300×150×100 mm 4-inch Partition)", L: 300, H: 150, T: 100, joint: 10, cost: 28 },
-      { label: "30 × 20 × 15 cm (300×200×150 mm 6-inch High)", L: 300, H: 200, T: 150, joint: 10, cost: 38 },
-      { label: "30 × 20 × 10 cm (300×200×100 mm 4-inch High)", L: 300, H: 200, T: 100, joint: 10, cost: 30 },
-      { label: "40 × 20 × 20 cm (400×200×200 mm 8-inch)", L: 400, H: 200, T: 200, joint: 10, cost: 42 },
-      { label: "40 × 20 × 15 cm (400×200×150 mm 6-inch)", L: 400, H: 200, T: 150, joint: 10, cost: 36 },
+      { label: "30 × 20 × 15 cm (300×150×200 mm 20cm Wall)", L: 300, H: 150, T: 200, joint: 10, cost: 38 },
+      { label: "30 × 15 × 15 cm (300×150×150 mm 15cm Wall)", L: 300, H: 150, T: 150, joint: 10, cost: 34 },
+      { label: "30 × 15 × 10 cm (300×150×100 mm 10cm Partition)", L: 300, H: 150, T: 100, joint: 10, cost: 28 },
+      { label: "40 × 20 × 20 cm (400×200×200 mm 20cm Large)", L: 400, H: 200, T: 200, joint: 10, cost: 44 },
       { label: "20 × 20 × 20 cm (200×200×200 mm Half/Square)", L: 200, H: 200, T: 200, joint: 10, cost: 25 },
     ]
   },
@@ -2711,14 +2709,14 @@ function LiveBOQAndRateModal({
                 <div className="bg-[#0F1B2B] border-2 border-[#5FBF7A]/60 rounded-xl p-3 space-y-2 relative shadow-lg shadow-[#5FBF7A]/10">
                   <div className="flex justify-between items-center text-xs">
                     <span className="font-bold text-[#5FBF7A] flex items-center gap-1.5">
-                      🧱 Solid Concrete Block (10×30×15 cm)
+                      🧱 Solid Concrete Block (30×20×15 cm)
                       <span className="text-[9px] bg-[#5FBF7A]/20 text-[#5FBF7A] px-1.5 py-0.5 rounded font-normal border border-[#5FBF7A]/40">Active Project Material</span>
                     </span>
                     <span className="mono font-bold text-[#F2F5F8] bg-[#070D17] px-2 py-0.5 rounded border border-[#2A3B52]">
-                      ₹ {currentSettings.rateMasonrySolidBlock || 34} / block
+                      ₹ {currentSettings.rateMasonrySolidBlock || 38} / block
                     </span>
                   </div>
-                  <div className="text-[10px] text-[#8195AA]">Standard Kerala 300×150×150mm (6" main) & 300×150×100mm (4" partition) cement solid block delivered at site</div>
+                  <div className="text-[10px] text-[#8195AA]">Standard Kerala 300×150×200mm (20cm / 8" width wall) solid cement block delivered at site</div>
                   <div className="flex items-center gap-2">
                     <input 
                       type="range" min="20" max="60" step="1"
@@ -7035,10 +7033,10 @@ function FullHouse3DViewer({ openings, slabs, beams, walls = [], lintelResults, 
                     </div>
                     <div className="grid grid-cols-2 gap-1 text-[10px]">
                       {[
-                        { label: "30×15×15 cm (6\" Main)", L: 300, H: 150, T: 150, cost: 34 },
+                        { label: "30×20×15 cm (20cm Wall)", L: 300, H: 150, T: 200, cost: 38 },
+                        { label: "30×15×15 cm (6\" Wall)", L: 300, H: 150, T: 150, cost: 34 },
                         { label: "30×15×10 cm (4\" Partition)", L: 300, H: 150, T: 100, cost: 28 },
-                        { label: "30×20×15 cm (6\" Tall)", L: 300, H: 200, T: 150, cost: 38 },
-                        { label: "30×20×10 cm (4\" Tall)", L: 300, H: 200, T: 100, cost: 30 },
+                        { label: "40×20×20 cm (20cm Large)", L: 400, H: 200, T: 200, cost: 44 },
                       ].map((preset, pIdx) => {
                         const isCur = Number(selectedEntity.result?.blockL) === preset.L &&
                                       Number(selectedEntity.result?.blockH) === preset.H &&
@@ -7692,7 +7690,7 @@ function WallDiagram({ wall, r }) {
       <line x1={x0} y1={y0 - 18} x2={x0} y2={y0 - 10} stroke="#E8C547" strokeWidth="1" />
       <line x1={x0 + wPx} y1={y0 - 18} x2={x0 + wPx} y2={y0 - 10} stroke="#E8C547" strokeWidth="1" />
       <text x={x0 + wPx / 2} y={y0 - 18} fill="#E8C547" fontSize="11" textAnchor="middle" fontFamily="monospace" fontWeight="600">
-        L = {wall.length} m
+        L = {wall.length} m · Wall Width t = {wall.thickness || 200} mm (20 cm)
       </text>
 
       {/* Side Height Dimension */}
@@ -7705,7 +7703,7 @@ function WallDiagram({ wall, r }) {
 
       {/* Bottom Summary Pill */}
       <text x={W / 2} y={H - 14} fill="#8195AA" fontSize="10" textAnchor="middle" fontFamily="monospace">
-        Net Area: <tspan fill="#5FBF7A" fontWeight="bold">{num(r?.netArea, 2)} m²</tspan> · Gross: {num(r?.grossArea, 2)} m² · Deductions: −{num(r?.opDeductionArea, 2)} m²
+        Net Area: <tspan fill="#5FBF7A" fontWeight="bold">{num(r?.netArea, 2)} m²</tspan> · Block: <tspan fill="#FBBF24" fontWeight="bold">{r?.blockL || 300}×{r?.blockH || 150}×{r?.blockT || 200} mm ({r?.unitsCount} Nos)</tspan> · Vol: {num(r?.netVolume, 2)} m³
       </text>
     </svg>
   );
@@ -9524,37 +9522,37 @@ const CAD_PROJECT = {
     { id: 32, floor: "FF", label: "B32 (FF Roof) — Toilet / Stair Divider Roof Beam", clearSpan: 2.57, supportWidth: 200, width: 200, depth: 250, udl: 8.5, wallOnBeam: false, wallHeight: 1.0, archingRelief: false },
   ],
   walls: [
-    // Ground Floor External Walls (150mm / 6-inch Solid Concrete Block)
-    { id: 1, floor: "GF", label: "W-GF-01 — Front Living/Dining/Kitchen Facade (Grid 3)", length: 10.05, height: 3.00, thickness: 150, material: "solid_block", blockL: 300, blockH: 150, blockT: 150, mortarJoint: 10, costPerUnit: 34, mortarMix: "1:4", isExterior: true, isPartition: false, openingIds: [16, 17, 18], desc: "Main front elevation wall along Grid 3 (Z=0.10m)" },
-    { id: 2, floor: "GF", label: "W-GF-02 — Sitout Front Return Wall (Grid B)", length: 2.63, height: 3.00, thickness: 150, material: "solid_block", blockL: 300, blockH: 150, blockT: 150, mortarJoint: 10, costPerUnit: 34, mortarMix: "1:4", isExterior: true, isPartition: false, openingIds: [10, 5], desc: "Sitout front entrance partition wall (X=2.00m)" },
-    { id: 3, floor: "GF", label: "W-GF-03 — Rear Outer Perimeter Wall (Grid 1)", length: 11.95, height: 3.00, thickness: 150, material: "solid_block", blockL: 300, blockH: 150, blockT: 150, mortarJoint: 10, costPerUnit: 34, mortarMix: "1:4", isExterior: true, isPartition: false, openingIds: [9, 11, 13, 12, 14, 15], desc: "Rear boundary wall along Grid 1 (Z=6.10m)" },
-    { id: 4, floor: "GF", label: "W-GF-04 — Left Bed 1 Side Outer Wall (Grid A)", length: 3.37, height: 3.00, thickness: 150, material: "solid_block", blockL: 300, blockH: 150, blockT: 150, mortarJoint: 10, costPerUnit: 34, mortarMix: "1:4", isExterior: true, isPartition: false, openingIds: [7, 8], desc: "Left side exterior wall along Grid A (X=0.10m)" },
-    { id: 5, floor: "GF", label: "W-GF-05 — Right Kitchen & Bed 2 Side Outer Wall (Grid F)", length: 6.00, height: 3.00, thickness: 150, material: "solid_block", blockL: 300, blockH: 150, blockT: 150, mortarJoint: 10, costPerUnit: 34, mortarMix: "1:4", isExterior: true, isPartition: false, openingIds: [6], desc: "Right side exterior wall along Grid F (X=12.05m)" },
+    // Ground Floor External Walls (200mm / 20cm Solid Concrete Block: 300×150×200mm)
+    { id: 1, floor: "GF", label: "W-GF-01 — Front Living/Dining/Kitchen Facade (Grid 3)", length: 10.05, height: 3.00, thickness: 200, material: "solid_block", blockL: 300, blockH: 150, blockT: 200, mortarJoint: 10, costPerUnit: 38, mortarMix: "1:4", isExterior: true, isPartition: false, openingIds: [16, 17, 18], desc: "Main front elevation 20cm wall along Grid 3 (Z=0.10m)" },
+    { id: 2, floor: "GF", label: "W-GF-02 — Sitout Front Return Wall (Grid B)", length: 2.63, height: 3.00, thickness: 200, material: "solid_block", blockL: 300, blockH: 150, blockT: 200, mortarJoint: 10, costPerUnit: 38, mortarMix: "1:4", isExterior: true, isPartition: false, openingIds: [10, 5], desc: "Sitout front entrance 20cm wall (X=2.00m)" },
+    { id: 3, floor: "GF", label: "W-GF-03 — Rear Outer Perimeter Wall (Grid 1)", length: 11.95, height: 3.00, thickness: 200, material: "solid_block", blockL: 300, blockH: 150, blockT: 200, mortarJoint: 10, costPerUnit: 38, mortarMix: "1:4", isExterior: true, isPartition: false, openingIds: [9, 11, 13, 12, 14, 15], desc: "Rear boundary 20cm wall along Grid 1 (Z=6.10m)" },
+    { id: 4, floor: "GF", label: "W-GF-04 — Left Bed 1 Side Outer Wall (Grid A)", length: 3.37, height: 3.00, thickness: 200, material: "solid_block", blockL: 300, blockH: 150, blockT: 200, mortarJoint: 10, costPerUnit: 38, mortarMix: "1:4", isExterior: true, isPartition: false, openingIds: [7, 8], desc: "Left side exterior 20cm wall along Grid A (X=0.10m)" },
+    { id: 5, floor: "GF", label: "W-GF-05 — Right Kitchen & Bed 2 Side Outer Wall (Grid F)", length: 6.00, height: 3.00, thickness: 200, material: "solid_block", blockL: 300, blockH: 150, blockT: 200, mortarJoint: 10, costPerUnit: 38, mortarMix: "1:4", isExterior: true, isPartition: false, openingIds: [6], desc: "Right side exterior 20cm wall along Grid F (X=12.05m)" },
 
-    // Ground Floor Internal Spine & Partition Walls (150mm spine, 100mm partitions)
-    { id: 6, floor: "GF", label: "W-GF-06 — Bed 1 Central Spine Wall (Grid 2)", length: 3.10, height: 3.00, thickness: 150, material: "solid_block", blockL: 300, blockH: 150, blockT: 150, mortarJoint: 10, costPerUnit: 34, mortarMix: "1:5", isExterior: false, isPartition: true, openingIds: [], desc: "Solid spine wall dividing Bed 1 and Sitout" },
-    { id: 7, floor: "GF", label: "W-GF-07 — Bed 1 Entry Door Return Wall", length: 0.90, height: 3.00, thickness: 100, material: "solid_block", blockL: 300, blockH: 150, blockT: 100, mortarJoint: 10, costPerUnit: 28, mortarMix: "1:5", isExterior: false, isPartition: true, openingIds: [1], desc: "Return partition wall with Door D1" },
-    { id: 8, floor: "GF", label: "W-GF-08 — Bed 2 Entry Door Return Wall", length: 0.90, height: 3.00, thickness: 100, material: "solid_block", blockL: 300, blockH: 150, blockT: 100, mortarJoint: 10, costPerUnit: 28, mortarMix: "1:5", isExterior: false, isPartition: true, openingIds: [3], desc: "Return partition wall with Door D3" },
-    { id: 9, floor: "GF", label: "W-GF-09 — Bed 2 Central Spine Wall (Grid 2)", length: 3.20, height: 3.00, thickness: 150, material: "solid_block", blockL: 300, blockH: 150, blockT: 150, mortarJoint: 10, costPerUnit: 34, mortarMix: "1:5", isExterior: false, isPartition: true, openingIds: [], desc: "Spine partition dividing Bed 2 and Kitchen" },
-    { id: 10, floor: "GF", label: "W-GF-10 — Left Toilet Front Enclosure Wall", length: 1.50, height: 3.00, thickness: 100, material: "solid_block", blockL: 300, blockH: 150, blockT: 100, mortarJoint: 10, costPerUnit: 28, mortarMix: "1:5", isExterior: false, isPartition: true, openingIds: [], desc: "Front transverse wall of left attached toilet" },
-    { id: 11, floor: "GF", label: "W-GF-11 — Left Toilet Door Return Wall", length: 2.47, height: 3.00, thickness: 100, material: "solid_block", blockL: 300, blockH: 150, blockT: 100, mortarJoint: 10, costPerUnit: 28, mortarMix: "1:5", isExterior: false, isPartition: true, openingIds: [2], desc: "Partition with Toilet Door D2" },
-    { id: 12, floor: "GF", label: "W-GF-12 — Staircase Left Enclosure Wall", length: 2.47, height: 3.00, thickness: 100, material: "solid_block", blockL: 300, blockH: 150, blockT: 100, mortarJoint: 10, costPerUnit: 28, mortarMix: "1:5", isExterior: false, isPartition: true, openingIds: [], desc: "Wall between Left Toilet and Staircase" },
-    { id: 13, floor: "GF", label: "W-GF-13 — Staircase Right Enclosure Wall", length: 2.47, height: 3.00, thickness: 100, material: "solid_block", blockL: 300, blockH: 150, blockT: 100, mortarJoint: 10, costPerUnit: 28, mortarMix: "1:5", isExterior: false, isPartition: true, openingIds: [], desc: "Wall between Staircase and Right Toilet" },
-    { id: 14, floor: "GF", label: "W-GF-14 — Right Toilet Front Enclosure Wall", length: 1.70, height: 3.00, thickness: 100, material: "solid_block", blockL: 300, blockH: 150, blockT: 100, mortarJoint: 10, costPerUnit: 28, mortarMix: "1:5", isExterior: false, isPartition: true, openingIds: [], desc: "Front transverse wall of right attached toilet" },
-    { id: 15, floor: "GF", label: "W-GF-15 — Right Toilet Door Return Wall", length: 2.47, height: 3.00, thickness: 100, material: "solid_block", blockL: 300, blockH: 150, blockT: 100, mortarJoint: 10, costPerUnit: 28, mortarMix: "1:5", isExterior: false, isPartition: true, openingIds: [4], desc: "Partition with Toilet Door D4" },
+    // Ground Floor Internal Spine & Partition Walls (200mm / 20cm Solid Concrete Block)
+    { id: 6, floor: "GF", label: "W-GF-06 — Bed 1 Central Spine Wall (Grid 2)", length: 3.10, height: 3.00, thickness: 200, material: "solid_block", blockL: 300, blockH: 150, blockT: 200, mortarJoint: 10, costPerUnit: 38, mortarMix: "1:5", isExterior: false, isPartition: true, openingIds: [], desc: "Solid spine 20cm wall dividing Bed 1 and Sitout" },
+    { id: 7, floor: "GF", label: "W-GF-07 — Bed 1 Entry Door Return Wall", length: 0.90, height: 3.00, thickness: 200, material: "solid_block", blockL: 300, blockH: 150, blockT: 200, mortarJoint: 10, costPerUnit: 38, mortarMix: "1:5", isExterior: false, isPartition: true, openingIds: [1], desc: "Return 20cm wall with Door D1" },
+    { id: 8, floor: "GF", label: "W-GF-08 — Bed 2 Entry Door Return Wall", length: 0.90, height: 3.00, thickness: 200, material: "solid_block", blockL: 300, blockH: 150, blockT: 200, mortarJoint: 10, costPerUnit: 38, mortarMix: "1:5", isExterior: false, isPartition: true, openingIds: [3], desc: "Return 20cm wall with Door D3" },
+    { id: 9, floor: "GF", label: "W-GF-09 — Bed 2 Central Spine Wall (Grid 2)", length: 3.20, height: 3.00, thickness: 200, material: "solid_block", blockL: 300, blockH: 150, blockT: 200, mortarJoint: 10, costPerUnit: 38, mortarMix: "1:5", isExterior: false, isPartition: true, openingIds: [], desc: "Spine 20cm wall dividing Bed 2 and Kitchen" },
+    { id: 10, floor: "GF", label: "W-GF-10 — Left Toilet Front Enclosure Wall", length: 1.50, height: 3.00, thickness: 200, material: "solid_block", blockL: 300, blockH: 150, blockT: 200, mortarJoint: 10, costPerUnit: 38, mortarMix: "1:5", isExterior: false, isPartition: true, openingIds: [], desc: "Front transverse 20cm wall of left attached toilet" },
+    { id: 11, floor: "GF", label: "W-GF-11 — Left Toilet Door Return Wall", length: 2.47, height: 3.00, thickness: 200, material: "solid_block", blockL: 300, blockH: 150, blockT: 200, mortarJoint: 10, costPerUnit: 38, mortarMix: "1:5", isExterior: false, isPartition: true, openingIds: [2], desc: "Enclosure 20cm wall with Toilet Door D2" },
+    { id: 12, floor: "GF", label: "W-GF-12 — Staircase Left Enclosure Wall", length: 2.47, height: 3.00, thickness: 200, material: "solid_block", blockL: 300, blockH: 150, blockT: 200, mortarJoint: 10, costPerUnit: 38, mortarMix: "1:5", isExterior: false, isPartition: true, openingIds: [], desc: "20cm wall between Left Toilet and Staircase" },
+    { id: 13, floor: "GF", label: "W-GF-13 — Staircase Right Enclosure Wall", length: 2.47, height: 3.00, thickness: 200, material: "solid_block", blockL: 300, blockH: 150, blockT: 200, mortarJoint: 10, costPerUnit: 38, mortarMix: "1:5", isExterior: false, isPartition: true, openingIds: [], desc: "20cm wall between Staircase and Right Toilet" },
+    { id: 14, floor: "GF", label: "W-GF-14 — Right Toilet Front Enclosure Wall", length: 1.70, height: 3.00, thickness: 200, material: "solid_block", blockL: 300, blockH: 150, blockT: 200, mortarJoint: 10, costPerUnit: 38, mortarMix: "1:5", isExterior: false, isPartition: true, openingIds: [], desc: "Front transverse 20cm wall of right attached toilet" },
+    { id: 15, floor: "GF", label: "W-GF-15 — Right Toilet Door Return Wall", length: 2.47, height: 3.00, thickness: 200, material: "solid_block", blockL: 300, blockH: 150, blockT: 200, mortarJoint: 10, costPerUnit: 38, mortarMix: "1:5", isExterior: false, isPartition: true, openingIds: [4], desc: "Enclosure 20cm wall with Toilet Door D4" },
 
-    // First Floor External & Internal Walls (150mm outer/spine, 100mm partitions/parapets)
-    { id: 16, floor: "FF", label: "W-FF-01 — FF Rear Outer Wall (Grid 1)", length: 7.35, height: 3.00, thickness: 150, material: "solid_block", blockL: 300, blockH: 150, blockT: 150, mortarJoint: 10, costPerUnit: 34, mortarMix: "1:4", isExterior: true, isPartition: false, openingIds: [21, 20, 22, 23], desc: "First floor upper rear wall along Grid 1" },
-    { id: 17, floor: "FF", label: "W-FF-02 — FF Left Bedroom Balcony Wall (Grid A)", length: 3.37, height: 3.00, thickness: 150, material: "solid_block", blockL: 300, blockH: 150, blockT: 150, mortarJoint: 10, costPerUnit: 34, mortarMix: "1:4", isExterior: true, isPartition: false, openingIds: [19], desc: "First floor bedroom wall with sliding door SD3" },
-    { id: 18, floor: "FF", label: "W-FF-03 — FF Front Living Facade Wall", length: 3.50, height: 3.00, thickness: 150, material: "solid_block", blockL: 300, blockH: 150, blockT: 150, mortarJoint: 10, costPerUnit: 34, mortarMix: "1:4", isExterior: true, isPartition: false, openingIds: [29], desc: "First floor upper front wall with window W12" },
-    { id: 19, floor: "FF", label: "W-FF-04 — FF Front Dining Balcony Wall", length: 3.35, height: 3.00, thickness: 150, material: "solid_block", blockL: 300, blockH: 150, blockT: 150, mortarJoint: 10, costPerUnit: 34, mortarMix: "1:4", isExterior: true, isPartition: false, openingIds: [30], desc: "First floor front wall with sliding door SD2" },
-    { id: 20, floor: "FF", label: "W-FF-05 — FF Sitout Partition Wall", length: 2.63, height: 3.00, thickness: 150, material: "solid_block", blockL: 300, blockH: 150, blockT: 150, mortarJoint: 10, costPerUnit: 34, mortarMix: "1:4", isExterior: true, isPartition: false, openingIds: [28, 27], desc: "First floor sitout wall with Window W13 and Door D7" },
-    { id: 21, floor: "FF", label: "W-FF-06 — FF Bed Spine Wall (Grid 2)", length: 3.10, height: 3.00, thickness: 150, material: "solid_block", blockL: 300, blockH: 150, blockT: 150, mortarJoint: 10, costPerUnit: 34, mortarMix: "1:5", isExterior: false, isPartition: true, openingIds: [], desc: "First floor bedroom interior spine wall" },
-    { id: 22, floor: "FF", label: "W-FF-07 — FF Bed Door Return Wall", length: 0.90, height: 3.00, thickness: 100, material: "solid_block", blockL: 300, blockH: 150, blockT: 100, mortarJoint: 10, costPerUnit: 28, mortarMix: "1:5", isExterior: false, isPartition: true, openingIds: [25], desc: "First floor bedroom entry partition with Door D9" },
-    { id: 23, floor: "FF", label: "W-FF-08 — FF Toilet Door Return Wall", length: 2.47, height: 3.00, thickness: 100, material: "solid_block", blockL: 300, blockH: 150, blockT: 100, mortarJoint: 10, costPerUnit: 28, mortarMix: "1:5", isExterior: false, isPartition: true, openingIds: [24], desc: "First floor toilet partition with Door D10" },
-    { id: 24, floor: "FF", label: "W-FF-09 — FF Terrace Access Step Wall", length: 1.40, height: 3.00, thickness: 150, material: "solid_block", blockL: 300, blockH: 150, blockT: 150, mortarJoint: 10, costPerUnit: 34, mortarMix: "1:4", isExterior: true, isPartition: false, openingIds: [26], desc: "Wall with Terrace Access Door D8" },
-    { id: 25, floor: "FF", label: "W-FF-10 — FF Open Terrace Parapet Walls", length: 16.50, height: 1.00, thickness: 100, material: "solid_block", blockL: 300, blockH: 150, blockT: 100, mortarJoint: 10, costPerUnit: 28, mortarMix: "1:3", isExterior: true, isPartition: false, openingIds: [], desc: "1.0m high safety parapet around open terrace" },
-    { id: 26, floor: "FF", label: "W-FF-11 — Main Roof Parapet Walls", length: 21.60, height: 0.90, thickness: 100, material: "solid_block", blockL: 300, blockH: 150, blockT: 100, mortarJoint: 10, costPerUnit: 28, mortarMix: "1:3", isExterior: true, isPartition: false, openingIds: [], desc: "0.9m high safety parapet around upper continuous roof" },
+    // First Floor External & Internal Walls (200mm / 20cm Solid Concrete Block)
+    { id: 16, floor: "FF", label: "W-FF-01 — FF Rear Outer Wall (Grid 1)", length: 7.35, height: 3.00, thickness: 200, material: "solid_block", blockL: 300, blockH: 150, blockT: 200, mortarJoint: 10, costPerUnit: 38, mortarMix: "1:4", isExterior: true, isPartition: false, openingIds: [21, 20, 22, 23], desc: "First floor upper rear 20cm wall along Grid 1" },
+    { id: 17, floor: "FF", label: "W-FF-02 — FF Left Bedroom Balcony Wall (Grid A)", length: 3.37, height: 3.00, thickness: 200, material: "solid_block", blockL: 300, blockH: 150, blockT: 200, mortarJoint: 10, costPerUnit: 38, mortarMix: "1:4", isExterior: true, isPartition: false, openingIds: [19], desc: "First floor bedroom 20cm wall with sliding door SD3" },
+    { id: 18, floor: "FF", label: "W-FF-03 — FF Front Living Facade Wall", length: 3.50, height: 3.00, thickness: 200, material: "solid_block", blockL: 300, blockH: 150, blockT: 200, mortarJoint: 10, costPerUnit: 38, mortarMix: "1:4", isExterior: true, isPartition: false, openingIds: [29], desc: "First floor upper front 20cm wall with window W12" },
+    { id: 19, floor: "FF", label: "W-FF-04 — FF Front Dining Balcony Wall", length: 3.35, height: 3.00, thickness: 200, material: "solid_block", blockL: 300, blockH: 150, blockT: 200, mortarJoint: 10, costPerUnit: 38, mortarMix: "1:4", isExterior: true, isPartition: false, openingIds: [30], desc: "First floor front 20cm wall with sliding door SD2" },
+    { id: 20, floor: "FF", label: "W-FF-05 — FF Sitout Partition Wall", length: 2.63, height: 3.00, thickness: 200, material: "solid_block", blockL: 300, blockH: 150, blockT: 200, mortarJoint: 10, costPerUnit: 38, mortarMix: "1:4", isExterior: true, isPartition: false, openingIds: [28, 27], desc: "First floor sitout 20cm wall with Window W13 and Door D7" },
+    { id: 21, floor: "FF", label: "W-FF-06 — FF Bed Spine Wall (Grid 2)", length: 3.10, height: 3.00, thickness: 200, material: "solid_block", blockL: 300, blockH: 150, blockT: 200, mortarJoint: 10, costPerUnit: 38, mortarMix: "1:5", isExterior: false, isPartition: true, openingIds: [], desc: "First floor bedroom interior spine 20cm wall" },
+    { id: 22, floor: "FF", label: "W-FF-07 — FF Bed Door Return Wall", length: 0.90, height: 3.00, thickness: 200, material: "solid_block", blockL: 300, blockH: 150, blockT: 200, mortarJoint: 10, costPerUnit: 38, mortarMix: "1:5", isExterior: false, isPartition: true, openingIds: [25], desc: "First floor bedroom entry 20cm wall with Door D9" },
+    { id: 23, floor: "FF", label: "W-FF-08 — FF Toilet Door Return Wall", length: 2.47, height: 3.00, thickness: 200, material: "solid_block", blockL: 300, blockH: 150, blockT: 200, mortarJoint: 10, costPerUnit: 38, mortarMix: "1:5", isExterior: false, isPartition: true, openingIds: [24], desc: "First floor toilet 20cm wall with Door D10" },
+    { id: 24, floor: "FF", label: "W-FF-09 — FF Terrace Access Step Wall", length: 1.40, height: 3.00, thickness: 200, material: "solid_block", blockL: 300, blockH: 150, blockT: 200, mortarJoint: 10, costPerUnit: 38, mortarMix: "1:4", isExterior: true, isPartition: false, openingIds: [26], desc: "20cm wall with Terrace Access Door D8" },
+    { id: 25, floor: "FF", label: "W-FF-10 — FF Open Terrace Parapet Walls", length: 16.50, height: 1.00, thickness: 200, material: "solid_block", blockL: 300, blockH: 150, blockT: 200, mortarJoint: 10, costPerUnit: 38, mortarMix: "1:3", isExterior: true, isPartition: false, openingIds: [], desc: "1.0m high safety parapet around open terrace (20cm block)" },
+    { id: 26, floor: "FF", label: "W-FF-11 — Main Roof Parapet Walls", length: 21.60, height: 0.90, thickness: 200, material: "solid_block", blockL: 300, blockH: 150, blockT: 200, mortarJoint: 10, costPerUnit: 38, mortarMix: "1:3", isExterior: true, isPartition: false, openingIds: [], desc: "0.9m high safety parapet around upper continuous roof (20cm block)" },
   ]
 };
 
@@ -10415,11 +10413,11 @@ export default function StructuralDesignSuite() {
   const [tab, setTab] = useState("3dhouse"); // 3dhouse, wall, lintel, slab, beam, boq
   const [floorFilter, setFloorFilter] = useState("ALL"); // ALL, GF, FF
   const [settings, setSettings] = useState({
-    wallThickness: 150, bearing: 150, material: "solid_block",
+    wallThickness: 200, bearing: 150, material: "solid_block",
     concreteGrade: "M20", steelGrade: "Fe500",
     rateConcrete: 6200, rateSteel: 72, rateFormwork: 380,
     cementPrice: 420, sandPricePerCFT: 55, aggregatePricePerCFT: 42,
-    rateMasonryLaterite: 48, rateMasonrySolidBlock: 34, rateMasonryBrick: 11,
+    rateMasonryLaterite: 48, rateMasonrySolidBlock: 38, rateMasonryBrick: 11,
     ratePlaster: 180,
   });
 
@@ -11191,11 +11189,10 @@ export default function StructuralDesignSuite() {
                       <div className="text-[9px] text-[#8195AA] uppercase tracking-wider mb-1 font-semibold">Standard Market Dimension Presets:</div>
                       <div className="grid grid-cols-2 sm:grid-cols-4 gap-1 text-[11px] mono">
                         {[
+                          { label: "30×20×15 cm 20cm Wall", mat: "solid_block", L: 300, H: 150, T: 200, joint: 10, cost: 38 },
                           { label: "30×15×15 cm 6\" Solid Block", mat: "solid_block", L: 300, H: 150, T: 150, joint: 10, cost: 34 },
                           { label: "30×15×10 cm 4\" Partition", mat: "solid_block", L: 300, H: 150, T: 100, joint: 10, cost: 28 },
                           { label: "30×20×15 cm 6\" Tall Block", mat: "solid_block", L: 300, H: 200, T: 150, joint: 10, cost: 38 },
-                          { label: "30×20×10 cm 4\" Tall Block", mat: "solid_block", L: 300, H: 200, T: 100, joint: 10, cost: 30 },
-                          { label: "30×20×20 cm Square Block", mat: "solid_block", L: 300, H: 200, T: 200, joint: 10, cost: 38 },
                           { label: "40×20×20 cm 8\" Block", mat: "solid_block", L: 400, H: 200, T: 200, joint: 10, cost: 42 },
                           { label: "40×20×15 cm 6\" Block", mat: "solid_block", L: 400, H: 200, T: 150, joint: 10, cost: 36 },
                           { label: "35×20×18 cm Laterite", mat: "laterite", L: 350, H: 200, T: 180, joint: 12, cost: 48 },
