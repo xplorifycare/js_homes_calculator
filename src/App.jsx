@@ -1292,11 +1292,76 @@ function buildSlabSteps(panel, settings, r) {
     explanation: `Provides transverse distribution of concentrated live loads and restrains temperature and shrinkage cracking during concrete curing.`
   });
 
-  // Step 8: Shear Stress Check
+  // Step 8: IS 456 / SP 34 Curtailment & Alternating 45° Crank Detailing
+  const crankH = Math.max(D - 2 * 20 - r.barDiaX, 10);
+  const extraPerCrank = Math.round(0.42 * crankH);
+  const crankDist = Math.round((Lx * 1000) / 4); // L/4 per SP 34
+  const topSteelProv = Math.round(astProvX / 2);
+
+  if (isCantilever) {
+    steps.push({
+      title: "8. Cantilever Top Tension Detailing & 1.5× Backstay Anchorage",
+      clause: "IS 456:2000 Cl 26.2.3.3 & SP 34",
+      latexEq: "L_{\\text{backstay}} \\ge 1.50 \\times L_{\\text{cantilever}}, \\quad A_{st,\\text{top}} = A_{st,x}",
+      latexSub: `L_{\\text{backstay}} = 1.50 \\times ${Lx.toFixed(2)}\\text{ m} = ${(1.5 * Lx).toFixed(2)}\\text{ m (Anchor inside adjacent room floor)}`,
+      latexResult: `\\mathbf{\\text{Continuous Top } ${r.barDiaX}\\phi\\text{ @ } ${r.spacingX}\\text{ mm c/c with 90° down-bends & chairs @ 1m c/c}}`,
+      diagramKey: "slab_crank",
+      diagData: { D, Lx, dx, barDiaX: r.barDiaX, spacingX: r.spacingX, isCantilever: true, crankH, crankDist, astProvX },
+      capacity: {
+        current: Lx,
+        limit: 1.5 * Lx,
+        unit: "m",
+        label: "Backstay Embedment Ratio (1.5× Cantilever)",
+        currentLabel: "Cantilever Projection",
+        limitLabel: "Min Backstay Anchor (1.5L)",
+        stability: "Continuous top tension steel prevents plastic hinge formation at support face"
+      },
+      vars: [
+        { symbol: "L_{\\text{backstay}}", name: "Backstay Embedment Length", def: "Minimum 1.5× cantilever span embedded into adjacent internal floor", unit: "m" },
+        { symbol: "A_{st,\\text{top}}", name: "Top Tension Steel", def: "100% main rebar placed at top face to resist negative hogging tension", unit: "mm²/m" },
+        { symbol: "D", name: "Slab Thickness", def: "Total panel depth (${D}mm) controlling internal lever arm", unit: "mm" }
+      ],
+      formula: "L_backstay = 1.5 × L_cantilever",
+      sub: `1.5 × ${Lx.toFixed(2)} m = ${(1.5 * Lx).toFixed(2)} m anchor into Room Slab`,
+      result: `Backstay = ${(1.5 * Lx).toFixed(2)} m (Continuous top steel)`,
+      explanation: `Because cantilever slabs undergo 100% negative hogging moment, tension steel must be placed at the top face with 20mm clear cover. Bars must extend 1.5× the cantilever projection back into the adjoining room slab with 90° end hooks.`
+    });
+  } else {
+    steps.push({
+      title: "8. IS 456 & SP 34 Curtailment & Alternating 45° Crank Detailing",
+      clause: "IS 456:2000 Cl 26.2.3 & SP 34 Section 4",
+      latexEq: "H_{\\text{crank}} = D - 2c_{\\text{nom}} - \\phi_x, \\quad \\Delta L = 0.42 H_{\\text{crank}}, \\quad L_{\\text{crank}} = \\frac{L_x}{4}",
+      latexSub: `H_{\\text{crank}} = ${D} - 2(20) - ${r.barDiaX} = ${crankH}\\text{ mm}, \\quad \\Delta L = 0.42 \\times ${crankH} = ${extraPerCrank}\\text{ mm}, \\quad L_{\\text{crank}} = \\frac{${(Lx*1000).toFixed(0)}}{4} = ${crankDist}\\text{ mm}`,
+      latexResult: `\\mathbf{\\text{50\\% Straight Bottom} + \\text{50\\% 45° Cranked at } ${crankDist}\\text{mm (L/4)}}\\quad (A_{st,\\text{top}} = ${topSteelProv}\\text{ mm}^2/\\text{m})`,
+      diagramKey: "slab_crank",
+      diagData: { D, Lx, dx, barDiaX: r.barDiaX, spacingX: r.spacingX, isCantilever: false, crankH, crankDist, extraPerCrank, topSteelProv, astProvX },
+      capacity: {
+        current: topSteelProv,
+        limit: Math.round(AstMin),
+        unit: "mm²/m",
+        label: "Top Negative Steel Provided by Cranks vs Ast,min",
+        currentLabel: "Top Steel via Cranks",
+        limitLabel: "Code Minimum (0.12% bD)",
+        stability: "50% alternating bent-up bars provide full negative hogging crack control over supporting beams/walls"
+      },
+      vars: [
+        { symbol: "H_{\\text{crank}}", name: "Vertical Crank Rise / Height", def: "Vertical offset of 45° bend (D - 2·cover - bar diameter)", unit: "mm" },
+        { symbol: "\\Delta L", name: "Extra Cutting Length per Crank", def: "Additional rebar length for 45° inclined slope (0.42 × H_crank)", unit: "mm" },
+        { symbol: "L_{\\text{crank}}", name: "Crank Distance from Support", def: "Point where bar bends up (L_x / 4 or 0.22 L_x from support face)", unit: "mm" },
+        { symbol: "A_{st,\\text{top}}", name: "Top Hogging Steel Provided", def: "Steel area transferred to top zone over supports (50% of Ast,x)", unit: "mm²/m" }
+      ],
+      formula: "H = D - 2c - dia, extra = 0.42 × H, crank at L/4",
+      sub: `H = ${D} - 40 - ${r.barDiaX} = ${crankH} mm, extra = ${extraPerCrank} mm/crank, bend at ${crankDist} mm from support`,
+      result: `Crank Height = ${crankH} mm · Bend at ${crankDist} mm (L/4) · Top Steel = ${topSteelProv} mm²/m`,
+      explanation: `Per IS 456 & SP 34 standard detailing, alternate bars (50%) are bent up at 45° at a distance of L/4 (${crankDist}mm) from the support face. This provides top reinforcement to resist negative hogging moments over beams/walls while economizing rebar cutting length.`
+    });
+  }
+
+  // Step 9: Shear Stress Check
   const tauV = ((r.reactionLong || (r.wu * Lx / 2)) * 1000) / (1000 * dx);
   const tauC_M20 = 0.36;
   steps.push({
-    title: "8. Punching & Transverse Shear Stress Verification",
+    title: "9. Punching & Transverse Shear Stress Verification",
     clause: "IS 456:2000 Cl 40.1 & Cl 40.2.1.1",
     latexEq: "\\tau_v = \\frac{V_{ux}}{b \\cdot d_x} \\le k \\cdot \\tau_c",
     latexSub: `\\tau_v = \\frac{${num(r.reactionLong || (r.wu * Lx / 2))} \\times 10^3\\text{ N}}{1000\\text{ mm} \\times ${num(dx,0)}\\text{ mm}} = ${num(tauV, 3)}\\text{ N/mm}^2 \\quad \\text{vs} \\quad k \\cdot \\tau_c = ${tauC_M20}\\text{ N/mm}^2`,
@@ -1324,9 +1389,9 @@ function buildSlabSteps(panel, settings, r) {
     explanation: `Per IS 456 Cl 40.2.1.1, slabs have a depth modification factor k = 1.30. Shear stress is well below concrete shear capacity; no shear links or stirrups are required.`
   });
 
-  // Step 9: Deflection Serviceability Check
+  // Step 10: Deflection Serviceability Check
   steps.push({
-    title: "9. Serviceability Limit State: Deflection Control",
+    title: "10. Serviceability Limit State: Deflection Control",
     clause: "IS 456:2000 Cl 23.2.1",
     latexEq: "\\left(\\frac{L}{d}\\right)_{\\text{actual}} = \\frac{L_x \\times 10^3}{d_x} \\le \\left(\\frac{L}{d}\\right)_{\\text{allow}} = \\left(\\frac{L}{d}\\right)_{\\text{basic}} \\times k_t",
     latexSub: `\\left(\\frac{L}{d}\\right)_{\\text{actual}} = \\frac{${(Lx*1000).toFixed(0)}}{${num(dx,0)}} = ${num(r.LdActual, 1)} \\quad \\text{vs} \\quad \\left(\\frac{L}{d}\\right)_{\\text{allow}} = ${r.LdAllow}`,
@@ -1352,9 +1417,9 @@ function buildSlabSteps(panel, settings, r) {
     explanation: `Controls vertical sag under sustained dead and imposed loads, preventing hairline cracking in bottom ceiling plaster and ceiling fans.`
   });
 
-  // Step 10: Load Reactions Transferred to Supporting Beams
+  // Step 11: Load Reactions Transferred to Supporting Beams
   steps.push({
-    title: "10. Tributary Load Reactions to Supporting Perimeter Beams",
+    title: "11. Tributary Load Reactions to Supporting Perimeter Beams",
     clause: "IS 456:2000 Table 27",
     latexEq: "R_{\\text{long}} = \\frac{w_u L_x}{2}\\left(1 - \\frac{1}{3 r^2}\\right), \\quad R_{\\text{short}} = \\frac{w_u L_x}{3}",
     latexSub: `R_{\\text{long}} = ${num(r.reactionLong)}\\text{ kN/m (Peak } ${num(r.peakLong)}\\text{ kN/m)}, \\quad R_{\\text{short}} = ${num(r.reactionShort)}\\text{ kN/m}`,
@@ -10294,6 +10359,131 @@ function StepVariableDiagram({ step, item, settings }) {
               <rect x="100" y="148" width="340" height="20" fill="#0F172A" stroke="#1E293B" rx="4" />
               <text x="270" y="162" fill="#34D399" fontSize="9.5" textAnchor="middle" fontFamily="monospace">
                 Secondary Steel: {barDiaY}ϕ @ {spacingY} mm c/c ({astProvY} mm²/m)
+              </text>
+            </svg>
+          );
+        })()}
+
+        {/* 8. SLAB 45° CRANK & CURTAILMENT DETAILING (SP 34 / IS 456) */}
+        {diagramKey === "slab_crank" && (() => {
+          const { D = 125, Lx = 3.0, barDiaX = 8, spacingX = 150, isCantilever = false, crankH = 77, crankDist = 750, extraPerCrank = 32, topSteelProv = 168 } = diagData;
+
+          if (isCantilever) {
+            const backstayM = (1.5 * Lx).toFixed(2);
+            return (
+              <svg viewBox="0 0 540 185" className="w-full h-auto min-w-[500px] max-h-[190px]">
+                {renderDefs("cant_")}
+                {/* Main Supporting Wall on Right */}
+                <rect x="290" y="25" width="80" height="135" fill="#1A2638" stroke="#334155" strokeWidth="1.5" />
+                <text x="330" y="150" fill="#94A3B8" fontSize="9" textAnchor="middle" fontFamily="monospace">Supporting Wall</text>
+
+                {/* Cantilever Slab Body projecting left */}
+                <rect x="50" y="45" width="240" height="60" fill="#0C1726" stroke="#253549" strokeWidth="1.5" />
+                {/* Adjoining Floor Slab extending right */}
+                <rect x="290" y="45" width="210" height="60" fill="#0E1929" stroke="#253549" strokeWidth="1.5" />
+
+                {/* Top Tension Steel (Primary Cantilever Rebar) */}
+                <path d="M 60 95 L 60 55 L 485 55 L 485 95" stroke="#FFA333" strokeWidth="2.5" fill="none" />
+                <text x="170" y="40" fill="#FFA333" fontSize="9.5" textAnchor="middle" fontFamily="monospace" fontWeight="bold">
+                  Top Tension Steel ({barDiaX}ϕ @ {spacingX}mm c/c)
+                </text>
+
+                {/* Chairs Supporting Top Steel */}
+                <path d="M 120 95 L 125 60 L 145 60 L 150 95" stroke="#FCD34D" fill="none" strokeWidth="1.5" />
+                <path d="M 210 95 L 215 60 L 235 60 L 240 95" stroke="#FCD34D" fill="none" strokeWidth="1.5" />
+                <path d="M 390 95 L 395 60 L 415 60 L 420 95" stroke="#FCD34D" fill="none" strokeWidth="1.5" />
+                <text x="135" y="112" fill="#FCD34D" fontSize="8" textAnchor="middle" fontFamily="monospace">Top Chair</text>
+
+                {/* Dimension: Cantilever Projection */}
+                <line x1="50" y1="125" x2="290" y2="125" stroke="#38BDF8" strokeWidth="1.5" markerStart="url(#cant_arr-sc)" markerEnd="url(#cant_arr-c)" />
+                <text x="170" y="138" fill="#38BDF8" fontSize="9.5" textAnchor="middle" fontFamily="monospace">
+                  Cantilever Span L = {Lx.toFixed(2)}m
+                </text>
+
+                {/* Dimension: 1.5x Backstay Embedment */}
+                <line x1="290" y1="125" x2="485" y2="125" stroke="#34D399" strokeWidth="1.5" markerStart="url(#cant_arr-sc)" markerEnd="url(#cant_arr-c)" />
+                <text x="387" y="138" fill="#34D399" fontSize="9.5" textAnchor="middle" fontFamily="monospace">
+                  Backstay Anchor ≥ 1.50L ({backstayM}m)
+                </text>
+
+                {/* Result Pill */}
+                <rect x="50" y="152" width="450" height="24" fill="#0F172A" stroke="#1E293B" rx="4" />
+                <text x="275" y="168" fill="#FFA333" fontSize="9" textAnchor="middle" fontFamily="monospace">
+                  Cantilever Rule: 100% Top Tension Steel anchored 1.50× into room floor slab with 90° down-bends
+                </text>
+              </svg>
+            );
+          }
+
+          return (
+            <svg viewBox="0 0 540 185" className="w-full h-auto min-w-[500px] max-h-[190px]">
+              {renderDefs("crk_")}
+              {/* Left Support Wall/Beam */}
+              <rect x="25" y="30" width="60" height="120" fill="#1A2638" stroke="#334155" strokeWidth="1.5" />
+              <text x="55" y="135" fill="#94A3B8" fontSize="8.5" textAnchor="middle" fontFamily="monospace">Support</text>
+
+              {/* Right Support Wall/Beam */}
+              <rect x="455" y="30" width="60" height="120" fill="#1A2638" stroke="#334155" strokeWidth="1.5" />
+              <text x="485" y="135" fill="#94A3B8" fontSize="8.5" textAnchor="middle" fontFamily="monospace">Support</text>
+
+              {/* Concrete Slab Body */}
+              <rect x="25" y="45" width="490" height="60" fill="#0C1726" stroke="#253549" strokeWidth="1.5" />
+
+              {/* Straight Bottom Rebar (50% through to supports) */}
+              <path d="M 35 90 L 35 97 L 505 97 L 505 90" stroke="#38BDF8" strokeWidth="2" fill="none" />
+              <text x="270" y="112" fill="#38BDF8" fontSize="8.5" textAnchor="middle" fontFamily="monospace">
+                50% Straight Bottom Bars ({barDiaX}ϕ @ {spacingX * 2}mm c/c)
+              </text>
+
+              {/* Alternating 45° Cranked Rebar (50% bent-up) */}
+              <path
+                d="M 35 60 L 35 55 L 140 55 L 175 94 L 365 94 L 400 55 L 505 55 L 505 60"
+                stroke="#FFA333"
+                strokeWidth="2.5"
+                fill="none"
+              />
+
+              {/* 45° Slope Label */}
+              <text x="145" y="80" fill="#FFA333" fontSize="8" fontFamily="monospace" fontWeight="bold">45°</text>
+              <text x="390" y="80" fill="#FFA333" fontSize="8" fontFamily="monospace" fontWeight="bold">45°</text>
+
+              {/* Dimension: Crank Distance from Left Support Face */}
+              <line x1="85" y1="36" x2="175" y2="36" stroke="#FFA333" strokeWidth="1.2" markerStart="url(#crk_arr-sa)" markerEnd="url(#crk_arr-a)" />
+              <text x="130" y="30" fill="#FFA333" fontSize="8.5" textAnchor="middle" fontFamily="monospace" fontWeight="bold">
+                L/4 = {crankDist}mm
+              </text>
+
+              {/* Dimension: Crank Distance from Right Support Face */}
+              <line x1="365" y1="36" x2="455" y2="36" stroke="#FFA333" strokeWidth="1.2" markerStart="url(#crk_arr-sa)" markerEnd="url(#crk_arr-a)" />
+              <text x="410" y="30" fill="#FFA333" fontSize="8.5" textAnchor="middle" fontFamily="monospace" fontWeight="bold">
+                L/4 = {crankDist}mm
+              </text>
+
+              {/* Crank Rise / Height (H) Dimension */}
+              <line x1="190" y1="55" x2="190" y2="94" stroke="#FCD34D" strokeWidth="1.2" markerStart="url(#crk_arr-sa)" markerEnd="url(#crk_arr-a)" />
+              <text x="215" y="77" fill="#FCD34D" fontSize="8.5" textAnchor="middle" fontFamily="monospace" fontWeight="bold">
+                H = {crankH}mm
+              </text>
+
+              {/* Clear Span Dimension */}
+              <line x1="85" y1="125" x2="455" y2="125" stroke="#38BDF8" strokeWidth="1.2" markerStart="url(#crk_arr-sc)" markerEnd="url(#crk_arr-c)" />
+              <text x="270" y="137" fill="#38BDF8" fontSize="9" textAnchor="middle" fontFamily="monospace">
+                Clear Span Lx = {(Lx * 1000).toFixed(0)} mm ({Lx.toFixed(2)} m)
+              </text>
+
+              {/* Top Chairs / Spacer Stool */}
+              <path d="M 100 95 L 105 60 L 120 60 L 125 95" stroke="#34D399" fill="none" strokeWidth="1.2" />
+              <path d="M 420 95 L 425 60 L 440 60 L 445 95" stroke="#34D399" fill="none" strokeWidth="1.2" />
+              <text x="112" y="105" fill="#34D399" fontSize="7.5" textAnchor="middle" fontFamily="monospace">Chair</text>
+              <text x="432" y="105" fill="#34D399" fontSize="7.5" textAnchor="middle" fontFamily="monospace">Chair</text>
+
+              {/* Result Pill */}
+              <rect x="25" y="148" width="490" height="28" fill="#0F172A" stroke="#1E293B" rx="4" />
+              <text x="270" y="161" fill="#FFA333" fontSize="8.5" textAnchor="middle" fontFamily="monospace" fontWeight="bold">
+                50% Alternating 45° Cranks: Rise H = {crankH}mm · Extra Length = 2 × 0.42H = {extraPerCrank * 2}mm
+              </text>
+              <text x="270" y="172" fill="#94A3B8" fontSize="8" textAnchor="middle" fontFamily="monospace">
+                Top Negative Steel Prov = {topSteelProv} mm²/m over supports · 10ϕ Chairs @ 1m c/c
               </text>
             </svg>
           );
