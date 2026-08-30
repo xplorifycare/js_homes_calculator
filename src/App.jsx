@@ -6327,23 +6327,6 @@ function FullHouse3DViewer({ openings, slabs, beams, walls = [], lintelResults, 
           </div>
         )}
 
-        <div className="absolute bottom-3 left-3 bg-[#0B1420]/90 backdrop-blur-sm border border-[#1B2A3F] rounded-lg p-2.5 text-[11px] mono text-[#8195AA] pointer-events-none shadow-xl">
-          <div className="flex items-center gap-2 mb-1 flex-wrap">
-            <span className="text-[#F2F5F8] font-bold">SketchUp Tools:</span>
-            <span className="text-[#5CC8E0]">Press <kbd className="px-1.5 py-0.5 bg-[#132133] border border-[#2A3B52] rounded text-[#E8C547] font-bold">O</kbd> to Rotate</span>
-            <span className="text-[#5CC8E0]">Press <kbd className="px-1.5 py-0.5 bg-[#132133] border border-[#2A3B52] rounded text-[#E8C547] font-bold">H</kbd> to Drag / Pan</span>
-            <span className="text-[#FFA333]">Press <kbd className="px-1.5 py-0.5 bg-[#132133] border border-[#FFA333]/40 rounded text-[#FFA333] font-bold">R</kbd> for 3D Rebar</span>
-            <span className="text-[#F59E0B]">Press <kbd className="px-1.5 py-0.5 bg-[#132133] border border-[#F59E0B]/40 rounded text-[#F59E0B] font-bold">B</kbd> for Block Stacking</span>
-            <span className="text-[#5CC8E0]">Press <kbd className="px-1.5 py-0.5 bg-[#132133] border border-[#5CC8E0]/40 rounded text-[#5CC8E0] font-bold">L</kbd> for 3D Labels</span>
-            <span className="text-[#5CC8E0]">Press <kbd className="px-1.5 py-0.5 bg-[#132133] border border-[#2A3B52] rounded text-[#E8C547] font-bold">F</kbd> for Fullscreen</span>
-          </div>
-          <div className="text-[10px] text-[#55697D]">
-            • Click on any Slab, Beam or Lintel to inspect rebar detailing & live-resize!
-            <br />
-            • Shift + Drag or Right-Click Drag also pans smoothly
-          </div>
-        </div>
-
         {/* 🧭 Interactive Architectural 3D Compass Rose HUD Widget */}
         {showCompass && (
           <div 
@@ -7271,46 +7254,6 @@ function FullHouse3DViewer({ openings, slabs, beams, walls = [], lintelResults, 
               </div>
             </div>
           )}
-        </div>
-
-        {/* Quick Selection Guide */}
-        <div className="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs mono">
-          <div className="bg-[#0B1420] border border-[#1B2A3F] rounded-lg p-2.5">
-            <div className="text-[#5CC8E0] font-semibold text-[11px]">SLABS S1–S15 (CLICKABLE)</div>
-            <div className="text-[#8195AA] mt-1 text-[10px] leading-relaxed">
-              • GF Bedrooms S1, S5 (Two-way)<br />
-              • Toilets S2, S4 (One-way)<br />
-              • Living Cutout S7 / Dining S8<br />
-              • FF Terrace S12 (4.5×3.47m)
-            </div>
-          </div>
-          <div className="bg-[#0B1420] border border-[#1B2A3F] rounded-lg p-2.5">
-            <div className="text-[#5FBF7A] font-semibold text-[11px]">BEAMS B1–B6 (CLICKABLE)</div>
-            <div className="text-[#8195AA] mt-1 text-[10px] leading-relaxed">
-              • B1–B3 over Living/Dining/Kitchen<br />
-              • B4 Staircase Framing Header<br />
-              • B5 Double Height Trimming<br />
-              • B6 Cantilever Support
-            </div>
-          </div>
-          <div className="bg-[#0B1420] border border-[#1B2A3F] rounded-lg p-2.5">
-            <div className="text-[#E8C547] font-semibold text-[11px]">LINTELS (CLICKABLE)</div>
-            <div className="text-[#8195AA] mt-1 text-[10px] leading-relaxed">
-              • Sliding Doors SD1, SD2, SD3<br />
-              • Front Windows W10, W11, W12<br />
-              • Staircase Windows W7, W14<br />
-              • Doors D1–D10 Analyzed
-            </div>
-          </div>
-          <div className="bg-[#0B1420] border border-[#1B2A3F] rounded-lg p-2.5">
-            <div className="text-[#F2F5F8] font-semibold text-[11px]">LOAD CONTINUITY</div>
-            <div className="text-[#8195AA] mt-1 text-[10px] leading-relaxed">
-              • 45° Yield Line Slab Reactions<br />
-              • Slab Load $\to$ Beams $\to$ Walls<br />
-              • Double Height Void Integrated<br />
-              • IS 456 Limit State Verified
-            </div>
-          </div>
         </div>
 
         {/* 3D Rebar Exploded Studio Modal */}
