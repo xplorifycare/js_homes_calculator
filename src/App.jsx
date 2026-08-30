@@ -382,18 +382,28 @@ function computeBeam(beam, settings) {
   const overMax = bars.area > AstMax;
 
   const pt = Math.min(Math.max((100 * bars.area) / (b * d), 0.15), 3.0);
-  const tauC = getTauC(pt, settings.concreteGrade);
+  const tauC = getTauC(pt, concreteGrade);
   const tauV = (Vu * 1000) / (b * d);
+  const tauC_max = Math.min(0.62 * Math.sqrt(fck), 4.0); // IS 456 Table 20 (2.80 MPa for M20, 3.10 MPa for M25)
+  const shearSectionOK = tauV <= tauC_max;
   const shearFlag = tauV > tauC;
-  const Asv = 2 * barArea(8);
-  let sv;
+
+  const stirrupDia = Number(beam.stirrupDia) || 8;
+  const stirrupLegs = Number(beam.stirrupLegs) || 2;
+  const Asv = stirrupLegs * barArea(stirrupDia);
+  let sv_calc;
   if (shearFlag) {
-    const Vus = Vu * 1000 - tauC * b * d;
-    sv = Vus > 0 ? Math.min((0.87 * fy * Asv * d) / Vus, 0.75 * d, 300) : 75;
+    const Vus = Math.max(0, Vu * 1000 - tauC * b * d);
+    sv_calc = Vus > 0 ? Math.min((0.87 * fy * Asv * d) / Vus, 0.75 * d, 300) : 75;
   } else {
-    sv = Math.min((0.87 * fy * Asv) / (0.4 * b), 0.75 * d, 300);
+    sv_calc = Math.min((0.87 * fy * Asv) / (0.4 * b), 0.75 * d, 300);
   }
-  sv = Math.max(Math.floor(sv / 25) * 25, 75);
+  const sv = beam.sv ? Number(beam.sv) : Math.max(Math.floor(sv_calc / 25) * 25, 75);
+
+  const Vuc = (tauC * b * d) / 1000;
+  const Vus_prov = (0.87 * fy * Asv * d) / (sv * 1000);
+  const Vu_capacity = Vuc + Vus_prov;
+  const isShearSafe = shearSectionOK && Vu <= Vu_capacity;
 
   const LdActual = (Leff * 1000) / d;
   const LdAllow = 26;
@@ -402,7 +412,7 @@ function computeBeam(beam, settings) {
   const concreteVol = (b / 1000) * (D / 1000) * Leff;
   const stirrupCount = Math.floor((Leff * 1000) / sv) + 1;
   const stirrupLenM = 2 * ((b - 50) / 1000 + (D - 50) / 1000) + 0.1;
-  const stirrupSteelKg = stirrupCount * stirrupLenM * barKgPerM(8);
+  const stirrupSteelKg = stirrupCount * stirrupLenM * barKgPerM(stirrupDia);
   const bottomSteelKg = bars.n * barKgPerM(bars.dia) * Leff;
   const topSteelKg = 2 * barKgPerM(12) * Leff;
   const steelKg = (bottomSteelKg + topSteelKg + stirrupSteelKg) * 1.08;
@@ -411,7 +421,8 @@ function computeBeam(beam, settings) {
   return {
     Leff, b, D, d, w_self, w_slab, M_self, M_slab, M_wall, M_service, V_service,
     Mu, Vu, Mulim, singlyOK, isDoubly, AscReq, MuCap, isMomentSafe, AstReq, AstMin, AstMax, bars, overMax,
-    tauV, tauC, shearFlag, sv, stirrupCount, LdActual, LdAllow, deflectionFlag,
+    tauV, tauC, tauC_max, shearSectionOK, shearFlag, sv, stirrupDia, stirrupLegs, Asv, Vuc, Vus_prov, Vu_capacity, isShearSafe,
+    stirrupCount, LdActual, LdAllow, deflectionFlag,
     concreteVol, steelKg, formworkM2, fck, fy, concreteGrade,
   };
 }
@@ -1677,31 +1688,41 @@ function buildBeamSteps(beam, settings, r) {
   });
 
   // Step 9: Shear Stress Verification
+  const tauC_max = r.tauC_max || Math.min(0.62 * Math.sqrt(fck), 4.0);
   steps.push({
     title: "9. Nominal Shear Stress & Concrete Shear Capacity",
-    clause: "IS 456:2000 Cl 40.1 & Table 19",
-    latexEq: "\\tau_v = \\frac{V_u}{b \\cdot d} \\quad \\text{vs} \\quad \\tau_c = f(p_t, f_{ck})",
-    latexSub: `\\tau_v = \\frac{${num(Vu)} \\times 10^3\\text{ N}}{${b}\\text{ mm} \\times ${d}\\text{ mm}} = ${num(r.tauV, 3)}\\text{ N/mm}^2 \\quad \\text{vs} \\quad \\tau_c = ${num(r.tauC, 3)}\\text{ N/mm}^2`,
-    latexResult: `\\tau_v = ${num(r.tauV, 3)}\\text{ N/mm}^2, \\quad \\tau_c = ${num(r.tauC, 3)}\\text{ N/mm}^2 \\implies ${r.shearFlag ? "\\mathbf{\\text{SHEAR REINFORCEMENT REQUIRED}}" : "\\mathbf{\\text{NOMINAL SHEAR STIRRUPS SAFE}}"}`,
+    clause: "IS 456:2000 Cl 40.1, 40.2.3 & Table 20",
+    latexEq: "\\tau_v = \\frac{V_u}{b \\cdot d} \\le \\tau_{c,\\max} = 0.62 \\sqrt{f_{ck}}, \\quad V_{us} = V_u - \\tau_c b d",
+    latexSub: `\\tau_v = \\frac{${num(Vu)} \\times 10^3\\text{ N}}{${b}\\text{ mm} \\times ${d}\\text{ mm}} = ${num(r.tauV, 2)}\\text{ N/mm}^2 \\quad \\text{vs} \\quad \\tau_c = ${num(r.tauC, 2)}\\text{ N/mm}^2, \\; \\tau_{c,\\max} = ${num(tauC_max, 2)}\\text{ N/mm}^2`,
+    latexResult: r.tauV <= tauC_max
+      ? (r.shearFlag 
+          ? `\\tau_v = ${num(r.tauV, 2)}\\text{ N/mm}^2 \\le \\tau_{c,\\max} = ${num(tauC_max, 2)}\\text{ N/mm}^2 \\implies \\mathbf{\\text{SECTION SAFE (Shear Reinforcement Active)}}`
+          : `\\tau_v = ${num(r.tauV, 2)}\\text{ N/mm}^2 \\le \\tau_c = ${num(r.tauC, 2)}\\text{ N/mm}^2 \\implies \\mathbf{\\text{NOMINAL SHEAR STIRRUPS SAFE}}`)
+      : `\\tau_v = ${num(r.tauV, 2)}\\text{ N/mm}^2 > \\tau_{c,\\max} = ${num(tauC_max, 2)}\\text{ N/mm}^2 \\implies \\mathbf{\\text{CRUSHING RISK - INCREASE SECTION}}`,
     diagramKey: "beam_shear_stress",
-    diagData: { b, d, Vu, tauV: r.tauV, tauC: r.tauC, shearFlag: r.shearFlag },
+    diagData: { b, d, Vu, tauV: r.tauV, tauC: r.tauC, tauC_max, shearFlag: r.shearFlag },
     capacity: {
       current: r.tauV,
-      limit: r.tauC,
+      limit: tauC_max,
       unit: "N/mm²",
-      label: "Nominal Shear Stress vs Concrete Shear Capacity",
-      currentLabel: "Nominal Shear τv",
-      limitLabel: "Concrete Capacity τc",
-      stability: r.tauV <= r.tauC ? "Nominal stirrups safe" : "Vertical stirrups required to carry excess shear Vus"
+      label: "Nominal Shear Stress vs Section Capacity Limit (IS 456 Table 20)",
+      currentLabel: "Applied Shear τv",
+      limitLabel: "Max Limit τc,max",
+      stability: r.tauV <= tauC_max
+        ? (r.shearFlag 
+            ? `Ductile shear state: Vertical 2L-8ϕ stirrups @ ${r.sv}mm c/c carry excess shear Vus = ${num(Math.max(0, Vu - (r.Vuc || 0)), 1)} kN (IS 456 Cl 40.4)`
+            : "Concrete carries full shear; nominal stirrups provided per IS 456 Cl 26.5.1.6")
+        : "Diagonal compression crushing risk: Increase beam stem width b or depth D"
     },
     vars: [
       { symbol: "\\tau_v", name: "Nominal Shear Stress", def: "Ultimate shear stress at critical section distance d from support", unit: "N/mm²" },
-      { symbol: "\\tau_c", name: "Concrete Shear Strength", def: "Permissible concrete shear capacity from Table 19 for pt = ${pt}%", unit: "N/mm²" }
+      { symbol: "\\tau_c", name: "Concrete Shear Strength", def: "Permissible concrete shear capacity from Table 19 for pt = ${pt}%", unit: "N/mm²" },
+      { symbol: "\\tau_{c,\\max}", name: "Max Shear Stress Limit", def: "Maximum allowable shear stress to prevent diagonal crushing ($0.62\\sqrt{f_{ck}}$)", unit: "N/mm²" }
     ],
-    formula: "tau_v = Vu / (b · d)",
-    sub: `Vu = ${num(Vu)} kN, b = ${b} mm, d = ${d} mm`,
-    result: `tau_v = ${num(r.tauV, 3)} N/mm² vs tau_c = ${num(r.tauC, 3)} N/mm²`,
-    explanation: `Nominal shear stress tau_v must not exceed maximum permissible shear stress tau_c,max = 0.62 sqrt(fck) = 2.80 N/mm². Concrete shear capacity tau_c is interpolated from Table 19.`
+    formula: "tau_v = Vu / (b · d) <= tau_c,max",
+    sub: `Vu = ${num(Vu)} kN, b = ${b} mm, d = ${d} mm, tau_c,max = ${num(tauC_max, 2)} N/mm²`,
+    result: `tau_v = ${num(r.tauV, 2)} N/mm² <= tau_c,max = ${num(tauC_max, 2)} N/mm² (SECTION SAFE)`,
+    explanation: `Per IS 456 Clause 40.2.3, when tau_v exceeds concrete capacity tau_c but remains below tau_c,max = ${num(tauC_max, 2)} N/mm², shear reinforcement (closed vertical stirrups) must be provided to carry excess shear Vus.`
   });
 
   // Step 10: Stirrup Design & Pitch
@@ -9832,13 +9853,14 @@ function MiniSafetyRing({ item, settings }) {
     pct = Math.max(momPct, shearPct, deflPct);
     isSafe = pct <= 100 && !r.deflectionFlag;
   } else if (type === "beam") {
-    const Mulim = r.Mulim || 1;
+    const effMulim = r.isDoubly ? (r.MuCap || r.Mulim || 1) : (r.Mulim || 1);
     const Mu = r.Mu || 0;
-    const momPct = Mulim > 0 ? Math.round((Mu / Mulim) * 100) : 0;
-    const shearPct = (r.tauC || 0.5) > 0 ? Math.round(((r.tauV || 0) / r.tauC) * 100) : 0;
+    const momPct = effMulim > 0 ? Math.round((Mu / effMulim) * 100) : 0;
+    const tauC_max = r.tauC_max || Math.min(0.62 * Math.sqrt(r.fck || 20), 4.0);
+    const shearPct = (r.Vu_capacity || 0) > 0 ? Math.round(((r.Vu || 0) / r.Vu_capacity) * 100) : Math.round(((r.tauV || 0) / tauC_max) * 100);
     const deflPct = (r.LdAllow || 26) > 0 ? Math.round(((r.LdActual || 0) / r.LdAllow) * 100) : 0;
     pct = Math.max(momPct, shearPct, deflPct);
-    isSafe = pct <= 100 && r.singlyOK !== false;
+    isSafe = (r.singlyOK !== false || r.isDoubly) && r.LdActual <= r.LdAllow && (r.isShearSafe !== false);
   } else if (type === "lintel") {
     const Mulim = r.Mulim || 1;
     const Mu = r.Mu || 0;
@@ -9922,6 +9944,9 @@ function SafeStateOptimizer({
   const baseB = Number(data.width) || Number(r.b) || 200;
   const baseGrade = data.concreteGrade || settings.concreteGrade || "M20";
   const baseDoubly = Boolean(data.doublyReinforced);
+  const baseSv = Number(data.sv) || Number(r.sv) || 125;
+  const baseStirrupDia = Number(data.stirrupDia) || Number(r.stirrupDia) || 8;
+  const baseStirrupLegs = Number(data.stirrupLegs) || Number(r.stirrupLegs) || 2;
   const baseSlabT = Number(data.thickness) || Number(r.thickness) || 125;
 
   // Active simulated state
@@ -9929,6 +9954,9 @@ function SafeStateOptimizer({
   const [beamWidth, setBeamWidth] = useState(baseB);
   const [concGrade, setConcGrade] = useState(baseGrade);
   const [doublyReinforced, setDoublyReinforced] = useState(baseDoubly);
+  const [stirrupSv, setStirrupSv] = useState(baseSv);
+  const [stirrupDia, setStirrupDia] = useState(baseStirrupDia);
+  const [stirrupLegs, setStirrupLegs] = useState(baseStirrupLegs);
   const [slabT, setSlabT] = useState(baseSlabT);
   const [savedSuccess, setSavedSuccess] = useState(false);
   const [prevKey, setPrevKey] = useState(activeItem.key);
@@ -9940,6 +9968,9 @@ function SafeStateOptimizer({
     setBeamWidth(baseB);
     setConcGrade(baseGrade);
     setDoublyReinforced(baseDoubly);
+    setStirrupSv(baseSv);
+    setStirrupDia(baseStirrupDia);
+    setStirrupLegs(baseStirrupLegs);
     setSlabT(baseSlabT);
     setSavedSuccess(false);
   }
@@ -9951,11 +9982,17 @@ function SafeStateOptimizer({
       width: newParams.width !== undefined ? newParams.width : beamWidth,
       concreteGrade: newParams.concreteGrade !== undefined ? newParams.concreteGrade : concGrade,
       doublyReinforced: newParams.doublyReinforced !== undefined ? newParams.doublyReinforced : doublyReinforced,
+      sv: newParams.sv !== undefined ? newParams.sv : stirrupSv,
+      stirrupDia: newParams.stirrupDia !== undefined ? newParams.stirrupDia : stirrupDia,
+      stirrupLegs: newParams.stirrupLegs !== undefined ? newParams.stirrupLegs : stirrupLegs,
     };
     if (newParams.depth !== undefined) setSliderD(newParams.depth);
     if (newParams.width !== undefined) setBeamWidth(newParams.width);
     if (newParams.concreteGrade !== undefined) setConcGrade(newParams.concreteGrade);
     if (newParams.doublyReinforced !== undefined) setDoublyReinforced(newParams.doublyReinforced);
+    if (newParams.sv !== undefined) setStirrupSv(newParams.sv);
+    if (newParams.stirrupDia !== undefined) setStirrupDia(newParams.stirrupDia);
+    if (newParams.stirrupLegs !== undefined) setStirrupLegs(newParams.stirrupLegs);
 
     onUpdateBeam && onUpdateBeam(activeItem.id, updated);
     setSavedSuccess(true);
@@ -9982,6 +10019,9 @@ function SafeStateOptimizer({
         width: baseB,
         concreteGrade: baseGrade,
         doublyReinforced: baseDoubly,
+        sv: baseSv,
+        stirrupDia: baseStirrupDia,
+        stirrupLegs: baseStirrupLegs,
       });
     } else if (compType === "slab") {
       updateSlabLive({
@@ -10001,6 +10041,9 @@ function SafeStateOptimizer({
       width: beamWidth,
       concreteGrade: concGrade,
       doublyReinforced: doublyReinforced,
+      sv: stirrupSv,
+      stirrupDia: stirrupDia,
+      stirrupLegs: stirrupLegs,
     }, settings);
 
     const origSim = computeBeam({
@@ -10009,6 +10052,9 @@ function SafeStateOptimizer({
       width: baseB,
       concreteGrade: baseGrade,
       doublyReinforced: baseDoubly,
+      sv: baseSv,
+      stirrupDia: baseStirrupDia,
+      stirrupLegs: baseStirrupLegs,
     }, settings);
 
     // Compute effective capacities
@@ -10030,12 +10076,12 @@ function SafeStateOptimizer({
       allowStr = sim.LdAllow.toFixed(1);
       isSafe = sim.LdActual <= sim.LdAllow;
     } else if (isShearCheck) {
-      targetRatio = Math.round((sim.tauV / (sim.tauC || 0.01)) * 100);
-      origRatio = Math.round((origSim.tauV / (origSim.tauC || 0.01)) * 100);
-      metricLabel = "Shear Stress vs Strength (τv / τc)";
-      actualStr = `${sim.tauV.toFixed(2)} MPa`;
-      allowStr = `${sim.tauC.toFixed(2)} MPa`;
-      isSafe = !sim.shearFlag;
+      targetRatio = Math.round((sim.tauV / (sim.tauC_max || 2.80)) * 100);
+      origRatio = Math.round((origSim.tauV / (origSim.tauC_max || 2.80)) * 100);
+      metricLabel = "Section Shear Stress vs Max Limit (τv / τc,max)";
+      actualStr = `${sim.tauV.toFixed(2)} MPa (Vu = ${num(sim.Vu, 1)} kN)`;
+      allowStr = `${(sim.tauC_max || 2.80).toFixed(2)} MPa (Table 20)`;
+      isSafe = sim.shearSectionOK && sim.isShearSafe;
     }
 
     const fos = ((effMulim || 0.01) / (sim.Mu || 0.01)).toFixed(2) + "×";
@@ -10076,7 +10122,7 @@ function SafeStateOptimizer({
     const safePct = Math.max(0, Math.min(100, ((safeZoneMax - safeZoneMin) / totalSpan) * 100));
     const conservativePct = 100 - failPct - safePct;
 
-    const isChangedFromBase = sliderD !== baseD || beamWidth !== baseB || concGrade !== baseGrade || doublyReinforced !== baseDoubly;
+    const isChangedFromBase = sliderD !== baseD || beamWidth !== baseB || concGrade !== baseGrade || doublyReinforced !== baseDoubly || stirrupSv !== baseSv || stirrupDia !== baseStirrupDia;
 
     return (
       <div className="bg-gradient-to-br from-[#0B1524] via-[#0E1A2D] to-[#08111D] border-2 border-[#1E324A] hover:border-[#2F4E75] rounded-2xl p-4 sm:p-5 space-y-4 shadow-xl transition relative overflow-hidden my-3">
@@ -10103,7 +10149,7 @@ function SafeStateOptimizer({
                 </span>
               </div>
               <h4 className="text-sm sm:text-base font-bold text-white tracking-wide flex items-center gap-2 flex-wrap">
-                <span>Beam Structural Optimizer (D, b, fck, Asc)</span>
+                <span>{isShearCheck ? "Beam Transverse Shear & Stirrup Optimizer (sv, ϕ, legs, b, D)" : "Beam Structural Optimizer (D, b, fck, Asc)"}</span>
                 <span 
                   className="text-[10px] font-mono px-2 py-0.5 rounded-full border font-bold"
                   style={{ 
@@ -10119,11 +10165,23 @@ function SafeStateOptimizer({
           </div>
 
           <div className="flex items-center gap-2 text-xs font-mono">
-            <span className="text-[#8195AA]">Baseline: <b className="text-white">{baseB}×{baseD}mm ({baseGrade})</b></span>
-            <span className="text-[#5CC8E0]">➜</span>
-            <span className="bg-[#102235] px-2.5 py-1 rounded-lg border border-[#5CC8E0]/50 text-[#5CC8E0] font-bold text-sm">
-              {beamWidth}×{sliderD}mm ({concGrade})
-            </span>
+            {isShearCheck ? (
+              <>
+                <span className="text-[#8195AA]">Baseline: <b className="text-white">2L-{baseStirrupDia}ϕ @ {baseSv}mm</b></span>
+                <span className="text-[#5CC8E0]">➜</span>
+                <span className="bg-[#102235] px-2.5 py-1 rounded-lg border border-[#5CC8E0]/50 text-[#5CC8E0] font-bold text-sm">
+                  {stirrupLegs}L-{stirrupDia}ϕ @ {stirrupSv}mm ({beamWidth}×{sliderD})
+                </span>
+              </>
+            ) : (
+              <>
+                <span className="text-[#8195AA]">Baseline: <b className="text-white">{baseB}×{baseD}mm ({baseGrade})</b></span>
+                <span className="text-[#5CC8E0]">➜</span>
+                <span className="bg-[#102235] px-2.5 py-1 rounded-lg border border-[#5CC8E0]/50 text-[#5CC8E0] font-bold text-sm">
+                  {beamWidth}×{sliderD}mm ({concGrade})
+                </span>
+              </>
+            )}
           </div>
         </div>
 
@@ -10131,72 +10189,136 @@ function SafeStateOptimizer({
         <div className="bg-[#071322] border border-[#1A334E] rounded-xl p-3 space-y-2 relative z-10">
           <div className="flex items-center justify-between text-xs font-mono">
             <span className="text-[#FCD34D] font-bold flex items-center gap-1.5">
-              <span>⚡</span> 1-Click Approved Engineering Presets for {isMomentCheck ? "Moment Overload" : "Limit State"}:
+              <span>⚡</span> 1-Click Approved Engineering Presets for {isShearCheck ? "Transverse Shear & Stirrups" : (isMomentCheck ? "Moment Overload" : "Limit State")}:
             </span>
             <span className="text-[10px] text-[#8195AA]">Click to instantly resolve limit state</span>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 pt-1">
-            {/* Preset 1: Deepen */}
-            <button
-              onClick={() => updateBeamLive({ depth: optDeepenD, doublyReinforced: false })}
-              className="p-2.5 rounded-xl border border-[#1E3A5A] hover:border-[#10B981] bg-[#091524] hover:bg-[#0E2034] text-left transition group cursor-pointer shadow-sm"
-            >
-              <div className="text-[10px] font-bold text-[#10B981] flex items-center justify-between">
-                <span>Solution 1: Deepen</span>
-                <span className="text-[9px] font-mono text-[#8195AA]">Singly Reinf.</span>
-              </div>
-              <div className="text-xs font-bold text-white font-mono mt-0.5">D = {optDeepenD} mm</div>
-              <div className="text-[10px] text-[#8195AA] leading-tight mt-1">
-                Economical concrete depth. Increases lever arm (d²).
-              </div>
-            </button>
+          {isShearCheck ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 pt-1">
+              {/* Shear Preset 1: Standard Links */}
+              <button
+                onClick={() => updateBeamLive({ stirrupDia: 8, sv: 125, stirrupLegs: 2 })}
+                className="p-2.5 rounded-xl border border-[#1E3A5A] hover:border-[#10B981] bg-[#091524] hover:bg-[#0E2034] text-left transition group cursor-pointer shadow-sm"
+              >
+                <div className="text-[10px] font-bold text-[#10B981] flex items-center justify-between">
+                  <span>Solution 1: Standard Links</span>
+                  <span className="text-[9px] font-mono text-[#8195AA]">IS 456 Cl 40.4</span>
+                </div>
+                <div className="text-xs font-bold text-white font-mono mt-0.5">2L-8ϕ @ 125 mm c/c</div>
+                <div className="text-[10px] text-[#8195AA] leading-tight mt-1">
+                  Standard transverse ties. Fully resists diagonal shear tension.
+                </div>
+              </button>
 
-            {/* Preset 2: Widen to 230mm */}
-            <button
-              onClick={() => updateBeamLive({ width: 230, depth: optWidenD, doublyReinforced: false })}
-              className="p-2.5 rounded-xl border border-[#1E3A5A] hover:border-[#38BDF8] bg-[#091524] hover:bg-[#0E2034] text-left transition group cursor-pointer shadow-sm"
-            >
-              <div className="text-[10px] font-bold text-[#38BDF8] flex items-center justify-between">
-                <span>Solution 2: Widen</span>
-                <span className="text-[9px] font-mono text-[#8195AA]">9" Wall Flush</span>
-              </div>
-              <div className="text-xs font-bold text-white font-mono mt-0.5">230 × {optWidenD} mm</div>
-              <div className="text-[10px] text-[#8195AA] leading-tight mt-1">
-                Flush with masonry wall. Zero interior column offset.
-              </div>
-            </button>
+              {/* Shear Preset 2: Support Zone Closer Pitch */}
+              <button
+                onClick={() => updateBeamLive({ stirrupDia: 8, sv: 100, stirrupLegs: 2 })}
+                className="p-2.5 rounded-xl border border-[#1E3A5A] hover:border-[#38BDF8] bg-[#091524] hover:bg-[#0E2034] text-left transition group cursor-pointer shadow-sm"
+              >
+                <div className="text-[10px] font-bold text-[#38BDF8] flex items-center justify-between">
+                  <span>Solution 2: Support Zone Pitch</span>
+                  <span className="text-[9px] font-mono text-[#8195AA]">Heavy Shear</span>
+                </div>
+                <div className="text-xs font-bold text-white font-mono mt-0.5">2L-8ϕ @ 100 mm c/c</div>
+                <div className="text-[10px] text-[#8195AA] leading-tight mt-1">
+                  Dense stirrup pitch for critical high-shear zone near wall support.
+                </div>
+              </button>
 
-            {/* Preset 3: Upgrade Concrete Grade */}
-            <button
-              onClick={() => updateBeamLive({ concreteGrade: "M25", depth: optM25D, doublyReinforced: false })}
-              className="p-2.5 rounded-xl border border-[#1E3A5A] hover:border-[#FCD34D] bg-[#091524] hover:bg-[#0E2034] text-left transition group cursor-pointer shadow-sm"
-            >
-              <div className="text-[10px] font-bold text-[#FCD34D] flex items-center justify-between">
-                <span>Solution 3: M25 Grade</span>
-                <span className="text-[9px] font-mono text-[#8195AA]">+25% Strength</span>
-              </div>
-              <div className="text-xs font-bold text-white font-mono mt-0.5">M25 + D = {optM25D}mm</div>
-              <div className="text-[10px] text-[#8195AA] leading-tight mt-1">
-                Higher concrete grade preserves room headroom.
-              </div>
-            </button>
+              {/* Shear Preset 3: Heavy 10mm Ties */}
+              <button
+                onClick={() => updateBeamLive({ stirrupDia: 10, sv: 150, stirrupLegs: 2 })}
+                className="p-2.5 rounded-xl border border-[#1E3A5A] hover:border-[#FCD34D] bg-[#091524] hover:bg-[#0E2034] text-left transition group cursor-pointer shadow-sm"
+              >
+                <div className="text-[10px] font-bold text-[#FCD34D] flex items-center justify-between">
+                  <span>Solution 3: Heavy 10mm Ties</span>
+                  <span className="text-[9px] font-mono text-[#8195AA]">+56% Steel Area</span>
+                </div>
+                <div className="text-xs font-bold text-white font-mono mt-0.5">2L-10ϕ @ 150 mm c/c</div>
+                <div className="text-[10px] text-[#8195AA] leading-tight mt-1">
+                  Upgraded bar gauge provides higher shear capacity with wider spacing.
+                </div>
+              </button>
 
-            {/* Preset 4: Doubly Reinforced Section */}
-            <button
-              onClick={() => updateBeamLive({ depth: baseD, doublyReinforced: true })}
-              className="p-2.5 rounded-xl border border-[#1E3A5A] hover:border-[#A78BFA] bg-[#091524] hover:bg-[#0E2034] text-left transition group cursor-pointer shadow-sm"
-            >
-              <div className="text-[10px] font-bold text-[#A78BFA] flex items-center justify-between">
-                <span>Solution 4: Doubly Reinf.</span>
-                <span className="text-[9px] font-mono text-[#8195AA]">Annex G</span>
-              </div>
-              <div className="text-xs font-bold text-white font-mono mt-0.5">D = {baseD}mm + Top Asc</div>
-              <div className="text-[10px] text-[#8195AA] leading-tight mt-1">
-                Zero depth change. Absorbs excess moment with top rebar.
-              </div>
-            </button>
-          </div>
+              {/* Shear Preset 4: Deepen Section */}
+              <button
+                onClick={() => updateBeamLive({ depth: 400, sv: 150 })}
+                className="p-2.5 rounded-xl border border-[#1E3A5A] hover:border-[#A78BFA] bg-[#091524] hover:bg-[#0E2034] text-left transition group cursor-pointer shadow-sm"
+              >
+                <div className="text-[10px] font-bold text-[#A78BFA] flex items-center justify-between">
+                  <span>Solution 4: Deepen Section</span>
+                  <span className="text-[9px] font-mono text-[#8195AA]">Reduces τv</span>
+                </div>
+                <div className="text-xs font-bold text-white font-mono mt-0.5">D = 400 mm</div>
+                <div className="text-[10px] text-[#8195AA] leading-tight mt-1">
+                  Increases concrete shear area, reducing nominal shear stress τv.
+                </div>
+              </button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 pt-1">
+              {/* Preset 1: Deepen */}
+              <button
+                onClick={() => updateBeamLive({ depth: optDeepenD, doublyReinforced: false })}
+                className="p-2.5 rounded-xl border border-[#1E3A5A] hover:border-[#10B981] bg-[#091524] hover:bg-[#0E2034] text-left transition group cursor-pointer shadow-sm"
+              >
+                <div className="text-[10px] font-bold text-[#10B981] flex items-center justify-between">
+                  <span>Solution 1: Deepen</span>
+                  <span className="text-[9px] font-mono text-[#8195AA]">Singly Reinf.</span>
+                </div>
+                <div className="text-xs font-bold text-white font-mono mt-0.5">D = {optDeepenD} mm</div>
+                <div className="text-[10px] text-[#8195AA] leading-tight mt-1">
+                  Economical concrete depth. Increases lever arm (d²).
+                </div>
+              </button>
+
+              {/* Preset 2: Widen to 230mm */}
+              <button
+                onClick={() => updateBeamLive({ width: 230, depth: optWidenD, doublyReinforced: false })}
+                className="p-2.5 rounded-xl border border-[#1E3A5A] hover:border-[#38BDF8] bg-[#091524] hover:bg-[#0E2034] text-left transition group cursor-pointer shadow-sm"
+              >
+                <div className="text-[10px] font-bold text-[#38BDF8] flex items-center justify-between">
+                  <span>Solution 2: Widen</span>
+                  <span className="text-[9px] font-mono text-[#8195AA]">9" Wall Flush</span>
+                </div>
+                <div className="text-xs font-bold text-white font-mono mt-0.5">230 × {optWidenD} mm</div>
+                <div className="text-[10px] text-[#8195AA] leading-tight mt-1">
+                  Flush with masonry wall. Zero interior column offset.
+                </div>
+              </button>
+
+              {/* Preset 3: Upgrade Concrete Grade */}
+              <button
+                onClick={() => updateBeamLive({ concreteGrade: "M25", depth: optM25D, doublyReinforced: false })}
+                className="p-2.5 rounded-xl border border-[#1E3A5A] hover:border-[#FCD34D] bg-[#091524] hover:bg-[#0E2034] text-left transition group cursor-pointer shadow-sm"
+              >
+                <div className="text-[10px] font-bold text-[#FCD34D] flex items-center justify-between">
+                  <span>Solution 3: M25 Grade</span>
+                  <span className="text-[9px] font-mono text-[#8195AA]">+25% Strength</span>
+                </div>
+                <div className="text-xs font-bold text-white font-mono mt-0.5">M25 + D = {optM25D}mm</div>
+                <div className="text-[10px] text-[#8195AA] leading-tight mt-1">
+                  Higher concrete grade preserves room headroom.
+                </div>
+              </button>
+
+              {/* Preset 4: Doubly Reinforced Section */}
+              <button
+                onClick={() => updateBeamLive({ depth: baseD, doublyReinforced: true })}
+                className="p-2.5 rounded-xl border border-[#1E3A5A] hover:border-[#A78BFA] bg-[#091524] hover:bg-[#0E2034] text-left transition group cursor-pointer shadow-sm"
+              >
+                <div className="text-[10px] font-bold text-[#A78BFA] flex items-center justify-between">
+                  <span>Solution 4: Doubly Reinf.</span>
+                  <span className="text-[9px] font-mono text-[#8195AA]">Annex G</span>
+                </div>
+                <div className="text-xs font-bold text-white font-mono mt-0.5">D = {baseD}mm + Top Asc</div>
+                <div className="text-[10px] text-[#8195AA] leading-tight mt-1">
+                  Zero depth change. Absorbs excess moment with top rebar.
+                </div>
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Multi-Variable Controls Grid */}
@@ -10206,116 +10328,207 @@ function SafeStateOptimizer({
             <span className="text-[#8195AA] text-[10px] lowercase">real-time IS 456 feedback</span>
           </div>
 
-          {/* Variable 1: Overall Depth D */}
-          <div className="space-y-1.5">
-            <div className="flex items-center justify-between text-xs font-mono">
-              <span className="text-[#8195AA]">
-                1. Overall Beam Depth <b>D</b>: <b className="text-white text-sm">{sliderD} mm</b>
-              </span>
-              <span className="text-[11px] font-semibold" style={{ color: statusColor }}>
-                {metricLabel}: <b>{targetRatio}%</b>
-              </span>
-            </div>
+          {isShearCheck ? (
+            /* SHEAR-SPECIFIC VARIABLE CONTROLS */
+            <div className="space-y-3.5">
+              {/* Stirrup Spacing Slider */}
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between text-xs font-mono">
+                  <span className="text-[#8195AA]">
+                    1. Stirrup Pitch / Spacing <b>sv</b>: <b className="text-white text-sm">{stirrupSv} mm c/c</b>
+                  </span>
+                  <span className="text-[11px] font-semibold" style={{ color: statusColor }}>
+                    {metricLabel}: <b>{targetRatio}%</b>
+                  </span>
+                </div>
 
-            <div className="relative pt-1 pb-1">
-              <div className="w-full h-3 rounded-full overflow-hidden flex border border-[#1E2E44] bg-[#070D17] shadow-inner mb-1.5">
-                <div style={{ width: `${failPct}%` }} className="bg-gradient-to-r from-[#EF4444]/60 to-[#EF4444]/40 h-full" title={`Inadequate: < ${safeZoneMin}mm`} />
-                <div style={{ width: `${safePct}%` }} className="bg-gradient-to-r from-[#10B981]/50 via-[#10B981]/70 to-[#10B981]/50 h-full shadow-[0_0_8px_rgba(16,185,129,0.3)]" title={`Safe Zone: ${safeZoneMin} - ${safeZoneMax}mm`} />
-                <div style={{ width: `${conservativePct}%` }} className="bg-gradient-to-r from-[#0284C7]/40 to-[#0284C7]/60 h-full" title={`Conservative: > ${safeZoneMax}mm`} />
-              </div>
-
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => updateBeamLive({ depth: Math.max(minD, sliderD - 25) })}
-                  disabled={sliderD <= minD}
-                  className="px-2.5 py-1 bg-[#102235] hover:bg-[#162D45] disabled:opacity-30 text-[#5CC8E0] rounded-lg text-xs font-mono font-bold border border-[#5CC8E0]/30 transition shrink-0 cursor-pointer select-none"
-                >
-                  -25mm
-                </button>
-                <input
-                  type="range"
-                  min={minD}
-                  max={maxD}
-                  step={25}
-                  value={sliderD}
-                  onChange={(e) => updateBeamLive({ depth: Number(e.target.value) })}
-                  className="w-full h-3 bg-[#17263A] rounded-lg appearance-none cursor-pointer accent-[#5CC8E0] focus:outline-none"
-                />
-                <button
-                  onClick={() => updateBeamLive({ depth: Math.min(maxD, sliderD + 25) })}
-                  disabled={sliderD >= maxD}
-                  className="px-2.5 py-1 bg-[#102235] hover:bg-[#162D45] disabled:opacity-30 text-[#5CC8E0] rounded-lg text-xs font-mono font-bold border border-[#5CC8E0]/30 transition shrink-0 cursor-pointer select-none"
-                >
-                  +25mm
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {/* Variable 2: Beam Stem Width b & Variable 3: Concrete Grade */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
-            {/* Beam Width b */}
-            <div className="bg-[#0A1626] border border-[#1B2F48] rounded-xl p-2.5 space-y-1.5 text-xs font-mono">
-              <div className="text-[#8195AA] flex items-center justify-between">
-                <span>2. Beam Width <b>b</b>:</span>
-                <b className="text-white">{beamWidth} mm</b>
-              </div>
-              <div className="flex items-center gap-1.5 flex-wrap">
-                {[150, 200, 230, 250, 300].map((w) => (
+                <div className="flex items-center gap-2">
                   <button
-                    key={w}
-                    onClick={() => updateBeamLive({ width: w })}
-                    className={`px-2.5 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${beamWidth === w ? "bg-[#5CC8E0] text-black shadow-md" : "bg-[#102235] text-[#8195AA] hover:text-white border border-[#1E324A]"}`}
+                    onClick={() => updateBeamLive({ sv: Math.max(75, stirrupSv - 25) })}
+                    disabled={stirrupSv <= 75}
+                    className="px-2.5 py-1 bg-[#102235] hover:bg-[#162D45] disabled:opacity-30 text-[#5CC8E0] rounded-lg text-xs font-mono font-bold border border-[#5CC8E0]/30 transition shrink-0 cursor-pointer select-none"
                   >
-                    {w}mm {w === 230 ? '(9" Wall)' : ""}
+                    -25mm (Denser)
                   </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Concrete Grade */}
-            <div className="bg-[#0A1626] border border-[#1B2F48] rounded-xl p-2.5 space-y-1.5 text-xs font-mono">
-              <div className="text-[#8195AA] flex items-center justify-between">
-                <span>3. Concrete Grade <b>fck</b>:</span>
-                <b className="text-[#E8C547]">{concGrade} ({CONCRETE_GRADES[concGrade] || 20} MPa)</b>
-              </div>
-              <div className="flex items-center gap-1.5">
-                {["M20", "M25", "M30"].map((grade) => (
+                  <input
+                    type="range"
+                    min={75}
+                    max={Math.min(Math.floor(0.75 * sim.d), 300)}
+                    step={25}
+                    value={stirrupSv}
+                    onChange={(e) => updateBeamLive({ sv: Number(e.target.value) })}
+                    className="w-full h-3 bg-[#17263A] rounded-lg appearance-none cursor-pointer accent-[#10B981] focus:outline-none"
+                  />
                   <button
-                    key={grade}
-                    onClick={() => updateBeamLive({ concreteGrade: grade })}
-                    className={`flex-1 py-1 rounded-lg text-xs font-bold transition cursor-pointer text-center ${concGrade === grade ? "bg-[#E8C547] text-black shadow-md" : "bg-[#102235] text-[#8195AA] hover:text-white border border-[#1E324A]"}`}
+                    onClick={() => updateBeamLive({ sv: Math.min(Math.min(Math.floor(0.75 * sim.d), 300), stirrupSv + 25) })}
+                    disabled={stirrupSv >= Math.min(Math.floor(0.75 * sim.d), 300)}
+                    className="px-2.5 py-1 bg-[#102235] hover:bg-[#162D45] disabled:opacity-30 text-[#5CC8E0] rounded-lg text-xs font-mono font-bold border border-[#5CC8E0]/30 transition shrink-0 cursor-pointer select-none"
                   >
-                    {grade}
+                    +25mm (Wider)
                   </button>
-                ))}
+                </div>
+
+                <div className="flex items-center justify-between text-[10px] font-mono text-[#8195AA] pt-0.5">
+                  <span className="text-[#38BDF8]">Min Spacing: 75 mm</span>
+                  <span className="text-[#10B981] font-bold">Stirrup Capacity Vus = {num(sim.Vus_prov, 1)} kN (Carries Vu = {num(sim.Vu, 1)} kN)</span>
+                  <span className="text-[#FFA333]">Max Limit: {Math.min(Math.floor(0.75 * sim.d), 300)} mm (IS 456 Cl 26.5.1.5)</span>
+                </div>
+              </div>
+
+              {/* Stirrup Bar Diameter & Legs */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
+                <div className="bg-[#0A1626] border border-[#1B2F48] rounded-xl p-2.5 space-y-1.5 text-xs font-mono">
+                  <div className="text-[#8195AA] flex items-center justify-between">
+                    <span>2. Stirrup Bar Diameter:</span>
+                    <b className="text-white">{stirrupDia} mm (ϕ)</b>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    {[8, 10].map((dia) => (
+                      <button
+                        key={dia}
+                        onClick={() => updateBeamLive({ stirrupDia: dia })}
+                        className={`flex-1 py-1 rounded-lg text-xs font-bold transition cursor-pointer text-center ${stirrupDia === dia ? "bg-[#10B981] text-white shadow-md" : "bg-[#102235] text-[#8195AA] hover:text-white border border-[#1E324A]"}`}
+                      >
+                        {dia} mm ({dia === 8 ? "Standard Fe500" : "Heavy Duty"})
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="bg-[#0A1626] border border-[#1B2F48] rounded-xl p-2.5 space-y-1.5 text-xs font-mono">
+                  <div className="text-[#8195AA] flex items-center justify-between">
+                    <span>3. Stirrup Legs:</span>
+                    <b className="text-white">{stirrupLegs}-Legged Links</b>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    {[2, 4].map((legs) => (
+                      <button
+                        key={legs}
+                        onClick={() => updateBeamLive({ stirrupLegs: legs })}
+                        className={`flex-1 py-1 rounded-lg text-xs font-bold transition cursor-pointer text-center ${stirrupLegs === legs ? "bg-[#38BDF8] text-black shadow-md" : "bg-[#102235] text-[#8195AA] hover:text-white border border-[#1E324A]"}`}
+                      >
+                        {legs}-Legged ({legs === 2 ? "2L Normal" : "4L Wide Beam"})
+                      </button>
+                    ))}
+                  </div>
+                </div>
               </div>
             </div>
-          </div>
+          ) : (
+            /* MOMENT & DEFLECTION CONTROLS */
+            <>
+              {/* Variable 1: Overall Depth D */}
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between text-xs font-mono">
+                  <span className="text-[#8195AA]">
+                    1. Overall Beam Depth <b>D</b>: <b className="text-white text-sm">{sliderD} mm</b>
+                  </span>
+                  <span className="text-[11px] font-semibold" style={{ color: statusColor }}>
+                    {metricLabel}: <b>{targetRatio}%</b>
+                  </span>
+                </div>
 
-          {/* Variable 4: Doubly Reinforced Toggle */}
-          <div className="bg-[#0A1626] border border-[#1B2F48] rounded-xl p-3 flex items-center justify-between gap-3 text-xs font-mono flex-wrap">
-            <div className="flex items-start gap-2.5 max-w-lg">
-              <input
-                type="checkbox"
-                id="doublyToggle"
-                checked={doublyReinforced}
-                onChange={(e) => updateBeamLive({ doublyReinforced: e.target.checked })}
-                className="w-4 h-4 rounded mt-0.5 accent-[#10B981] cursor-pointer"
-              />
-              <label htmlFor="doublyToggle" className="cursor-pointer">
-                <span className="text-white font-bold block">
-                  4. Enable Doubly-Reinforced Section (IS 456 Annex G-1.2)
+                <div className="relative pt-1 pb-1">
+                  <div className="w-full h-3 rounded-full overflow-hidden flex border border-[#1E2E44] bg-[#070D17] shadow-inner mb-1.5">
+                    <div style={{ width: `${failPct}%` }} className="bg-gradient-to-r from-[#EF4444]/60 to-[#EF4444]/40 h-full" title={`Inadequate: < ${safeZoneMin}mm`} />
+                    <div style={{ width: `${safePct}%` }} className="bg-gradient-to-r from-[#10B981]/50 via-[#10B981]/70 to-[#10B981]/50 h-full shadow-[0_0_8px_rgba(16,185,129,0.3)]" title={`Safe Zone: ${safeZoneMin} - ${safeZoneMax}mm`} />
+                    <div style={{ width: `${conservativePct}%` }} className="bg-gradient-to-r from-[#0284C7]/40 to-[#0284C7]/60 h-full" title={`Conservative: > ${safeZoneMax}mm`} />
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => updateBeamLive({ depth: Math.max(minD, sliderD - 25) })}
+                      disabled={sliderD <= minD}
+                      className="px-2.5 py-1 bg-[#102235] hover:bg-[#162D45] disabled:opacity-30 text-[#5CC8E0] rounded-lg text-xs font-mono font-bold border border-[#5CC8E0]/30 transition shrink-0 cursor-pointer select-none"
+                    >
+                      -25mm
+                    </button>
+                    <input
+                      type="range"
+                      min={minD}
+                      max={maxD}
+                      step={25}
+                      value={sliderD}
+                      onChange={(e) => updateBeamLive({ depth: Number(e.target.value) })}
+                      className="w-full h-3 bg-[#17263A] rounded-lg appearance-none cursor-pointer accent-[#5CC8E0] focus:outline-none"
+                    />
+                    <button
+                      onClick={() => updateBeamLive({ depth: Math.min(maxD, sliderD + 25) })}
+                      disabled={sliderD >= maxD}
+                      className="px-2.5 py-1 bg-[#102235] hover:bg-[#162D45] disabled:opacity-30 text-[#5CC8E0] rounded-lg text-xs font-mono font-bold border border-[#5CC8E0]/30 transition shrink-0 cursor-pointer select-none"
+                    >
+                      +25mm
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Variable 2: Beam Stem Width b & Variable 3: Concrete Grade */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
+                {/* Beam Width b */}
+                <div className="bg-[#0A1626] border border-[#1B2F48] rounded-xl p-2.5 space-y-1.5 text-xs font-mono">
+                  <div className="text-[#8195AA] flex items-center justify-between">
+                    <span>2. Beam Width <b>b</b>:</span>
+                    <b className="text-white">{beamWidth} mm</b>
+                  </div>
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    {[150, 200, 230, 250, 300].map((w) => (
+                      <button
+                        key={w}
+                        onClick={() => updateBeamLive({ width: w })}
+                        className={`px-2.5 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${beamWidth === w ? "bg-[#5CC8E0] text-black shadow-md" : "bg-[#102235] text-[#8195AA] hover:text-white border border-[#1E324A]"}`}
+                      >
+                        {w}mm {w === 230 ? '(9" Wall)' : ""}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Concrete Grade */}
+                <div className="bg-[#0A1626] border border-[#1B2F48] rounded-xl p-2.5 space-y-1.5 text-xs font-mono">
+                  <div className="text-[#8195AA] flex items-center justify-between">
+                    <span>3. Concrete Grade <b>fck</b>:</span>
+                    <b className="text-[#E8C547]">{concGrade} ({CONCRETE_GRADES[concGrade] || 20} MPa)</b>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    {["M20", "M25", "M30"].map((grade) => (
+                      <button
+                        key={grade}
+                        onClick={() => updateBeamLive({ concreteGrade: grade })}
+                        className={`flex-1 py-1 rounded-lg text-xs font-bold transition cursor-pointer text-center ${concGrade === grade ? "bg-[#E8C547] text-black shadow-md" : "bg-[#102235] text-[#8195AA] hover:text-white border border-[#1E324A]"}`}
+                      >
+                        {grade}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Variable 4: Doubly Reinforced Toggle */}
+              <div className="bg-[#0A1626] border border-[#1B2F48] rounded-xl p-3 flex items-center justify-between gap-3 text-xs font-mono flex-wrap">
+                <div className="flex items-start gap-2.5 max-w-lg">
+                  <input
+                    type="checkbox"
+                    id="doublyToggle"
+                    checked={doublyReinforced}
+                    onChange={(e) => updateBeamLive({ doublyReinforced: e.target.checked })}
+                    className="w-4 h-4 rounded mt-0.5 accent-[#10B981] cursor-pointer"
+                  />
+                  <label htmlFor="doublyToggle" className="cursor-pointer">
+                    <span className="text-white font-bold block">
+                      4. Enable Doubly-Reinforced Section (IS 456 Annex G-1.2)
+                    </span>
+                    <span className="text-[11px] text-[#8195AA] leading-tight block mt-0.5">
+                      Provides top compression steel (Asc = {Math.round(sim.AscReq || 0)} mm²) to absorb excess moment without increasing beam depth.
+                    </span>
+                  </label>
+                </div>
+                <span className={`px-2 py-1 rounded-lg text-[10px] font-bold ${doublyReinforced ? "bg-[#10B981]/20 text-[#34D399] border border-[#10B981]/40" : "bg-[#102235] text-[#8195AA]"}`}>
+                  {doublyReinforced ? "ACTIVE: IS 456 Annex G" : "Singly Reinforced"}
                 </span>
-                <span className="text-[11px] text-[#8195AA] leading-tight block mt-0.5">
-                  Provides top compression steel (Asc = {Math.round(sim.AscReq || 0)} mm²) to absorb excess moment without increasing beam depth.
-                </span>
-              </label>
-            </div>
-            <span className={`px-2 py-1 rounded-lg text-[10px] font-bold ${doublyReinforced ? "bg-[#10B981]/20 text-[#34D399] border border-[#10B981]/40" : "bg-[#102235] text-[#8195AA]"}`}>
-              {doublyReinforced ? "ACTIVE: IS 456 Annex G" : "Singly Reinforced"}
-            </span>
-          </div>
+              </div>
+            </>
+          )}
         </div>
 
         {/* Before vs After Real-Time Comparison Grid */}
@@ -10324,26 +10537,47 @@ function SafeStateOptimizer({
           <div className="bg-[#070D17] border border-[#1A2738] rounded-xl p-3 space-y-1.5 text-xs font-mono">
             <div className="text-[10px] text-[#8195AA] uppercase font-bold flex items-center justify-between">
               <span>Baseline Original State</span>
-              <span className={`px-1.5 py-0.2 rounded text-[9px] font-bold ${origSim.isMomentSafe && origSim.LdActual <= origSim.LdAllow ? "bg-[#10B981]/20 text-[#34D399]" : "bg-[#EF4444]/20 text-[#F87171]"}`}>
-                {origSim.isMomentSafe && origSim.LdActual <= origSim.LdAllow ? "PASS" : "EXCEEDED"}
+              <span className={`px-1.5 py-0.2 rounded text-[9px] font-bold ${origSim.isShearSafe && origSim.isMomentSafe && origSim.LdActual <= origSim.LdAllow ? "bg-[#10B981]/20 text-[#34D399]" : "bg-[#EF4444]/20 text-[#F87171]"}`}>
+                {origSim.isShearSafe && origSim.isMomentSafe && origSim.LdActual <= origSim.LdAllow ? "PASS" : "EXCEEDED"}
               </span>
             </div>
             <div className="flex items-baseline justify-between">
               <span className="text-white font-bold">Cross-Section:</span>
               <span className="text-[#94A3B8] font-bold text-sm">{baseB} × {baseD} mm ({baseGrade})</span>
             </div>
-            <div className="flex items-baseline justify-between">
-              <span className="text-[#8195AA]">{metricLabel}:</span>
-              <span className={`font-bold ${origSim.isMomentSafe ? "text-[#34D399]" : "text-[#EF4444]"}`}>
-                {num(origSim.Mu, 1)} / {num(origEffMulim, 1)} kNm ({origRatio}%)
-              </span>
-            </div>
-            <div className="flex items-baseline justify-between">
-              <span className="text-[#8195AA]">Span/Depth (L/d):</span>
-              <span className={origSim.LdActual <= origSim.LdAllow ? "text-[#34D399]" : "text-[#EF4444]"}>
-                {origSim.LdActual.toFixed(1)} / {origSim.LdAllow.toFixed(1)}
-              </span>
-            </div>
+            {isShearCheck ? (
+              <>
+                <div className="flex items-baseline justify-between">
+                  <span className="text-[#8195AA]">Shear Reinforcement:</span>
+                  <span className="font-bold text-white">2L-{baseStirrupDia}ϕ @ {origSim.sv} mm c/c</span>
+                </div>
+                <div className="flex items-baseline justify-between">
+                  <span className="text-[#8195AA]">Shear vs Max Limit:</span>
+                  <span className="font-bold text-[#34D399]">
+                    {origSim.tauV.toFixed(2)} / {(origSim.tauC_max || 2.80).toFixed(2)} MPa ({origRatio}%)
+                  </span>
+                </div>
+                <div className="flex items-baseline justify-between">
+                  <span className="text-[#8195AA]">Total Shear Capacity:</span>
+                  <span className="text-[#38BDF8] font-bold">{num(origSim.Vu_capacity, 1)} kN (Vu = {num(origSim.Vu, 1)} kN)</span>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="flex items-baseline justify-between">
+                  <span className="text-[#8195AA]">{metricLabel}:</span>
+                  <span className={`font-bold ${origSim.isMomentSafe ? "text-[#34D399]" : "text-[#EF4444]"}`}>
+                    {num(origSim.Mu, 1)} / {num(origEffMulim, 1)} kNm ({origRatio}%)
+                  </span>
+                </div>
+                <div className="flex items-baseline justify-between">
+                  <span className="text-[#8195AA]">Span/Depth (L/d):</span>
+                  <span className={origSim.LdActual <= origSim.LdAllow ? "text-[#34D399]" : "text-[#EF4444]"}>
+                    {origSim.LdActual.toFixed(1)} / {origSim.LdAllow.toFixed(1)}
+                  </span>
+                </div>
+              </>
+            )}
           </div>
 
           {/* Live Tuned State */}
@@ -10358,12 +10592,39 @@ function SafeStateOptimizer({
               <span className="text-white font-bold">Cross-Section:</span>
               <span className="text-[#5CC8E0] font-bold text-sm">{beamWidth} × {sliderD} mm ({concGrade})</span>
             </div>
-            <div className="flex items-baseline justify-between">
-              <span className="text-[#8195AA]">{metricLabel}:</span>
-              <span className="font-bold" style={{ color: statusColor }}>
-                {actualStr} / {allowStr} ({targetRatio}%)
-              </span>
-            </div>
+            {isShearCheck ? (
+              <>
+                <div className="flex items-baseline justify-between">
+                  <span className="text-[#8195AA]">Shear Reinforcement:</span>
+                  <span className="font-bold text-[#10B981]">{stirrupLegs}L-{stirrupDia}ϕ @ {stirrupSv} mm c/c</span>
+                </div>
+                <div className="flex items-baseline justify-between">
+                  <span className="text-[#8195AA]">Shear vs Max Limit:</span>
+                  <span className="font-bold" style={{ color: statusColor }}>
+                    {sim.tauV.toFixed(2)} / {(sim.tauC_max || 2.80).toFixed(2)} MPa ({targetRatio}%)
+                  </span>
+                </div>
+                <div className="flex items-baseline justify-between">
+                  <span className="text-[#8195AA]">Total Shear Capacity:</span>
+                  <span className="text-[#38BDF8] font-bold">{num(sim.Vu_capacity, 1)} kN (Vu = {num(sim.Vu, 1)} kN)</span>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="flex items-baseline justify-between">
+                  <span className="text-[#8195AA]">{metricLabel}:</span>
+                  <span className="font-bold" style={{ color: statusColor }}>
+                    {actualStr} / {allowStr} ({targetRatio}%)
+                  </span>
+                </div>
+                <div className="flex items-baseline justify-between">
+                  <span className="text-[#8195AA]">Span/Depth (L/d):</span>
+                  <span className={sim.LdActual <= sim.LdAllow ? "text-[#34D399]" : "text-[#EF4444]"}>
+                    {sim.LdActual.toFixed(1)} / {sim.LdAllow.toFixed(1)}
+                  </span>
+                </div>
+              </>
+            )}
             <div className="flex items-baseline justify-between">
               <span className="text-[#8195AA]">Cost Delta:</span>
               <span className={deltaCost > 0 ? "text-[#FFA333]" : "text-[#34D399]"}>
@@ -10691,24 +10952,27 @@ function ComponentCapacityHub({ activeItem, settings, onUpdateSlab, onUpdateBeam
     const Leff = r.Leff || 3.0;
     const slenderness = (Leff * 1000) / b;
 
+    const effMulim = r.isDoubly ? (r.MuCap || r.Mulim) : r.Mulim;
+    const tauC_max = r.tauC_max || Math.min(0.62 * Math.sqrt(r.fck || 20), 4.0);
+
     rings = [
       {
         current: Mu,
-        limit: Mulim,
+        limit: effMulim,
         unit: "kNm",
         label: "Flexural Moment (Mu / Mu,lim)",
         currentLabel: "Design Mu",
         limitLabel: "Limit Mu,lim",
-        stability: Mu <= Mulim ? "Singly reinforced ductile beam" : "Depth increase required"
+        stability: r.isMomentSafe ? (r.isDoubly ? "Doubly reinforced ductile beam (Annex G)" : "Singly reinforced ductile beam") : "Moment capacity exceeded"
       },
       {
         current: tauV,
-        limit: tauC,
+        limit: tauC_max,
         unit: "N/mm²",
-        label: "Shear Stress (τv / τc)",
+        label: "Section Shear (τv vs Max τc,max)",
         currentLabel: "Applied τv",
-        limitLabel: "Concrete τc",
-        stability: tauV <= tauC ? "Nominal ties adequate" : "Shear links active"
+        limitLabel: "Max Limit τc,max",
+        stability: tauV <= tauC_max ? (r.shearFlag ? `2L-${r.stirrupDia || 8}ϕ stirrups @ ${r.sv}mm carry Vus (Safe)` : "Nominal ties adequate") : "Exceeds τc,max"
       },
       {
         current: LdActual,
