@@ -358,11 +358,21 @@ function computeBeam(beam, settings) {
   const Vu = 1.5 * V_service;
 
   const d = Math.max(D - 40, 10);
-  const fck = CONCRETE_GRADES[settings.concreteGrade] || 20;
-  const steel = STEEL_GRADES[settings.steelGrade] || STEEL_GRADES.Fe500;
+  const concreteGrade = beam.concreteGrade || settings.concreteGrade || "M20";
+  const fck = CONCRETE_GRADES[concreteGrade] || 20;
+  const steel = STEEL_GRADES[beam.steelGrade || settings.steelGrade] || STEEL_GRADES.Fe500;
   const fy = steel.fy;
   const Mulim = (0.36 * steel.xumaxd * (1 - 0.42 * steel.xumaxd) * fck * b * d * d) / 1e6;
   const singlyOK = Mu <= Mulim || Mu === 0;
+
+  // IS 456:2000 Annex G: Doubly Reinforced Beam section capacity
+  const deltaMu = Math.max(0, Mu - Mulim);
+  const dPrime = 40;
+  const fsc = Math.min(0.85 * fy, 392);
+  const AscReq = deltaMu > 0 ? (deltaMu * 1e6) / (fsc * Math.max(d - dPrime, 10)) : 0;
+  const isDoubly = Boolean(beam.doublyReinforced);
+  const MuCap = isDoubly ? (Mulim + (AscReq * fsc * Math.max(d - dPrime, 10)) / 1e6) : Mulim;
+  const isMomentSafe = singlyOK || isDoubly;
 
   const { ast: AstRaw } = sp16Ast(Mu * 1e6, b, d, fck, fy);
   const AstMin = (0.85 * b * d) / fy;
@@ -400,9 +410,9 @@ function computeBeam(beam, settings) {
 
   return {
     Leff, b, D, d, w_self, w_slab, M_self, M_slab, M_wall, M_service, V_service,
-    Mu, Vu, Mulim, singlyOK, AstReq, AstMin, AstMax, bars, overMax,
+    Mu, Vu, Mulim, singlyOK, isDoubly, AscReq, MuCap, isMomentSafe, AstReq, AstMin, AstMax, bars, overMax,
     tauV, tauC, shearFlag, sv, stirrupCount, LdActual, LdAllow, deflectionFlag,
-    concreteVol, steelKg, formworkM2, fck, fy,
+    concreteVol, steelKg, formworkM2, fck, fy, concreteGrade,
   };
 }
 
@@ -9884,397 +9894,720 @@ function MiniSafetyRing({ item, settings }) {
 }
 
 // =====================================================================
-// INTERACTIVE SAFE-STATE VARIABLE OPTIMIZER (WITH RECOMMENDATION ZONES)
+// INTERACTIVE MULTI-VARIABLE SAFE-STATE OPTIMIZER SUITE
 // =====================================================================
-function SafeStateOptimizer({ activeItem, step, settings, onUpdateSlab, onUpdateBeam, onUpdateWall, onUpdateOpening }) {
+function SafeStateOptimizer({
+  activeItem,
+  step,
+  settings,
+  onUpdateSlab,
+  onUpdateBeam,
+  onUpdateWall,
+  onUpdateOpening
+}) {
   if (!activeItem || !activeItem.result) return null;
   const compType = activeItem.type || activeItem.category;
   const r = activeItem.result;
   const data = activeItem.data || {};
 
-  // Determine governing variable configuration based on component type
-  let config = null;
+  // Check what physical criteria triggered this optimizer
+  const stepTitle = step?.title || "";
+  const capacityLabel = step?.capacity?.label || "";
+  const isMomentCheck = capacityLabel.includes("Moment") || stepTitle.includes("Moment") || (compType === "beam" && !r.singlyOK && !stepTitle.includes("Deflection"));
+  const isShearCheck = capacityLabel.includes("Shear") || stepTitle.includes("Shear");
+  const isDeflectionCheck = capacityLabel.includes("Deflection") || stepTitle.includes("Deflection");
 
-  if (compType === "slab") {
-    const currentD = Number(data.thickness) || Number(r.thickness) || 125;
-    const Lx = Number(data.lx) || 3.0;
-    const LdAllow = Number(r.LdAllow) || 26;
-    // Theoretical minimum thickness to satisfy L/d <= LdAllow:
-    // dReq = (Lx * 1000) / LdAllow; D_req = dReq + 20 (cover) + 4 (half bar dia)
-    const dReq = (Lx * 1000) / LdAllow;
-    const theoreticalMinD = Math.ceil(dReq + 24);
-    // Standard recommended value: rounds up to next practical 5mm or 10mm increment with ~80-85% capacity
-    const recommendedD = Math.max(140, Math.ceil(theoreticalMinD / 5) * 5);
-    const safeZoneMin = Math.ceil(theoreticalMinD / 5) * 5;
-    const safeZoneMax = safeZoneMin + 25; // e.g. 140 to 165mm
+  // Baseline properties from project state
+  const baseD = Number(data.depth) || Number(r.D) || 300;
+  const baseB = Number(data.width) || Number(r.b) || 200;
+  const baseGrade = data.concreteGrade || settings.concreteGrade || "M20";
+  const baseDoubly = Boolean(data.doublyReinforced);
+  const baseSlabT = Number(data.thickness) || Number(r.thickness) || 125;
 
-    config = {
-      title: "Slab Thickness Optimizer (D)",
-      paramName: "Slab Thickness D",
-      unit: "mm",
-      field: "thickness",
-      min: 100,
-      max: 200,
-      step: 5,
-      currentVal: currentD,
-      theoreticalMin: theoreticalMinD,
-      recommended: recommendedD,
-      safeZoneMin,
-      safeZoneMax,
-      compute: (val) => {
-        const sim = computeSlab({ ...data, thickness: val }, settings);
-        const ratio = (sim.LdActual / sim.LdAllow) * 100;
-        const deltaCost = Math.round((sim.concreteVol - r.concreteVol) * (settings.rateConcrete || 6200));
-        return {
-          metricLabel: "Span-to-Depth Ratio (L/d)",
-          actualStr: sim.LdActual.toFixed(1),
-          allowStr: sim.LdAllow.toFixed(1),
-          capacityPct: Math.round(ratio),
-          isSafe: sim.LdActual <= sim.LdAllow,
-          fos: (sim.LdAllow / (sim.LdActual || 0.01)).toFixed(2) + "×",
-          deltaCost,
-          concVolDelta: (sim.concreteVol - r.concreteVol).toFixed(2),
-          rationale: sim.LdActual <= sim.LdAllow 
-            ? `Safe & rigid (L/d = ${sim.LdActual.toFixed(1)} ≤ ${sim.LdAllow.toFixed(1)}): Ceiling plaster hair-cracks and sagging prevented.`
-            : `Deflection limit exceeded by ${(ratio - 100).toFixed(1)}% (L/d = ${sim.LdActual.toFixed(1)} > ${sim.LdAllow.toFixed(1)}).`
-        };
-      },
-      onSave: (val) => onUpdateSlab && onUpdateSlab(activeItem.id, "thickness", val)
-    };
-  } else if (compType === "beam") {
-    const currentD = Number(data.depth) || Number(r.D) || 300;
-    const Leff = Number(r.Leff) || Number(data.clearSpan) || 3.0;
-    const LdAllow = Number(r.LdAllow) || 26;
-    const theoreticalMinD = Math.ceil((Leff * 1000) / LdAllow + 40);
-    const recommendedD = Math.max(350, Math.ceil(theoreticalMinD / 25) * 25);
-    const safeZoneMin = Math.ceil(theoreticalMinD / 25) * 25;
-    const safeZoneMax = safeZoneMin + 75;
-
-    config = {
-      title: "Beam Overall Depth Optimizer (D)",
-      paramName: "Beam Depth D",
-      unit: "mm",
-      field: "depth",
-      min: 200,
-      max: 600,
-      step: 25,
-      currentVal: currentD,
-      theoreticalMin: theoreticalMinD,
-      recommended: recommendedD,
-      safeZoneMin,
-      safeZoneMax,
-      compute: (val) => {
-        const sim = computeBeam({ ...data, depth: val }, settings);
-        const ratio = (sim.LdActual / sim.LdAllow) * 100;
-        const deltaCost = Math.round((sim.concreteVol - r.concreteVol) * (settings.rateConcrete || 6200));
-        return {
-          metricLabel: "Span-to-Depth Ratio (L/d)",
-          actualStr: sim.LdActual.toFixed(1),
-          allowStr: sim.LdAllow.toFixed(1),
-          capacityPct: Math.round(ratio),
-          isSafe: sim.LdActual <= sim.LdAllow && sim.singlyOK !== false,
-          fos: (sim.Mulim / (sim.Mu || 0.01)).toFixed(2) + "×",
-          deltaCost,
-          concVolDelta: (sim.concreteVol - r.concreteVol).toFixed(2),
-          rationale: sim.LdActual <= sim.LdAllow
-            ? `Safe flexural depth: Beam remains singly reinforced with zero sagging under full load.`
-            : `Beam depth inadequate for span: exceeds deflection criteria.`
-        };
-      },
-      onSave: (val) => onUpdateBeam && onUpdateBeam(activeItem.id, "depth", val)
-    };
-  }
-
-  if (!config) return null;
-
-  // Store baseline value when this component was loaded so user can revert anytime
-  const [initialBaseVal, setInitialBaseVal] = useState(config.currentVal);
-  const [sliderVal, setSliderVal] = useState(config.currentVal);
+  // Active simulated state
+  const [sliderD, setSliderD] = useState(baseD);
+  const [beamWidth, setBeamWidth] = useState(baseB);
+  const [concGrade, setConcGrade] = useState(baseGrade);
+  const [doublyReinforced, setDoublyReinforced] = useState(baseDoubly);
+  const [slabT, setSlabT] = useState(baseSlabT);
   const [savedSuccess, setSavedSuccess] = useState(false);
   const [prevKey, setPrevKey] = useState(activeItem.key);
 
+  // Sync state when switching active component
   if (prevKey !== activeItem.key) {
     setPrevKey(activeItem.key);
-    setInitialBaseVal(config.currentVal);
-    setSliderVal(config.currentVal);
+    setSliderD(baseD);
+    setBeamWidth(baseB);
+    setConcGrade(baseGrade);
+    setDoublyReinforced(baseDoubly);
+    setSlabT(baseSlabT);
     setSavedSuccess(false);
   }
 
-  // Real-time live update: immediately triggers recalculation of all 12 dependent equations across the CAD model
-  const handleSliderChange = (newVal) => {
-    setSliderVal(newVal);
-    config.onSave(newVal);
+  // Real-time live propagation to CAD model for Beams
+  const updateBeamLive = (newParams) => {
+    const updated = {
+      depth: newParams.depth !== undefined ? newParams.depth : sliderD,
+      width: newParams.width !== undefined ? newParams.width : beamWidth,
+      concreteGrade: newParams.concreteGrade !== undefined ? newParams.concreteGrade : concGrade,
+      doublyReinforced: newParams.doublyReinforced !== undefined ? newParams.doublyReinforced : doublyReinforced,
+    };
+    if (newParams.depth !== undefined) setSliderD(newParams.depth);
+    if (newParams.width !== undefined) setBeamWidth(newParams.width);
+    if (newParams.concreteGrade !== undefined) setConcGrade(newParams.concreteGrade);
+    if (newParams.doublyReinforced !== undefined) setDoublyReinforced(newParams.doublyReinforced);
+
+    onUpdateBeam && onUpdateBeam(activeItem.id, updated);
     setSavedSuccess(true);
     setTimeout(() => setSavedSuccess(false), 2500);
   };
 
-  const handleApplyRecommended = () => {
-    handleSliderChange(config.recommended);
+  // Real-time live propagation to CAD model for Slabs
+  const updateSlabLive = (newParams) => {
+    const updatedT = newParams.thickness !== undefined ? newParams.thickness : slabT;
+    const updatedGrade = newParams.concreteGrade !== undefined ? newParams.concreteGrade : concGrade;
+    if (newParams.thickness !== undefined) setSlabT(newParams.thickness);
+    if (newParams.concreteGrade !== undefined) setConcGrade(newParams.concreteGrade);
+
+    onUpdateSlab && onUpdateSlab(activeItem.id, "thickness", updatedT);
+    setSavedSuccess(true);
+    setTimeout(() => setSavedSuccess(false), 2500);
   };
 
+  // Revert back to original baseline
   const handleReset = () => {
-    handleSliderChange(initialBaseVal);
+    if (compType === "beam") {
+      updateBeamLive({
+        depth: baseD,
+        width: baseB,
+        concreteGrade: baseGrade,
+        doublyReinforced: baseDoubly,
+      });
+    } else if (compType === "slab") {
+      updateSlabLive({
+        thickness: baseSlabT,
+        concreteGrade: baseGrade,
+      });
+    }
   };
 
-  const sim = config.compute(sliderVal);
-  const origSim = config.compute(initialBaseVal);
+  // -------------------------------------------------------------
+  // BEAM SIMULATION & METRICS
+  // -------------------------------------------------------------
+  if (compType === "beam") {
+    const sim = computeBeam({
+      ...data,
+      depth: sliderD,
+      width: beamWidth,
+      concreteGrade: concGrade,
+      doublyReinforced: doublyReinforced,
+    }, settings);
 
-  // Color calculation for slider state
-  let statusColor = "#10B981"; // Safe green
-  let statusBadge = "SAFE ZONE (IS 456 COMPLIANT)";
-  let zoneLabel = "Safe Zone (Sweet Spot)";
-  if (!sim.isSafe || sim.capacityPct > 100) {
-    statusColor = "#EF4444";
-    statusBadge = "FAIL / INADEQUATE (< MIN)";
-    zoneLabel = "Inadequate Zone (Fails IS 456)";
-  } else if (sim.capacityPct > 85) {
-    statusColor = "#F59E0B";
-    statusBadge = "BORDERLINE (85% - 100%)";
-    zoneLabel = "Borderline Safe";
-  } else if (sliderVal > config.safeZoneMax) {
-    statusColor = "#38BDF8";
-    statusBadge = "CONSERVATIVE (> MAX PRACTICAL)";
-    zoneLabel = "Conservative / Heavy";
-  }
+    const origSim = computeBeam({
+      ...data,
+      depth: baseD,
+      width: baseB,
+      concreteGrade: baseGrade,
+      doublyReinforced: baseDoubly,
+    }, settings);
 
-  // Zone percentages for visual track background
-  const totalSpan = config.max - config.min;
-  const failPct = Math.max(0, Math.min(100, ((config.safeZoneMin - config.min) / totalSpan) * 100));
-  const safePct = Math.max(0, Math.min(100, ((config.safeZoneMax - config.safeZoneMin) / totalSpan) * 100));
-  const conservativePct = 100 - failPct - safePct;
+    // Compute effective capacities
+    const effMulim = doublyReinforced ? sim.MuCap : sim.Mulim;
+    const origEffMulim = baseDoubly ? origSim.MuCap : origSim.Mulim;
 
-  return (
-    <div className="bg-gradient-to-br from-[#0B1524] via-[#0E1A2D] to-[#08111D] border-2 border-[#1E324A] hover:border-[#2F4E75] rounded-2xl p-4 sm:p-5 space-y-4 shadow-xl transition relative overflow-hidden my-3">
-      {/* Ambient background glow */}
-      <div 
-        className="absolute top-0 right-1/3 w-80 h-28 rounded-full pointer-events-none opacity-20 blur-3xl transition-colors duration-500"
-        style={{ backgroundColor: statusColor }}
-      />
+    let targetRatio = Math.round((sim.Mu / (effMulim || 0.01)) * 100);
+    let origRatio = Math.round((origSim.Mu / (origEffMulim || 0.01)) * 100);
+    let metricLabel = "Factored Moment vs Capacity (Mu / Mu,lim)";
+    let actualStr = `${num(sim.Mu, 1)} kNm`;
+    let allowStr = `${num(effMulim, 1)} kNm`;
+    let isSafe = sim.isMomentSafe;
 
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-[#1A2C42] pb-3 gap-2.5 relative z-10">
-        <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-xl bg-[#102235] text-[#5CC8E0] border border-[#5CC8E0]/40 flex items-center justify-center font-bold text-sm shadow-inner">
-            🎛️
+    if (isDeflectionCheck) {
+      targetRatio = Math.round((sim.LdActual / (sim.LdAllow || 1)) * 100);
+      origRatio = Math.round((origSim.LdActual / (origSim.LdAllow || 1)) * 100);
+      metricLabel = "Span-to-Depth Ratio (L/d)";
+      actualStr = sim.LdActual.toFixed(1);
+      allowStr = sim.LdAllow.toFixed(1);
+      isSafe = sim.LdActual <= sim.LdAllow;
+    } else if (isShearCheck) {
+      targetRatio = Math.round((sim.tauV / (sim.tauC || 0.01)) * 100);
+      origRatio = Math.round((origSim.tauV / (origSim.tauC || 0.01)) * 100);
+      metricLabel = "Shear Stress vs Strength (τv / τc)";
+      actualStr = `${sim.tauV.toFixed(2)} MPa`;
+      allowStr = `${sim.tauC.toFixed(2)} MPa`;
+      isSafe = !sim.shearFlag;
+    }
+
+    const fos = ((effMulim || 0.01) / (sim.Mu || 0.01)).toFixed(2) + "×";
+    const deltaCost = Math.round((sim.concreteVol - r.concreteVol) * (settings.rateConcrete || 6200));
+
+    // Calculate 4 Engineer-Approved Smart Presets for Moment/Deflection
+    const currentFck = CONCRETE_GRADES[concGrade] || 20;
+    const dReqMoment = Math.sqrt((sim.Mu * 1e6) / (0.138 * currentFck * beamWidth));
+    const optDeepenD = Math.max(350, Math.ceil((dReqMoment + 40) / 25) * 25);
+
+    const dReq230 = Math.sqrt((sim.Mu * 1e6) / (0.138 * currentFck * 230));
+    const optWidenD = Math.max(300, Math.ceil((dReq230 + 40) / 25) * 25);
+
+    const dReqM25 = Math.sqrt((sim.Mu * 1e6) / (0.138 * 25 * beamWidth));
+    const optM25D = Math.max(300, Math.ceil((dReqM25 + 40) / 25) * 25);
+
+    // Color & Status badges
+    let statusColor = "#10B981";
+    let statusBadge = "SAFE ZONE (PASS)";
+    let zoneLabel = "Optimal Safe Zone";
+    if (!isSafe || targetRatio > 100) {
+      statusColor = "#EF4444";
+      statusBadge = "OVERLOADED / INADEQUATE (< MIN)";
+      zoneLabel = "Inadequate Zone (Fails IS 456)";
+    } else if (targetRatio > 85) {
+      statusColor = "#F59E0B";
+      statusBadge = "BORDERLINE (85% - 100%)";
+      zoneLabel = "High Utilization";
+    }
+
+    // Depth slider zones
+    const minD = 200;
+    const maxD = 600;
+    const safeZoneMin = Math.max(300, Math.ceil((dReqMoment + 40) / 25) * 25);
+    const safeZoneMax = safeZoneMin + 75;
+    const totalSpan = maxD - minD;
+    const failPct = Math.max(0, Math.min(100, ((safeZoneMin - minD) / totalSpan) * 100));
+    const safePct = Math.max(0, Math.min(100, ((safeZoneMax - safeZoneMin) / totalSpan) * 100));
+    const conservativePct = 100 - failPct - safePct;
+
+    const isChangedFromBase = sliderD !== baseD || beamWidth !== baseB || concGrade !== baseGrade || doublyReinforced !== baseDoubly;
+
+    return (
+      <div className="bg-gradient-to-br from-[#0B1524] via-[#0E1A2D] to-[#08111D] border-2 border-[#1E324A] hover:border-[#2F4E75] rounded-2xl p-4 sm:p-5 space-y-4 shadow-xl transition relative overflow-hidden my-3">
+        {/* Ambient glow */}
+        <div 
+          className="absolute top-0 right-1/4 w-80 h-28 rounded-full pointer-events-none opacity-20 blur-3xl transition-colors duration-500"
+          style={{ backgroundColor: statusColor }}
+        />
+
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-[#1A2C42] pb-3 gap-2.5 relative z-10">
+          <div className="flex items-center gap-2.5">
+            <div className="w-9 h-9 rounded-xl bg-[#102235] text-[#5CC8E0] border border-[#5CC8E0]/40 flex items-center justify-center font-bold text-base shadow-inner shrink-0">
+              🎛️
+            </div>
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-[10px] text-[#8195AA] uppercase font-mono tracking-wider font-semibold">
+                  IS 456 Multi-Variable Safe-State Optimizer
+                </span>
+                <span className="flex items-center gap-1 text-[9px] font-mono px-1.5 py-0.2 rounded bg-[#10B981]/15 text-[#34D399] border border-[#10B981]/30">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#34D399] animate-pulse"></span>
+                  Instant Live Sync Active
+                </span>
+              </div>
+              <h4 className="text-sm sm:text-base font-bold text-white tracking-wide flex items-center gap-2 flex-wrap">
+                <span>Beam Structural Optimizer (D, b, fck, Asc)</span>
+                <span 
+                  className="text-[10px] font-mono px-2 py-0.5 rounded-full border font-bold"
+                  style={{ 
+                    color: statusColor, 
+                    backgroundColor: `${statusColor}18`, 
+                    borderColor: `${statusColor}40` 
+                  }}
+                >
+                  {statusBadge}
+                </span>
+              </h4>
+            </div>
           </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="text-[10px] text-[#8195AA] uppercase font-mono tracking-wider font-semibold">
-                Live What-If Engineering Simulator
+
+          <div className="flex items-center gap-2 text-xs font-mono">
+            <span className="text-[#8195AA]">Baseline: <b className="text-white">{baseB}×{baseD}mm ({baseGrade})</b></span>
+            <span className="text-[#5CC8E0]">➜</span>
+            <span className="bg-[#102235] px-2.5 py-1 rounded-lg border border-[#5CC8E0]/50 text-[#5CC8E0] font-bold text-sm">
+              {beamWidth}×{sliderD}mm ({concGrade})
+            </span>
+          </div>
+        </div>
+
+        {/* 1-Click Smart Engineering Presets Bar (Instant Solutions) */}
+        <div className="bg-[#071322] border border-[#1A334E] rounded-xl p-3 space-y-2 relative z-10">
+          <div className="flex items-center justify-between text-xs font-mono">
+            <span className="text-[#FCD34D] font-bold flex items-center gap-1.5">
+              <span>⚡</span> 1-Click Approved Engineering Presets for {isMomentCheck ? "Moment Overload" : "Limit State"}:
+            </span>
+            <span className="text-[10px] text-[#8195AA]">Click to instantly resolve limit state</span>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 pt-1">
+            {/* Preset 1: Deepen */}
+            <button
+              onClick={() => updateBeamLive({ depth: optDeepenD, doublyReinforced: false })}
+              className="p-2.5 rounded-xl border border-[#1E3A5A] hover:border-[#10B981] bg-[#091524] hover:bg-[#0E2034] text-left transition group cursor-pointer shadow-sm"
+            >
+              <div className="text-[10px] font-bold text-[#10B981] flex items-center justify-between">
+                <span>Solution 1: Deepen</span>
+                <span className="text-[9px] font-mono text-[#8195AA]">Singly Reinf.</span>
+              </div>
+              <div className="text-xs font-bold text-white font-mono mt-0.5">D = {optDeepenD} mm</div>
+              <div className="text-[10px] text-[#8195AA] leading-tight mt-1">
+                Economical concrete depth. Increases lever arm (d²).
+              </div>
+            </button>
+
+            {/* Preset 2: Widen to 230mm */}
+            <button
+              onClick={() => updateBeamLive({ width: 230, depth: optWidenD, doublyReinforced: false })}
+              className="p-2.5 rounded-xl border border-[#1E3A5A] hover:border-[#38BDF8] bg-[#091524] hover:bg-[#0E2034] text-left transition group cursor-pointer shadow-sm"
+            >
+              <div className="text-[10px] font-bold text-[#38BDF8] flex items-center justify-between">
+                <span>Solution 2: Widen</span>
+                <span className="text-[9px] font-mono text-[#8195AA]">9" Wall Flush</span>
+              </div>
+              <div className="text-xs font-bold text-white font-mono mt-0.5">230 × {optWidenD} mm</div>
+              <div className="text-[10px] text-[#8195AA] leading-tight mt-1">
+                Flush with masonry wall. Zero interior column offset.
+              </div>
+            </button>
+
+            {/* Preset 3: Upgrade Concrete Grade */}
+            <button
+              onClick={() => updateBeamLive({ concreteGrade: "M25", depth: optM25D, doublyReinforced: false })}
+              className="p-2.5 rounded-xl border border-[#1E3A5A] hover:border-[#FCD34D] bg-[#091524] hover:bg-[#0E2034] text-left transition group cursor-pointer shadow-sm"
+            >
+              <div className="text-[10px] font-bold text-[#FCD34D] flex items-center justify-between">
+                <span>Solution 3: M25 Grade</span>
+                <span className="text-[9px] font-mono text-[#8195AA]">+25% Strength</span>
+              </div>
+              <div className="text-xs font-bold text-white font-mono mt-0.5">M25 + D = {optM25D}mm</div>
+              <div className="text-[10px] text-[#8195AA] leading-tight mt-1">
+                Higher concrete grade preserves room headroom.
+              </div>
+            </button>
+
+            {/* Preset 4: Doubly Reinforced Section */}
+            <button
+              onClick={() => updateBeamLive({ depth: baseD, doublyReinforced: true })}
+              className="p-2.5 rounded-xl border border-[#1E3A5A] hover:border-[#A78BFA] bg-[#091524] hover:bg-[#0E2034] text-left transition group cursor-pointer shadow-sm"
+            >
+              <div className="text-[10px] font-bold text-[#A78BFA] flex items-center justify-between">
+                <span>Solution 4: Doubly Reinf.</span>
+                <span className="text-[9px] font-mono text-[#8195AA]">Annex G</span>
+              </div>
+              <div className="text-xs font-bold text-white font-mono mt-0.5">D = {baseD}mm + Top Asc</div>
+              <div className="text-[10px] text-[#8195AA] leading-tight mt-1">
+                Zero depth change. Absorbs excess moment with top rebar.
+              </div>
+            </button>
+          </div>
+        </div>
+
+        {/* Multi-Variable Controls Grid */}
+        <div className="bg-[#081220] border border-[#1A2E44] rounded-xl p-3.5 space-y-3.5 relative z-10">
+          <div className="text-[11px] text-[#5CC8E0] uppercase font-bold tracking-wider font-mono flex items-center justify-between">
+            <span>Tune Governing Structural Variables (Lively Updates CAD Model)</span>
+            <span className="text-[#8195AA] text-[10px] lowercase">real-time IS 456 feedback</span>
+          </div>
+
+          {/* Variable 1: Overall Depth D */}
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between text-xs font-mono">
+              <span className="text-[#8195AA]">
+                1. Overall Beam Depth <b>D</b>: <b className="text-white text-sm">{sliderD} mm</b>
               </span>
-              <span className="flex items-center gap-1 text-[9px] font-mono px-1.5 py-0.2 rounded bg-[#10B981]/15 text-[#34D399] border border-[#10B981]/30">
-                <span className="w-1.5 h-1.5 rounded-full bg-[#34D399] animate-pulse"></span>
-                Instant Live Sync Active
+              <span className="text-[11px] font-semibold" style={{ color: statusColor }}>
+                {metricLabel}: <b>{targetRatio}%</b>
               </span>
             </div>
-            <h4 className="text-sm sm:text-base font-bold text-white tracking-wide flex items-center gap-2 flex-wrap">
-              <span>{config.title}</span>
-              <span 
-                className="text-[10px] font-mono px-2 py-0.5 rounded-full border font-bold"
-                style={{ 
-                  color: statusColor, 
-                  backgroundColor: `${statusColor}18`, 
-                  borderColor: `${statusColor}40` 
-                }}
-              >
-                {statusBadge}
+
+            <div className="relative pt-1 pb-1">
+              <div className="w-full h-3 rounded-full overflow-hidden flex border border-[#1E2E44] bg-[#070D17] shadow-inner mb-1.5">
+                <div style={{ width: `${failPct}%` }} className="bg-gradient-to-r from-[#EF4444]/60 to-[#EF4444]/40 h-full" title={`Inadequate: < ${safeZoneMin}mm`} />
+                <div style={{ width: `${safePct}%` }} className="bg-gradient-to-r from-[#10B981]/50 via-[#10B981]/70 to-[#10B981]/50 h-full shadow-[0_0_8px_rgba(16,185,129,0.3)]" title={`Safe Zone: ${safeZoneMin} - ${safeZoneMax}mm`} />
+                <div style={{ width: `${conservativePct}%` }} className="bg-gradient-to-r from-[#0284C7]/40 to-[#0284C7]/60 h-full" title={`Conservative: > ${safeZoneMax}mm`} />
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => updateBeamLive({ depth: Math.max(minD, sliderD - 25) })}
+                  disabled={sliderD <= minD}
+                  className="px-2.5 py-1 bg-[#102235] hover:bg-[#162D45] disabled:opacity-30 text-[#5CC8E0] rounded-lg text-xs font-mono font-bold border border-[#5CC8E0]/30 transition shrink-0 cursor-pointer select-none"
+                >
+                  -25mm
+                </button>
+                <input
+                  type="range"
+                  min={minD}
+                  max={maxD}
+                  step={25}
+                  value={sliderD}
+                  onChange={(e) => updateBeamLive({ depth: Number(e.target.value) })}
+                  className="w-full h-3 bg-[#17263A] rounded-lg appearance-none cursor-pointer accent-[#5CC8E0] focus:outline-none"
+                />
+                <button
+                  onClick={() => updateBeamLive({ depth: Math.min(maxD, sliderD + 25) })}
+                  disabled={sliderD >= maxD}
+                  className="px-2.5 py-1 bg-[#102235] hover:bg-[#162D45] disabled:opacity-30 text-[#5CC8E0] rounded-lg text-xs font-mono font-bold border border-[#5CC8E0]/30 transition shrink-0 cursor-pointer select-none"
+                >
+                  +25mm
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Variable 2: Beam Stem Width b & Variable 3: Concrete Grade */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
+            {/* Beam Width b */}
+            <div className="bg-[#0A1626] border border-[#1B2F48] rounded-xl p-2.5 space-y-1.5 text-xs font-mono">
+              <div className="text-[#8195AA] flex items-center justify-between">
+                <span>2. Beam Width <b>b</b>:</span>
+                <b className="text-white">{beamWidth} mm</b>
+              </div>
+              <div className="flex items-center gap-1.5 flex-wrap">
+                {[150, 200, 230, 250, 300].map((w) => (
+                  <button
+                    key={w}
+                    onClick={() => updateBeamLive({ width: w })}
+                    className={`px-2.5 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${beamWidth === w ? "bg-[#5CC8E0] text-black shadow-md" : "bg-[#102235] text-[#8195AA] hover:text-white border border-[#1E324A]"}`}
+                  >
+                    {w}mm {w === 230 ? '(9" Wall)' : ""}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Concrete Grade */}
+            <div className="bg-[#0A1626] border border-[#1B2F48] rounded-xl p-2.5 space-y-1.5 text-xs font-mono">
+              <div className="text-[#8195AA] flex items-center justify-between">
+                <span>3. Concrete Grade <b>fck</b>:</span>
+                <b className="text-[#E8C547]">{concGrade} ({CONCRETE_GRADES[concGrade] || 20} MPa)</b>
+              </div>
+              <div className="flex items-center gap-1.5">
+                {["M20", "M25", "M30"].map((grade) => (
+                  <button
+                    key={grade}
+                    onClick={() => updateBeamLive({ concreteGrade: grade })}
+                    className={`flex-1 py-1 rounded-lg text-xs font-bold transition cursor-pointer text-center ${concGrade === grade ? "bg-[#E8C547] text-black shadow-md" : "bg-[#102235] text-[#8195AA] hover:text-white border border-[#1E324A]"}`}
+                  >
+                    {grade}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Variable 4: Doubly Reinforced Toggle */}
+          <div className="bg-[#0A1626] border border-[#1B2F48] rounded-xl p-3 flex items-center justify-between gap-3 text-xs font-mono flex-wrap">
+            <div className="flex items-start gap-2.5 max-w-lg">
+              <input
+                type="checkbox"
+                id="doublyToggle"
+                checked={doublyReinforced}
+                onChange={(e) => updateBeamLive({ doublyReinforced: e.target.checked })}
+                className="w-4 h-4 rounded mt-0.5 accent-[#10B981] cursor-pointer"
+              />
+              <label htmlFor="doublyToggle" className="cursor-pointer">
+                <span className="text-white font-bold block">
+                  4. Enable Doubly-Reinforced Section (IS 456 Annex G-1.2)
+                </span>
+                <span className="text-[11px] text-[#8195AA] leading-tight block mt-0.5">
+                  Provides top compression steel (Asc = {Math.round(sim.AscReq || 0)} mm²) to absorb excess moment without increasing beam depth.
+                </span>
+              </label>
+            </div>
+            <span className={`px-2 py-1 rounded-lg text-[10px] font-bold ${doublyReinforced ? "bg-[#10B981]/20 text-[#34D399] border border-[#10B981]/40" : "bg-[#102235] text-[#8195AA]"}`}>
+              {doublyReinforced ? "ACTIVE: IS 456 Annex G" : "Singly Reinforced"}
+            </span>
+          </div>
+        </div>
+
+        {/* Before vs After Real-Time Comparison Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 relative z-10">
+          {/* Baseline Original State */}
+          <div className="bg-[#070D17] border border-[#1A2738] rounded-xl p-3 space-y-1.5 text-xs font-mono">
+            <div className="text-[10px] text-[#8195AA] uppercase font-bold flex items-center justify-between">
+              <span>Baseline Original State</span>
+              <span className={`px-1.5 py-0.2 rounded text-[9px] font-bold ${origSim.isMomentSafe && origSim.LdActual <= origSim.LdAllow ? "bg-[#10B981]/20 text-[#34D399]" : "bg-[#EF4444]/20 text-[#F87171]"}`}>
+                {origSim.isMomentSafe && origSim.LdActual <= origSim.LdAllow ? "PASS" : "EXCEEDED"}
               </span>
-            </h4>
+            </div>
+            <div className="flex items-baseline justify-between">
+              <span className="text-white font-bold">Cross-Section:</span>
+              <span className="text-[#94A3B8] font-bold text-sm">{baseB} × {baseD} mm ({baseGrade})</span>
+            </div>
+            <div className="flex items-baseline justify-between">
+              <span className="text-[#8195AA]">{metricLabel}:</span>
+              <span className={`font-bold ${origSim.isMomentSafe ? "text-[#34D399]" : "text-[#EF4444]"}`}>
+                {num(origSim.Mu, 1)} / {num(origEffMulim, 1)} kNm ({origRatio}%)
+              </span>
+            </div>
+            <div className="flex items-baseline justify-between">
+              <span className="text-[#8195AA]">Span/Depth (L/d):</span>
+              <span className={origSim.LdActual <= origSim.LdAllow ? "text-[#34D399]" : "text-[#EF4444]"}>
+                {origSim.LdActual.toFixed(1)} / {origSim.LdAllow.toFixed(1)}
+              </span>
+            </div>
+          </div>
+
+          {/* Live Tuned State */}
+          <div className="bg-[#091524] border border-[#1E3550] rounded-xl p-3 space-y-1.5 text-xs font-mono shadow-inner">
+            <div className="text-[10px] text-[#5CC8E0] uppercase font-bold flex items-center justify-between">
+              <span>Live Tuned State (Active in Project CAD)</span>
+              <span className="px-1.5 py-0.2 rounded text-[9px] font-bold" style={{ color: statusColor, backgroundColor: `${statusColor}25` }}>
+                {isSafe ? "PASS (SAFE)" : "EXCEEDED"}
+              </span>
+            </div>
+            <div className="flex items-baseline justify-between">
+              <span className="text-white font-bold">Cross-Section:</span>
+              <span className="text-[#5CC8E0] font-bold text-sm">{beamWidth} × {sliderD} mm ({concGrade})</span>
+            </div>
+            <div className="flex items-baseline justify-between">
+              <span className="text-[#8195AA]">{metricLabel}:</span>
+              <span className="font-bold" style={{ color: statusColor }}>
+                {actualStr} / {allowStr} ({targetRatio}%)
+              </span>
+            </div>
+            <div className="flex items-baseline justify-between">
+              <span className="text-[#8195AA]">Cost Delta:</span>
+              <span className={deltaCost > 0 ? "text-[#FFA333]" : "text-[#34D399]"}>
+                {deltaCost >= 0 ? `+₹ ${deltaCost.toLocaleString("en-IN")}` : `-₹ ${Math.abs(deltaCost).toLocaleString("en-IN")}`}
+                <span className="text-[10px] text-[#8195AA] font-normal"> ({sim.concreteVol - r.concreteVol >= 0 ? `+${(sim.concreteVol - r.concreteVol).toFixed(2)}` : (sim.concreteVol - r.concreteVol).toFixed(2)} m³ conc)</span>
+              </span>
+            </div>
           </div>
         </div>
 
-        {/* Current vs Slider Value Readout */}
-        <div className="flex items-center gap-2 text-xs font-mono">
-          <span className="text-[#8195AA]">Baseline: <b className="text-white">{initialBaseVal} {config.unit}</b></span>
-          <span className="text-[#5CC8E0]">➜</span>
-          <span className="bg-[#102235] px-2.5 py-1 rounded-lg border border-[#5CC8E0]/50 text-[#5CC8E0] font-bold text-sm">
-            {sliderVal} {config.unit}
-          </span>
-        </div>
-      </div>
-
-      {/* Interactive Slider Section with Multi-Color Visual Zones */}
-      <div className="space-y-2.5 relative z-10">
-        <div className="flex items-center justify-between text-xs font-mono">
-          <span className="text-[#8195AA] flex items-center gap-1">
-            <span>Drag slider to tune {config.paramName}:</span>
-            <b className="text-white text-sm">{sliderVal} {config.unit}</b>
-          </span>
-          <span className="text-[11px] font-semibold" style={{ color: statusColor }}>
-            Zone: {zoneLabel} ({sim.capacityPct}% Capacity)
-          </span>
-        </div>
-
-        {/* Custom Multi-Zone Range Slider */}
-        <div className="relative pt-1 pb-2">
-          {/* Visual Zone Background Track */}
-          <div className="w-full h-3.5 rounded-full overflow-hidden flex border border-[#1E2E44] bg-[#070D17] shadow-inner mb-2">
-            {/* Inadequate Fail Zone */}
-            <div 
-              style={{ width: `${failPct}%` }} 
-              className="bg-gradient-to-r from-[#EF4444]/60 to-[#EF4444]/40 h-full relative group cursor-pointer"
-              title={`Inadequate Zone: < ${config.safeZoneMin}mm (Exceeds Deflection Limit)`}
-            />
-            {/* Safe Zone (Sweet Spot) */}
-            <div 
-              style={{ width: `${safePct}%` }} 
-              className="bg-gradient-to-r from-[#10B981]/50 via-[#10B981]/70 to-[#10B981]/50 h-full relative group cursor-pointer shadow-[0_0_8px_rgba(16,185,129,0.3)]"
-              title={`Safe Zone: ${config.safeZoneMin}mm - ${config.safeZoneMax}mm (Optimal IS 456 balance)`}
-            />
-            {/* Conservative Zone */}
-            <div 
-              style={{ width: `${conservativePct}%` }} 
-              className="bg-gradient-to-r from-[#0284C7]/40 to-[#0284C7]/60 h-full relative group cursor-pointer"
-              title={`Conservative Zone: > ${config.safeZoneMax}mm (High self-weight)`}
-            />
-          </div>
-
-          {/* Stepper Buttons + Slider Container */}
+        {/* Footer actions */}
+        <div className="flex items-center justify-between pt-1 border-t border-[#15273C] flex-wrap gap-2 relative z-10">
           <div className="flex items-center gap-2">
-            <button
-              onClick={() => handleSliderChange(Math.max(config.min, sliderVal - config.step))}
-              disabled={sliderVal <= config.min}
-              className="px-2.5 py-1.5 bg-[#102235] hover:bg-[#162D45] disabled:opacity-30 text-[#5CC8E0] rounded-lg text-xs font-mono font-bold border border-[#5CC8E0]/30 transition shrink-0 cursor-pointer select-none"
-              title={`Decrease by ${config.step}mm`}
-            >
-              -{config.step}mm
-            </button>
-
-            {/* Actual Input Range Slider */}
-            <input
-              type="range"
-              min={config.min}
-              max={config.max}
-              step={config.step}
-              value={sliderVal}
-              onChange={(e) => handleSliderChange(Number(e.target.value))}
-              className="w-full h-3 bg-[#17263A] rounded-lg appearance-none cursor-pointer accent-[#5CC8E0] focus:outline-none"
-            />
-
-            <button
-              onClick={() => handleSliderChange(Math.min(config.max, sliderVal + config.step))}
-              disabled={sliderVal >= config.max}
-              className="px-2.5 py-1.5 bg-[#102235] hover:bg-[#162D45] disabled:opacity-30 text-[#5CC8E0] rounded-lg text-xs font-mono font-bold border border-[#5CC8E0]/30 transition shrink-0 cursor-pointer select-none"
-              title={`Increase by ${config.step}mm`}
-            >
-              +{config.step}mm
-            </button>
-          </div>
-
-          {/* Zone Legend & Pin Indicators */}
-          <div className="flex items-center justify-between text-[10px] font-mono text-[#8195AA] pt-1.5 px-0.5">
-            <span className="flex items-center gap-1 text-[#EF4444]">
-              <span className="w-2 h-2 rounded-full bg-[#EF4444]"></span>
-              Min: {config.min} {config.unit}
-            </span>
-            <span className="flex items-center gap-1 text-[#10B981] font-bold">
-              <span className="w-2 h-2 rounded-full bg-[#10B981] animate-pulse"></span>
-              Recommended Safe: {config.recommended} {config.unit}
-            </span>
-            <span className="flex items-center gap-1 text-[#38BDF8]">
-              <span className="w-2 h-2 rounded-full bg-[#38BDF8]"></span>
-              Max: {config.max} {config.unit}
-            </span>
-          </div>
-        </div>
-      </div>
-
-      {/* Before vs After Real-Time Structural Comparison Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 relative z-10">
-        {/* Baseline Original State Card */}
-        <div className="bg-[#070D17] border border-[#1A2738] rounded-xl p-3 space-y-1.5 text-xs font-mono">
-          <div className="text-[10px] text-[#8195AA] uppercase font-bold flex items-center justify-between">
-            <span>Baseline Original State</span>
-            <span className={`px-1.5 py-0.2 rounded text-[9px] font-bold ${origSim.isSafe ? "bg-[#10B981]/20 text-[#34D399]" : "bg-[#EF4444]/20 text-[#F87171]"}`}>
-              {origSim.isSafe ? "PASS" : "EXCEEDED"}
-            </span>
-          </div>
-          <div className="flex items-baseline justify-between">
-            <span className="text-white font-bold">{config.paramName}:</span>
-            <span className="text-[#94A3B8] font-bold text-sm">{initialBaseVal} {config.unit}</span>
-          </div>
-          <div className="flex items-baseline justify-between">
-            <span className="text-[#8195AA]">{origSim.metricLabel}:</span>
-            <span className={`font-bold ${origSim.isSafe ? "text-[#34D399]" : "text-[#EF4444]"}`}>
-              {origSim.actualStr} / {origSim.allowStr} ({origSim.capacityPct}%)
-            </span>
-          </div>
-          <div className="flex items-baseline justify-between">
-            <span className="text-[#8195AA]">Factor of Safety (FoS):</span>
-            <span className="text-[#FCD34D] font-bold">{origSim.fos}</span>
-          </div>
-        </div>
-
-        {/* Live Tuned State Card */}
-        <div className="bg-[#091524] border border-[#1E3550] rounded-xl p-3 space-y-1.5 text-xs font-mono shadow-inner">
-          <div className="text-[10px] text-[#5CC8E0] uppercase font-bold flex items-center justify-between">
-            <span>Live Tuned State (Active in CAD)</span>
-            <span className="px-1.5 py-0.2 rounded text-[9px] font-bold" style={{ color: statusColor, backgroundColor: `${statusColor}25` }}>
-              {sim.isSafe ? "PASS (SAFE)" : "EXCEEDED"}
-            </span>
-          </div>
-          <div className="flex items-baseline justify-between">
-            <span className="text-white font-bold">{config.paramName}:</span>
-            <span className="text-[#5CC8E0] font-bold text-sm">{sliderVal} {config.unit}</span>
-          </div>
-          <div className="flex items-baseline justify-between">
-            <span className="text-[#8195AA]">{sim.metricLabel}:</span>
-            <span className="font-bold" style={{ color: statusColor }}>
-              {sim.actualStr} / {sim.allowStr} ({sim.capacityPct}%)
-            </span>
-          </div>
-          <div className="flex items-baseline justify-between">
-            <span className="text-[#8195AA]">Cost Delta:</span>
-            <span className={sim.deltaCost > 0 ? "text-[#FFA333]" : "text-[#34D399]"}>
-              {sim.deltaCost >= 0 ? `+₹ ${sim.deltaCost.toLocaleString("en-IN")}` : `-₹ ${Math.abs(sim.deltaCost).toLocaleString("en-IN")}`}
-              <span className="text-[10px] text-[#8195AA] font-normal"> ({sim.concVolDelta >= 0 ? `+${sim.concVolDelta}` : sim.concVolDelta} m³ conc)</span>
-            </span>
-          </div>
-        </div>
-      </div>
-
-      {/* AI Recommendation Callout & Action Strip */}
-      <div className="bg-[#071322] border border-[#19324C] rounded-xl p-3 space-y-2 relative z-10">
-        <div className="flex items-start gap-2 text-xs">
-          <span className="text-[#FCD34D] text-base shrink-0 mt-0.5">⚡</span>
-          <div className="text-[#CBD5E1] text-[11px] leading-relaxed">
-            <strong className="text-[#FCD34D] font-bold">IS 456 Recommended Perfect Value: </strong>
-            <span>
-              Set <b>{config.paramName} = {config.recommended} {config.unit}</b>. This brings capacity to 
-              <b className="text-[#10B981]"> {config.compute(config.recommended).capacityPct}%</b>, satisfying 
-              all deflection and moment criteria with an optimal factor of safety and minimal material addition.
-            </span>
-          </div>
-        </div>
-
-        {/* Interactive Action Buttons */}
-        <div className="flex items-center justify-between gap-2 pt-1 border-t border-[#15273C] flex-wrap">
-          <div className="flex items-center gap-2">
-            <button
-              onClick={handleApplyRecommended}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-[#10B981] to-[#059669] hover:from-[#059669] hover:to-[#047857] text-white rounded-xl text-xs font-bold transition shadow-lg hover:shadow-emerald-500/20 active:scale-95 cursor-pointer"
-            >
-              <span>⚡ Auto-Apply Perfect Safe Value ({config.recommended} {config.unit})</span>
-            </button>
             <span className="text-xs font-bold text-[#10B981] flex items-center gap-1 font-mono">
-              <Check size={14} /> Live Sync Active
+              <Check size={14} /> Real-Time Live Sync Active
             </span>
           </div>
 
           <div className="flex items-center gap-2">
-            {sliderVal !== initialBaseVal && (
+            {isChangedFromBase && (
               <button
                 onClick={handleReset}
                 className="text-xs text-[#8195AA] hover:text-white underline font-mono py-1 px-2 cursor-pointer transition"
               >
-                ↺ Revert to Baseline ({initialBaseVal} {config.unit})
+                ↺ Revert to Baseline ({baseB}×{baseD}mm)
               </button>
             )}
           </div>
         </div>
       </div>
-    </div>
-  );
+    );
+  }
+
+  // -------------------------------------------------------------
+  // SLAB SIMULATION & METRICS
+  // -------------------------------------------------------------
+  if (compType === "slab") {
+    const sim = computeSlab({ ...data, thickness: slabT }, settings);
+    const origSim = computeSlab({ ...data, thickness: baseSlabT }, settings);
+
+    const Lx = Number(data.lx) || 3.0;
+    const LdAllow = Number(r.LdAllow) || 26;
+    const dReq = (Lx * 1000) / LdAllow;
+    const theoreticalMinD = Math.ceil(dReq + 24);
+    const recommendedD = Math.max(140, Math.ceil(theoreticalMinD / 5) * 5);
+    const safeZoneMin = Math.ceil(theoreticalMinD / 5) * 5;
+    const safeZoneMax = safeZoneMin + 25;
+
+    const ratio = Math.round((sim.LdActual / sim.LdAllow) * 100);
+    const origRatio = Math.round((origSim.LdActual / origSim.LdAllow) * 100);
+    const deltaCost = Math.round((sim.concreteVol - r.concreteVol) * (settings.rateConcrete || 6200));
+    const isSafe = sim.LdActual <= sim.LdAllow;
+
+    let statusColor = "#10B981";
+    let statusBadge = "SAFE ZONE (IS 456 COMPLIANT)";
+    let zoneLabel = "Safe Zone (Sweet Spot)";
+    if (!isSafe || ratio > 100) {
+      statusColor = "#EF4444";
+      statusBadge = "FAIL / INADEQUATE (< MIN)";
+      zoneLabel = "Inadequate Zone (Fails IS 456)";
+    } else if (ratio > 85) {
+      statusColor = "#F59E0B";
+      statusBadge = "BORDERLINE (85% - 100%)";
+      zoneLabel = "Borderline Safe";
+    }
+
+    const minD = 100;
+    const maxD = 200;
+    const totalSpan = maxD - minD;
+    const failPct = Math.max(0, Math.min(100, ((safeZoneMin - minD) / totalSpan) * 100));
+    const safePct = Math.max(0, Math.min(100, ((safeZoneMax - safeZoneMin) / totalSpan) * 100));
+    const conservativePct = 100 - failPct - safePct;
+
+    return (
+      <div className="bg-gradient-to-br from-[#0B1524] via-[#0E1A2D] to-[#08111D] border-2 border-[#1E324A] hover:border-[#2F4E75] rounded-2xl p-4 sm:p-5 space-y-4 shadow-xl transition relative overflow-hidden my-3">
+        <div 
+          className="absolute top-0 right-1/3 w-80 h-28 rounded-full pointer-events-none opacity-20 blur-3xl transition-colors duration-500"
+          style={{ backgroundColor: statusColor }}
+        />
+
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-[#1A2C42] pb-3 gap-2.5 relative z-10">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-[#102235] text-[#5CC8E0] border border-[#5CC8E0]/40 flex items-center justify-center font-bold text-sm shadow-inner">
+              🎛️
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] text-[#8195AA] uppercase font-mono tracking-wider font-semibold">
+                  Live What-If Engineering Simulator
+                </span>
+                <span className="flex items-center gap-1 text-[9px] font-mono px-1.5 py-0.2 rounded bg-[#10B981]/15 text-[#34D399] border border-[#10B981]/30">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#34D399] animate-pulse"></span>
+                  Instant Live Sync Active
+                </span>
+              </div>
+              <h4 className="text-sm sm:text-base font-bold text-white tracking-wide flex items-center gap-2 flex-wrap">
+                <span>Slab Thickness Optimizer (D)</span>
+                <span 
+                  className="text-[10px] font-mono px-2 py-0.5 rounded-full border font-bold"
+                  style={{ 
+                    color: statusColor, 
+                    backgroundColor: `${statusColor}18`, 
+                    borderColor: `${statusColor}40` 
+                  }}
+                >
+                  {statusBadge}
+                </span>
+              </h4>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 text-xs font-mono">
+            <span className="text-[#8195AA]">Baseline: <b className="text-white">{baseSlabT} mm</b></span>
+            <span className="text-[#5CC8E0]">➜</span>
+            <span className="bg-[#102235] px-2.5 py-1 rounded-lg border border-[#5CC8E0]/50 text-[#5CC8E0] font-bold text-sm">
+              {slabT} mm
+            </span>
+          </div>
+        </div>
+
+        {/* Interactive Slider Section */}
+        <div className="space-y-2.5 relative z-10">
+          <div className="flex items-center justify-between text-xs font-mono">
+            <span className="text-[#8195AA] flex items-center gap-1">
+              <span>Tune Slab Thickness D:</span>
+              <b className="text-white text-sm">{slabT} mm</b>
+            </span>
+            <span className="text-[11px] font-semibold" style={{ color: statusColor }}>
+              Zone: {zoneLabel} ({ratio}% Capacity)
+            </span>
+          </div>
+
+          <div className="relative pt-1 pb-2">
+            <div className="w-full h-3.5 rounded-full overflow-hidden flex border border-[#1E2E44] bg-[#070D17] shadow-inner mb-2">
+              <div style={{ width: `${failPct}%` }} className="bg-gradient-to-r from-[#EF4444]/60 to-[#EF4444]/40 h-full" title={`Inadequate: < ${safeZoneMin}mm`} />
+              <div style={{ width: `${safePct}%` }} className="bg-gradient-to-r from-[#10B981]/50 via-[#10B981]/70 to-[#10B981]/50 h-full shadow-[0_0_8px_rgba(16,185,129,0.3)]" title={`Safe: ${safeZoneMin} - ${safeZoneMax}mm`} />
+              <div style={{ width: `${conservativePct}%` }} className="bg-gradient-to-r from-[#0284C7]/40 to-[#0284C7]/60 h-full" title={`Conservative: > ${safeZoneMax}mm`} />
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => updateSlabLive({ thickness: Math.max(minD, slabT - 5) })}
+                disabled={slabT <= minD}
+                className="px-2.5 py-1.5 bg-[#102235] hover:bg-[#162D45] disabled:opacity-30 text-[#5CC8E0] rounded-lg text-xs font-mono font-bold border border-[#5CC8E0]/30 transition shrink-0 cursor-pointer select-none"
+              >
+                -5mm
+              </button>
+              <input
+                type="range"
+                min={minD}
+                max={maxD}
+                step={5}
+                value={slabT}
+                onChange={(e) => updateSlabLive({ thickness: Number(e.target.value) })}
+                className="w-full h-3 bg-[#17263A] rounded-lg appearance-none cursor-pointer accent-[#5CC8E0] focus:outline-none"
+              />
+              <button
+                onClick={() => updateSlabLive({ thickness: Math.min(maxD, slabT + 5) })}
+                disabled={slabT >= maxD}
+                className="px-2.5 py-1.5 bg-[#102235] hover:bg-[#162D45] disabled:opacity-30 text-[#5CC8E0] rounded-lg text-xs font-mono font-bold border border-[#5CC8E0]/30 transition shrink-0 cursor-pointer select-none"
+              >
+                +5mm
+              </button>
+            </div>
+
+            <div className="flex items-center justify-between text-[10px] font-mono text-[#8195AA] pt-1.5 px-0.5">
+              <span className="text-[#EF4444]">Min: {minD} mm</span>
+              <span className="text-[#10B981] font-bold">Recommended Safe: {recommendedD} mm</span>
+              <span className="text-[#38BDF8]">Max: {maxD} mm</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Before vs After Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 relative z-10">
+          <div className="bg-[#070D17] border border-[#1A2738] rounded-xl p-3 space-y-1.5 text-xs font-mono">
+            <div className="text-[10px] text-[#8195AA] uppercase font-bold flex items-center justify-between">
+              <span>Baseline Original State</span>
+              <span className={`px-1.5 py-0.2 rounded text-[9px] font-bold ${origSim.LdActual <= origSim.LdAllow ? "bg-[#10B981]/20 text-[#34D399]" : "bg-[#EF4444]/20 text-[#F87171]"}`}>
+                {origSim.LdActual <= origSim.LdAllow ? "PASS" : "EXCEEDED"}
+              </span>
+            </div>
+            <div className="flex items-baseline justify-between">
+              <span className="text-white font-bold">Slab Thickness D:</span>
+              <span className="text-[#94A3B8] font-bold text-sm">{baseSlabT} mm</span>
+            </div>
+            <div className="flex items-baseline justify-between">
+              <span className="text-[#8195AA]">Span-to-Depth (L/d):</span>
+              <span className={`font-bold ${origSim.LdActual <= origSim.LdAllow ? "text-[#34D399]" : "text-[#EF4444]"}`}>
+                {origSim.LdActual.toFixed(1)} / {origSim.LdAllow.toFixed(1)} ({origRatio}%)
+              </span>
+            </div>
+          </div>
+
+          <div className="bg-[#091524] border border-[#1E3550] rounded-xl p-3 space-y-1.5 text-xs font-mono shadow-inner">
+            <div className="text-[10px] text-[#5CC8E0] uppercase font-bold flex items-center justify-between">
+              <span>Live Tuned State (Active in CAD)</span>
+              <span className="px-1.5 py-0.2 rounded text-[9px] font-bold" style={{ color: statusColor, backgroundColor: `${statusColor}25` }}>
+                {isSafe ? "PASS (SAFE)" : "EXCEEDED"}
+              </span>
+            </div>
+            <div className="flex items-baseline justify-between">
+              <span className="text-white font-bold">Slab Thickness D:</span>
+              <span className="text-[#5CC8E0] font-bold text-sm">{slabT} mm</span>
+            </div>
+            <div className="flex items-baseline justify-between">
+              <span className="text-[#8195AA]">Span-to-Depth (L/d):</span>
+              <span className="font-bold" style={{ color: statusColor }}>
+                {sim.LdActual.toFixed(1)} / {sim.LdAllow.toFixed(1)} ({ratio}%)
+              </span>
+            </div>
+            <div className="flex items-baseline justify-between">
+              <span className="text-[#8195AA]">Cost Delta:</span>
+              <span className={deltaCost > 0 ? "text-[#FFA333]" : "text-[#34D399]"}>
+                {deltaCost >= 0 ? `+₹ ${deltaCost.toLocaleString("en-IN")}` : `-₹ ${Math.abs(deltaCost).toLocaleString("en-IN")}`}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Action Strip */}
+        <div className="flex items-center justify-between pt-1 border-t border-[#15273C] flex-wrap gap-2 relative z-10">
+          <button
+            onClick={() => updateSlabLive({ thickness: recommendedD })}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-[#10B981] to-[#059669] hover:from-[#059669] hover:to-[#047857] text-white rounded-xl text-xs font-bold transition shadow-lg hover:shadow-emerald-500/20 active:scale-95 cursor-pointer"
+          >
+            <span>⚡ Auto-Apply Perfect Safe Value ({recommendedD} mm)</span>
+          </button>
+
+          {slabT !== baseSlabT && (
+            <button
+              onClick={handleReset}
+              className="text-xs text-[#8195AA] hover:text-white underline font-mono py-1 px-2 cursor-pointer transition"
+            >
+              ↺ Revert to Baseline ({baseSlabT} mm)
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  return null;
 }
 
 // =====================================================================
@@ -11704,7 +12037,7 @@ function DetailedEngineeringMathAudit({
         cost: cost || 0,
         data: b,
         result: r,
-        dims: `Clear ${b.clearSpan}m · ${b.b}×${b.D}mm`,
+        dims: `Clear ${b.clearSpan}m · ${b.width || b.b || 200}×${b.depth || b.D || 300}mm`,
         desc: b.desc || `Carries slab & masonry framing (Leff=${r?.Leff || b.clearSpan}m)`,
       });
     }
@@ -13940,7 +14273,7 @@ export default function StructuralDesignSuite() {
     if (activeSlabId === id && slabs.length > 1) setActiveSlabId(slabs.find((s) => s.id !== id).id); 
   };
 
-  const updateBeam = (id, field, value) => setBeams((p) => p.map((b) => (b.id === id ? { ...b, [field]: value } : b)));
+  const updateBeam = (id, field, value) => setBeams((p) => p.map((b) => (b.id === id ? (typeof field === "object" ? { ...b, ...field } : { ...b, [field]: value }) : b)));
   const addBeam = (seed = {}) => {
     const id = Math.max(0, ...beams.map((b) => b.id)) + 1;
     setBeams((p) => [...p, { id, floor: floorFilter === "ALL" ? "GF" : floorFilter, label: `Beam ${id}`, clearSpan: 3.0, supportWidth: 200, width: 200, depth: "", udl: 0, wallOnBeam: false, wallHeight: 1.0, archingRelief: false, ...seed }]);
