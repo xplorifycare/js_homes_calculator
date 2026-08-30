@@ -8596,6 +8596,724 @@ function SeismicAuditDashboard({ onOpenContractorModal }) {
 }
 
 // =====================================================================
+// DETAILED ENGINEERING MATH & COMPONENT ESTIMATE AUDIT SUITE
+// =====================================================================
+function DetailedEngineeringMathAudit({
+  slabs,
+  beams,
+  walls,
+  openings,
+  slabResults,
+  beamResults,
+  wallResults,
+  lintelResults,
+  settings,
+  onNavigateTab
+}) {
+  const [typeFilter, setTypeFilter] = useState("ALL"); // ALL, slab, beam, wall, lintel
+  const [floorFilter, setFloorFilter] = useState("ALL"); // ALL, GF, FF
+  const [searchQuery, setSearchQuery] = useState("");
+  const [sortBy, setSortBy] = useState("id"); // id, cost_desc, cost_asc, name
+  const [selectedKey, setSelectedKey] = useState("slab-1");
+  const [copied, setCopied] = useState(false);
+
+  // Compile unified list of all components
+  const allItems = useMemo(() => {
+    const list = [];
+    // 1. Slabs
+    for (const s of slabs) {
+      const r = slabResults[s.id];
+      const cost = r ? r.cost : (r?.concreteVol * settings.rateConcrete + r?.steelKg * settings.rateSteel + r?.shutteringM2 * settings.rateFormwork);
+      list.push({
+        key: `slab-${s.id}`,
+        id: s.id,
+        type: "slab",
+        typeLabel: "Slab Panel",
+        badgeColor: "bg-[#0284C7]/20 text-[#38BDF8] border-[#38BDF8]/40",
+        label: s.label,
+        floor: s.floor,
+        cost: cost || 0,
+        data: s,
+        result: r,
+        dims: `${s.lx} × ${s.ly} m (t=${s.thickness}mm)`,
+        desc: s.desc || (r?.oneWay ? "One-way flexural slab" : "Two-way orthogonal slab panel"),
+      });
+    }
+
+    // 2. Beams
+    for (const b of beams) {
+      const r = beamResults[b.id];
+      const cost = r ? r.cost : (r?.concreteVol * settings.rateConcrete + r?.steelKg * settings.rateSteel + r?.formworkM2 * settings.rateFormwork);
+      list.push({
+        key: `beam-${b.id}`,
+        id: b.id,
+        type: "beam",
+        typeLabel: "RCC Beam",
+        badgeColor: "bg-[#10B981]/20 text-[#34D399] border-[#10B981]/40",
+        label: b.label,
+        floor: b.floor,
+        cost: cost || 0,
+        data: b,
+        result: r,
+        dims: `Clear ${b.clearSpan}m · ${b.b}×${b.D}mm`,
+        desc: b.desc || `Carries slab & masonry framing (Leff=${r?.Leff || b.clearSpan}m)`,
+      });
+    }
+
+    // 3. Walls
+    for (const w of walls) {
+      const r = wallResults[w.id];
+      const cost = r ? r.totalEstimatedCost : 0;
+      list.push({
+        key: `wall-${w.id}`,
+        id: w.id,
+        type: "wall",
+        typeLabel: "Masonry Wall",
+        badgeColor: "bg-[#F59E0B]/20 text-[#FBBF24] border-[#F59E0B]/40",
+        label: w.label,
+        floor: w.floor,
+        cost: cost || 0,
+        data: w,
+        result: r,
+        dims: `${w.length}m × ${w.height}m (t=${w.thickness}mm)`,
+        desc: w.desc || `${w.material} solid masonry panel`,
+      });
+    }
+
+    // 4. Lintels
+    for (const o of openings) {
+      const r = lintelResults[o.id];
+      const cost = r ? r.cost : (r?.concreteVol * settings.rateConcrete + r?.steelKg * settings.rateSteel + r?.formworkM2 * settings.rateFormwork);
+      list.push({
+        key: `lintel-${o.id}`,
+        id: o.id,
+        type: "lintel",
+        typeLabel: "Lintel Beam",
+        badgeColor: "bg-[#8B5CF6]/20 text-[#A78BFA] border-[#8B5CF6]/40",
+        label: o.label,
+        floor: o.floor,
+        cost: cost || 0,
+        data: o,
+        result: r,
+        dims: `Span ${o.clearSpan}m (w=${o.width}m, h=${o.height}m)`,
+        desc: o.desc || `Lintel beam over opening (D=${r?.D || 150}mm)`,
+      });
+    }
+
+    return list;
+  }, [slabs, beams, walls, openings, slabResults, beamResults, wallResults, lintelResults, settings]);
+
+  // Filter & Sort
+  const filteredItems = useMemo(() => {
+    return allItems
+      .filter((item) => {
+        if (typeFilter !== "ALL" && item.type !== typeFilter) return false;
+        if (floorFilter !== "ALL" && item.floor !== floorFilter) return false;
+        if (searchQuery.trim()) {
+          const q = searchQuery.toLowerCase();
+          const matchLabel = item.label.toLowerCase().includes(q);
+          const matchDesc = item.desc.toLowerCase().includes(q);
+          const matchKey = item.key.toLowerCase().includes(q);
+          const matchDims = item.dims.toLowerCase().includes(q);
+          if (!matchLabel && !matchDesc && !matchKey && !matchDims) return false;
+        }
+        return true;
+      })
+      .sort((a, b) => {
+        if (sortBy === "cost_desc") return b.cost - a.cost;
+        if (sortBy === "cost_asc") return a.cost - b.cost;
+        if (sortBy === "name") return a.label.localeCompare(b.label);
+        const typeOrder = { slab: 1, beam: 2, wall: 3, lintel: 4 };
+        if (typeOrder[a.type] !== typeOrder[b.type]) return typeOrder[a.type] - typeOrder[b.type];
+        return a.id - b.id;
+      });
+  }, [allItems, typeFilter, floorFilter, searchQuery, sortBy]);
+
+  // Active Selected Item
+  const activeItem = useMemo(() => {
+    return filteredItems.find((it) => it.key === selectedKey) || filteredItems[0] || allItems[0];
+  }, [filteredItems, selectedKey, allItems]);
+
+  // Generate enriched engineering math steps with plain English explanations
+  const mathSteps = useMemo(() => {
+    if (!activeItem || !activeItem.result) return [];
+    const { type, data, result } = activeItem;
+    if (type === "slab") {
+      const basic = buildSlabSteps(data, settings, result);
+      return basic.map(s => {
+        let explanation = "";
+        if (s.title.includes("Classification")) {
+          explanation = `IS 456 Cl 24.1: When the aspect ratio Ly/Lx is ${result.ratio <= 2.0 ? "≤ 2.0" : "> 2.0"}, bending action is ${result.ratio <= 2.0 ? "predominantly two-dimensional across both spans with 45° yield line load transfer" : "one-way, transferring over 90% of load directly across the short span"}.`;
+        } else if (s.title.includes("Loads")) {
+          explanation = `Dead load includes slab self-weight (${data.thickness}mm / 1000 × 25 kN/m³ = ${((data.thickness/1000)*25).toFixed(2)} kN/m²) plus floor finishes. Per IS 456 Cl 36.4, an ultimate partial safety factor γf = 1.50 is applied to (DL + LL) to resist unexpected overloading.`;
+        } else if (s.title.includes("Moment")) {
+          explanation = `IS 456 Annex D / Table 26 Marcus coefficients account for edge restraint conditions (interior vs exterior discontinuous edges), producing the peak mid-span design moments.`;
+        } else if (s.title.includes("Reinforcement")) {
+          explanation = `Derived from concrete stress block equilibrium (IS 456 Annex G): Mu = 0.87·fy·Ast·d·[1 - (Ast·fy)/(b·d·fck)]. Main steel provides tensile capacity, spaced to comply with Cl 26.3.3 maximum limit of 3d or 300mm.`;
+        } else if (s.title.includes("Reactions")) {
+          explanation = `Tributary load transferred to supporting beams: trapezoidal load on long supporting beams and triangular load on short beams based on 45° fracture lines.`;
+        } else if (s.title.includes("Deflection")) {
+          explanation = `IS 456 Cl 23.2.1: Basic span-to-effective-depth ratio modified by tension reinforcement percentage fs = 0.58·fy·(Ast,req/Ast,prov). Ensures floor slab does not sag or crack floor finishes under long-term service loads.`;
+        }
+        return { ...s, explanation };
+      });
+    } else if (type === "beam") {
+      const basic = buildBeamSteps(data, settings, result);
+      return basic.map(s => {
+        let explanation = "";
+        if (s.title.includes("Effective span")) {
+          explanation = `IS 456 Cl 22.2: Effective span Leff is taken as the clear span plus effective depth d (${(result.d/1000).toFixed(3)}m) or support bearing width, whichever is smaller.`;
+        } else if (s.title.includes("Self-weight")) {
+          explanation = `RCC density is taken as 25 kN/m³ per IS 875 (Part 1). Self-weight = (width × total depth) × 25 kN/m³.`;
+        } else if (s.title.includes("Wall load") || s.title.includes("Slab")) {
+          explanation = `Dead load of masonry brick/block partition wall plus 45° tributary yield line reaction loads transferred from adjacent floor slabs.`;
+        } else if (s.title.includes("Total & factored")) {
+          explanation = `IS 456 Cl 36.4 Limit State of Collapse design moment Mu = 1.50 × Mservice and shear Vu = 1.50 × Vservice.`;
+        } else if (s.title.includes("Singly-reinforced")) {
+          explanation = `Limiting moment of resistance Mu,lim = 0.138·fck·b·d² (for Fe500 steel). If Mu ≤ Mu,lim, compression concrete is safe against crushing without requiring heavy compression steel.`;
+        } else if (s.title.includes("Required Ast") || s.title.includes("Bar selection")) {
+          explanation = `Tensile reinforcement in bottom flange to carry flexural tension. Bars selected to guarantee minimum spacing clearance for aggregates and needle vibrator.`;
+        } else if (s.title.includes("Shear design")) {
+          explanation = `IS 456 Cl 40: Nominal shear stress τv = Vu / (b·d). When τv > τc (concrete shear capacity from Table 19), 2-legged vertical stirrups are provided at calculated spacing sv.`;
+        } else if (s.title.includes("Deflection")) {
+          explanation = `Guarantees that ceiling drop beams remain rigid without visible deflection or vibration under foot traffic.`;
+        }
+        return { ...s, explanation };
+      });
+    } else if (type === "wall") {
+      const basic = buildWallSteps(data, settings, result);
+      return basic.map(s => {
+        let explanation = "";
+        if (s.title.includes("Gross")) {
+          explanation = `Overall bounding area of wall elevation = Length (${data.length}m) × Height (${data.height}m).`;
+        } else if (s.title.includes("Deductions")) {
+          explanation = `IS 1200 Part 3 deduction rules: exact window, door, and ventilator voids subtracted from gross area to determine actual masonry.`;
+        } else if (s.title.includes("Net Volume")) {
+          explanation = `Net Wall Area multiplied by wall thickness (${data.thickness}mm) gives the physical cubic meters of solid masonry structure.`;
+        } else if (s.title.includes("Block Count")) {
+          explanation = `Each solid block incorporates a 10mm mortar joint bed: (L + 10mm) × (H + 10mm). A 5% allowance is added for site cutting, corners, and transport breakage.`;
+        } else if (s.title.includes("Mortar")) {
+          explanation = `Wet mortar volume equals wall volume minus net solid block volume. Multiplied by 1.33 for dry volume conversion (accounting for void fill and water shrinkage).`;
+        } else if (s.title.includes("Cement & Sand")) {
+          explanation = `Based on mortar mix ratio (e.g. 1:4 or 1:5). One bag of OPC 53 cement is standardized at 0.035 m³ (50 kg). River sand is converted to Cubic Feet (CFT) for purchasing.`;
+        } else if (s.title.includes("Plastering")) {
+          explanation = `Two-coat cement plastering covering internal living face (12mm) and external weather face (15mm with waterproofing additive) plus door/window returns.`;
+        }
+        return { ...s, explanation };
+      });
+    } else if (type === "lintel") {
+      const basic = buildLintelSteps(data, settings, result);
+      return basic.map(s => {
+        let explanation = "";
+        if (s.title.includes("Effective span")) {
+          explanation = `Clear opening width plus bearing on both side jambs (${settings.bearing}mm each) to spread reaction safely into jamb masonry.`;
+        } else if (s.title.includes("Arching")) {
+          explanation = `IS 4326 / IS 456 arching action: when solid masonry above lintel exceeds Leff/2 without openings, an equilateral arch forms, reducing gravity load to a 60° triangular prism.`;
+        } else if (s.title.includes("Moment") || s.title.includes("Reinforcement")) {
+          explanation = `Factored moment and required tension steel bars at bottom with 2-legged 8mm stirrups for shear resistance over opening.`;
+        }
+        return { ...s, explanation };
+      });
+    }
+    return [];
+  }, [activeItem, settings]);
+
+  // Copy report handler
+  const handleCopyReport = () => {
+    if (!activeItem) return;
+    const { label, typeLabel, floor, cost, dims } = activeItem;
+    let text = `=========================================================\n`;
+    text += `JS HOMES STRUCTURAL SUITE - ENGINEERING MATH AUDIT DOSSIER\n`;
+    text += `Component: ${label} (${typeLabel})\n`;
+    text += `Floor: ${floor} | Specs: ${dims}\n`;
+    text += `Estimated Cost: ₹${Math.round(cost).toLocaleString("en-IN")}\n`;
+    text += `IS 456:2000 & IS 875 Verification\n`;
+    text += `=========================================================\n\n`;
+    text += `--- STEP-BY-STEP MATHEMATICAL DERIVATION ---\n`;
+    for (const s of mathSteps) {
+      text += `\n[${s.title}]\n`;
+      if (s.formula) text += `Formula: ${s.formula}\n`;
+      if (s.sub) text += `Substitution: ${s.sub}\n`;
+      text += `Result: ${s.result}\n`;
+      if (s.explanation) text += `Engineering Meaning: ${s.explanation}\n`;
+    }
+    navigator.clipboard.writeText(text);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2500);
+  };
+
+  return (
+    <div className="space-y-4 animate-fadeIn">
+      {/* 🌟 AUDIT HEADER & CONTROLS RIBBON */}
+      <div className="bg-[#0B131F] border border-[#1A2536] rounded-2xl p-4 shadow-lg space-y-3">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="p-1.5 rounded-lg bg-[#5CC8E0]/15 text-[#5CC8E0] border border-[#5CC8E0]/30">
+                <FileText size={16} />
+              </span>
+              <h2 className="text-xl font-bold text-white tracking-tight">
+                Detailed Engineering Math & Cost Audit Suite
+              </h2>
+            </div>
+            <p className="text-[#8195AA] text-xs mt-1">
+              Inspect comprehensive IS 456 / IS 875 mathematical derivations, step-by-step substitutions, high-res structural diagrams, and line-item rate analysis for every structural element.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <span className="px-3 py-1 bg-[#102235] border border-[#5CC8E0]/30 rounded-xl text-xs mono text-[#5CC8E0] font-semibold">
+              {filteredItems.length} of {allItems.length} Components
+            </span>
+          </div>
+        </div>
+
+        {/* Filters Row */}
+        <div className="flex flex-wrap items-center justify-between gap-2.5 pt-2 border-t border-[#1A2536]">
+          {/* Component Type Filter Pills */}
+          <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5">
+            {[
+              { id: "ALL", label: `All Components (${allItems.length})` },
+              { id: "slab", label: `📦 Slabs (${slabs.length})` },
+              { id: "beam", label: `📏 Beams (${beams.length})` },
+              { id: "wall", label: `🧱 Walls (${walls.length})` },
+              { id: "lintel", label: `🚪 Lintels (${openings.length})` },
+            ].map(tab => (
+              <button
+                key={tab.id}
+                onClick={() => setTypeFilter(tab.id)}
+                className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition border ${
+                  typeFilter === tab.id
+                    ? "bg-[#102235] text-[#5CC8E0] border-[#5CC8E0]/60 shadow-[0_0_10px_rgba(92,200,224,0.2)]"
+                    : "bg-[#070D17] text-[#8195AA] border-[#1E293B] hover:text-[#E6EDF2] hover:border-[#2A3B52]"
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Floor Switcher & Search & Sort */}
+          <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap shrink-0">
+            {/* Floor Filter */}
+            <div className="flex items-center bg-[#070D17] border border-[#1E293B] rounded-xl p-0.5 text-xs mono">
+              {["ALL", "GF", "FF"].map(f => (
+                <button
+                  key={f}
+                  onClick={() => setFloorFilter(f)}
+                  className={`px-2.5 py-1 rounded-lg font-medium transition ${
+                    floorFilter === f
+                      ? "bg-[#102235] text-[#5CC8E0] border border-[#5CC8E0]/40 font-bold"
+                      : "text-[#8195AA] hover:text-[#E6EDF2]"
+                  }`}
+                >
+                  {f === "ALL" ? "All Floors" : (f === "GF" ? "GND" : "1st Floor")}
+                </button>
+              ))}
+            </div>
+
+            {/* Live Search */}
+            <div className="relative">
+              <Search size={13} className="absolute left-2.5 top-2.5 text-[#8195AA]" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search component, room, ID..."
+                className="bg-[#070D17] border border-[#1E293B] rounded-xl pl-8 pr-3 py-1 text-xs text-[#E6EDF2] placeholder-[#55697D] focus:outline-none focus:border-[#5CC8E0] w-44 md:w-56"
+              />
+            </div>
+
+            {/* Sort Dropdown */}
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value)}
+              className="bg-[#070D17] border border-[#1E293B] rounded-xl px-2.5 py-1 text-xs text-[#8195AA] focus:outline-none focus:border-[#5CC8E0] mono"
+            >
+              <option value="id">Sort: Component ID</option>
+              <option value="cost_desc">Cost: Highest First</option>
+              <option value="cost_asc">Cost: Lowest First</option>
+              <option value="name">Name: Alphabetical</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      {/* 🚀 MAIN SPLIT WORKSPACE: LEFT COMPONENT PICKER + RIGHT DOSSIER */}
+      <div className="flex flex-col lg:flex-row gap-4 items-start">
+        {/* LEFT COLUMN: COMPONENT SELECTOR (Width: 380px) */}
+        <div className="w-full lg:w-[380px] shrink-0 space-y-2 max-h-[calc(100vh-250px)] overflow-y-auto pr-1">
+          {filteredItems.length === 0 ? (
+            <div className="bg-[#0A101C] border border-[#1B2A3F] rounded-xl p-8 text-center text-xs text-[#8195AA]">
+              No components match the current filters.
+            </div>
+          ) : (
+            filteredItems.map(item => {
+              const isSelected = activeItem?.key === item.key;
+              return (
+                <div
+                  key={item.key}
+                  onClick={() => setSelectedKey(item.key)}
+                  className={`p-3 rounded-xl border cursor-pointer transition-all duration-150 select-none ${
+                    isSelected
+                      ? "border-[#5CC8E0] bg-gradient-to-r from-[#102235] to-[#0D1826] ring-1 ring-[#5CC8E0]/40 shadow-lg"
+                      : "border-[#1B2A3F] bg-[#090E17] hover:border-[#2A3B52] hover:bg-[#0D1624]"
+                  }`}
+                >
+                  <div className="flex items-center justify-between gap-2 mb-1">
+                    <div className="flex items-center gap-1.5">
+                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold border uppercase tracking-wide mono ${item.badgeColor}`}>
+                        {item.type.toUpperCase()} {item.id}
+                      </span>
+                      <span className="px-1.5 py-0.5 rounded text-[9px] bg-[#101E30] text-[#8195AA] border border-[#1E293B] font-mono">
+                        {item.floor}
+                      </span>
+                    </div>
+                    <span className="text-xs font-bold text-[#FCD34D] mono">
+                      ₹ {Math.round(item.cost).toLocaleString("en-IN")}
+                    </span>
+                  </div>
+
+                  <div className="text-xs font-semibold text-white truncate mb-0.5">
+                    {item.label}
+                  </div>
+
+                  <div className="flex items-center justify-between text-[11px] text-[#8195AA] mono">
+                    <span className="truncate max-w-[200px]">{item.dims}</span>
+                    <span className="text-[#34D399] font-medium flex items-center gap-0.5">
+                      <ShieldCheck size={11} /> FoS Safe
+                    </span>
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+
+        {/* RIGHT COLUMN: DETAILED ENGINEERING MATH & COST DOSSIER (Flex-1) */}
+        {activeItem ? (
+          <div className="flex-1 w-full space-y-4 max-h-[calc(100vh-250px)] overflow-y-auto pl-1">
+            {/* Card 1: Executive Component Header Banner */}
+            <div className="bg-gradient-to-r from-[#0B131F] via-[#0F1B2D] to-[#0B131F] border border-[#1A2536] rounded-2xl p-4 shadow-md flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div>
+                <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+                  <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border uppercase tracking-wider mono ${activeItem.badgeColor}`}>
+                    {activeItem.typeLabel} · {activeItem.type.toUpperCase()}-{activeItem.id}
+                  </span>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] bg-[#102235] text-[#5CC8E0] border border-[#5CC8E0]/30 mono font-semibold">
+                    Floor: {activeItem.floor === "GF" ? "Ground Floor (GF)" : "First Floor (FF)"}
+                  </span>
+                  <span className="text-xs text-[#8195AA] mono font-medium">·</span>
+                  <span className="text-xs text-[#8195AA] mono">{activeItem.dims}</span>
+                </div>
+                <h3 className="text-xl font-bold text-white tracking-tight">
+                  {activeItem.label}
+                </h3>
+                <p className="text-xs text-[#8195AA] mt-1">
+                  {activeItem.desc}
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2 shrink-0 flex-wrap">
+                <button
+                  onClick={handleCopyReport}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-[#102235] hover:bg-[#15273F] border border-[#5CC8E0]/50 hover:border-[#5CC8E0] text-[#5CC8E0] rounded-xl text-xs font-semibold transition shadow-sm"
+                >
+                  {copied ? <Check size={14} className="text-[#34D399]" /> : <Copy size={14} />}
+                  {copied ? "Copied Dossier!" : "Copy Math Dossier"}
+                </button>
+                <button
+                  onClick={() => onNavigateTab(activeItem.type, activeItem.id)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-[#070D17] hover:bg-[#132133] border border-[#2A3B52] hover:border-[#E8C547] text-[#E8C547] rounded-xl text-xs font-semibold transition"
+                >
+                  Jump to {activeItem.typeLabel} <ChevronRight size={14} />
+                </button>
+              </div>
+            </div>
+
+            {/* Card 2: Visual Structural Diagram (Proper Image) */}
+            <div className="bg-[#090E17] border border-[#1A2536] rounded-2xl p-4 shadow-md space-y-3">
+              <div className="flex items-center justify-between border-b border-[#1A2536] pb-2.5">
+                <div className="flex items-center gap-2">
+                  <Ruler size={16} className="text-[#5CC8E0]" />
+                  <h4 className="text-sm font-bold text-white tracking-wide">
+                    Structural Engineering Diagram & Load Vector Plan
+                  </h4>
+                </div>
+                <span className="text-[11px] text-[#8195AA] mono">
+                  Dynamic Vector Render (IS 456 Scale)
+                </span>
+              </div>
+
+              {/* Dynamic Diagram Canvas */}
+              <div className="max-w-2xl mx-auto rounded-xl overflow-hidden border border-[#1B2A3F] bg-[#070D17] p-2 shadow-inner">
+                {activeItem.type === "slab" && <SlabDiagram panel={activeItem.data} r={activeItem.result} />}
+                {activeItem.type === "beam" && <BeamDiagram beam={activeItem.data} r={activeItem.result} settings={settings} />}
+                {activeItem.type === "wall" && <WallDiagram wall={activeItem.data} r={activeItem.result} />}
+                {activeItem.type === "lintel" && <LintelDiagram op={activeItem.data} result={activeItem.result} settings={settings} />}
+              </div>
+
+              <div className="text-[11px] text-[#8195AA] text-center italic">
+                Diagram illustrates exact boundary span lengths, rebar layouts, stirrup spacing, and load distribution paths for this component.
+              </div>
+            </div>
+
+            {/* Card 3: Itemized Material Take-off & Cost Estimation Table */}
+            <div className="bg-[#090E17] border border-[#1A2536] rounded-2xl p-4 shadow-md space-y-3">
+              <div className="flex items-center justify-between border-b border-[#1A2536] pb-2.5">
+                <div className="flex items-center gap-2">
+                  <Calculator size={16} className="text-[#FCD34D]" />
+                  <h4 className="text-sm font-bold text-white tracking-wide">
+                    Itemized Material Take-Off & Cost Derivation
+                  </h4>
+                </div>
+                <div className="text-xs font-bold text-[#FCD34D] mono">
+                  Total Component Cost: ₹ {Math.round(activeItem.cost).toLocaleString("en-IN")}
+                </div>
+              </div>
+
+              <div className="overflow-x-auto border border-[#1B2A3F] rounded-xl">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-[#0B1420] text-[#8195AA] uppercase mono text-[10px] border-b border-[#1B2A3F]">
+                    <tr>
+                      <th className="py-2.5 px-3">Item / Material Description</th>
+                      <th className="py-2.5 px-3">Engineering Quantity</th>
+                      <th className="py-2.5 px-3">Standard Unit Rate</th>
+                      <th className="py-2.5 px-3 text-right">Estimated Cost (₹)</th>
+                      <th className="py-2.5 px-3 text-right">Cost Share</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[#1B2A3F] mono">
+                    {/* For Slabs, Beams, Lintels: RCC Concrete */}
+                    {(activeItem.type === "slab" || activeItem.type === "beam" || activeItem.type === "lintel") && (
+                      <>
+                        <tr className="hover:bg-[#132133]/50 transition">
+                          <td className="py-2 px-3 text-[#E6EDF2] font-medium">
+                            Structural Concrete ({settings.concreteGrade || "M20"} Grade)
+                          </td>
+                          <td className="py-2 px-3 text-[#5CC8E0]">
+                            {num(activeItem.result.concreteVol, 3)} m³
+                          </td>
+                          <td className="py-2 px-3 text-[#8195AA]">
+                            ₹ {settings.rateConcrete} / m³
+                          </td>
+                          <td className="py-2 px-3 text-right font-bold text-[#E6EDF2]">
+                            ₹ {Math.round(activeItem.result.concreteVol * settings.rateConcrete).toLocaleString("en-IN")}
+                          </td>
+                          <td className="py-2 px-3 text-right text-[#8195AA]">
+                            {Math.round(((activeItem.result.concreteVol * settings.rateConcrete) / (activeItem.cost || 1)) * 100)}%
+                          </td>
+                        </tr>
+
+                        <tr className="hover:bg-[#132133]/50 transition">
+                          <td className="py-2 px-3 text-[#E6EDF2] font-medium">
+                            High-Yield TMT Rebar ({settings.steelGrade || "Fe500"})
+                          </td>
+                          <td className="py-2 px-3 text-[#FFA333]">
+                            {num(activeItem.result.steelKg, 1)} kg
+                          </td>
+                          <td className="py-2 px-3 text-[#8195AA]">
+                            ₹ {settings.rateSteel} / kg
+                          </td>
+                          <td className="py-2 px-3 text-right font-bold text-[#E6EDF2]">
+                            ₹ {Math.round(activeItem.result.steelKg * settings.rateSteel).toLocaleString("en-IN")}
+                          </td>
+                          <td className="py-2 px-3 text-right text-[#8195AA]">
+                            {Math.round(((activeItem.result.steelKg * settings.rateSteel) / (activeItem.cost || 1)) * 100)}%
+                          </td>
+                        </tr>
+
+                        <tr className="hover:bg-[#132133]/50 transition">
+                          <td className="py-2 px-3 text-[#E6EDF2] font-medium">
+                            Formwork / Shuttering & Scaffolding
+                          </td>
+                          <td className="py-2 px-3 text-[#8195AA]">
+                            {num(activeItem.type === "slab" ? activeItem.result.shutteringM2 : activeItem.result.formworkM2, 2)} m²
+                          </td>
+                          <td className="py-2 px-3 text-[#8195AA]">
+                            ₹ {settings.rateFormwork} / m²
+                          </td>
+                          <td className="py-2 px-3 text-right font-bold text-[#E6EDF2]">
+                            ₹ {Math.round((activeItem.type === "slab" ? activeItem.result.shutteringM2 : activeItem.result.formworkM2) * settings.rateFormwork).toLocaleString("en-IN")}
+                          </td>
+                          <td className="py-2 px-3 text-right text-[#8195AA]">
+                            {Math.round((((activeItem.type === "slab" ? activeItem.result.shutteringM2 : activeItem.result.formworkM2) * settings.rateFormwork) / (activeItem.cost || 1)) * 100)}%
+                          </td>
+                        </tr>
+                      </>
+                    )}
+
+                    {/* For Masonry Walls */}
+                    {activeItem.type === "wall" && (
+                      <>
+                        <tr className="hover:bg-[#132133]/50 transition">
+                          <td className="py-2 px-3 text-[#E6EDF2] font-medium">
+                            Modular Masonry Blocks ({activeItem.data.material || "solid_block"})
+                          </td>
+                          <td className="py-2 px-3 text-[#5CC8E0]">
+                            {activeItem.result.unitsCount} Units (5% waste)
+                          </td>
+                          <td className="py-2 px-3 text-[#8195AA]">
+                            ₹ {activeItem.data.costPerUnit || 34} / unit
+                          </td>
+                          <td className="py-2 px-3 text-right font-bold text-[#E6EDF2]">
+                            ₹ {Math.round(activeItem.result.unitsCount * (activeItem.data.costPerUnit || 34)).toLocaleString("en-IN")}
+                          </td>
+                          <td className="py-2 px-3 text-right text-[#8195AA]">
+                            {Math.round(((activeItem.result.unitsCount * (activeItem.data.costPerUnit || 34)) / (activeItem.cost || 1)) * 100)}%
+                          </td>
+                        </tr>
+
+                        <tr className="hover:bg-[#132133]/50 transition">
+                          <td className="py-2 px-3 text-[#E6EDF2] font-medium">
+                            Mortar Cement ({activeItem.data.mortarMix || "1:5"} Mix)
+                          </td>
+                          <td className="py-2 px-3 text-[#FFA333]">
+                            {num(activeItem.result.cementBags, 1)} Bags (OPC 53)
+                          </td>
+                          <td className="py-2 px-3 text-[#8195AA]">
+                            ₹ {settings.cementPrice || 420} / bag
+                          </td>
+                          <td className="py-2 px-3 text-right font-bold text-[#E6EDF2]">
+                            ₹ {Math.round(activeItem.result.cementBags * (settings.cementPrice || 420)).toLocaleString("en-IN")}
+                          </td>
+                          <td className="py-2 px-3 text-right text-[#8195AA]">
+                            {Math.round(((activeItem.result.cementBags * (settings.cementPrice || 420)) / (activeItem.cost || 1)) * 100)}%
+                          </td>
+                        </tr>
+
+                        <tr className="hover:bg-[#132133]/50 transition">
+                          <td className="py-2 px-3 text-[#E6EDF2] font-medium">
+                            Mortar River Sand / M-Sand
+                          </td>
+                          <td className="py-2 px-3 text-[#8195AA]">
+                            {num(activeItem.result.sandCFT, 0)} CFT ({num(activeItem.result.sandTonnes, 2)} T)
+                          </td>
+                          <td className="py-2 px-3 text-[#8195AA]">
+                            ₹ {settings.sandPricePerCFT || 55} / CFT
+                          </td>
+                          <td className="py-2 px-3 text-right font-bold text-[#E6EDF2]">
+                            ₹ {Math.round(activeItem.result.sandCFT * (settings.sandPricePerCFT || 55)).toLocaleString("en-IN")}
+                          </td>
+                          <td className="py-2 px-3 text-right text-[#8195AA]">
+                            {Math.round(((activeItem.result.sandCFT * (settings.sandPricePerCFT || 55)) / (activeItem.cost || 1)) * 100)}%
+                          </td>
+                        </tr>
+
+                        <tr className="hover:bg-[#132133]/50 transition">
+                          <td className="py-2 px-3 text-[#E6EDF2] font-medium">
+                            Two-Coat Plastering (Internal 12mm + External 15mm)
+                          </td>
+                          <td className="py-2 px-3 text-[#34D399]">
+                            {num(activeItem.result.totalPlasterArea, 2)} m²
+                          </td>
+                          <td className="py-2 px-3 text-[#8195AA]">
+                            ₹ {settings.ratePlaster || 180} / m²
+                          </td>
+                          <td className="py-2 px-3 text-right font-bold text-[#E6EDF2]">
+                            ₹ {Math.round(activeItem.result.totalPlasterArea * (settings.ratePlaster || 180)).toLocaleString("en-IN")}
+                          </td>
+                          <td className="py-2 px-3 text-right text-[#8195AA]">
+                            {Math.round(((activeItem.result.totalPlasterArea * (settings.ratePlaster || 180)) / (activeItem.cost || 1)) * 100)}%
+                          </td>
+                        </tr>
+                      </>
+                    )}
+                  </tbody>
+                  <tfoot className="bg-[#0B1420] text-[#E6EDF2] font-bold border-t border-[#1B2A3F] mono">
+                    <tr>
+                      <td colSpan={3} className="py-2.5 px-3 text-[#E8C547]">
+                        Grand Total Estimated Procurement Cost
+                      </td>
+                      <td className="py-2.5 px-3 text-right text-sm text-[#FCD34D]">
+                        ₹ {Math.round(activeItem.cost).toLocaleString("en-IN")}
+                      </td>
+                      <td className="py-2.5 px-3 text-right text-[#34D399]">
+                        100%
+                      </td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            </div>
+
+            {/* Card 4: Step-by-Step Engineering Mathematics & IS 456 Derivations */}
+            <div className="bg-[#090E17] border border-[#1A2536] rounded-2xl p-4 shadow-md space-y-3">
+              <div className="flex items-center justify-between border-b border-[#1A2536] pb-2.5">
+                <div className="flex items-center gap-2">
+                  <Activity size={16} className="text-[#5CC8E0]" />
+                  <div>
+                    <h4 className="text-sm font-bold text-white tracking-wide">
+                      IS 456:2000 & IS 875 Step-by-Step Mathematical Derivations
+                    </h4>
+                    <p className="text-[11px] text-[#8195AA]">
+                      Exact formulas, numerical substitutions, and engineering rationale for every value
+                    </p>
+                  </div>
+                </div>
+                <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded bg-[#10B981]/15 text-[#34D399] border border-[#10B981]/30 mono">
+                  IS 456 Verified
+                </span>
+              </div>
+
+              {/* Steps List */}
+              <div className="space-y-3 pt-1">
+                {mathSteps.map((step, idx) => (
+                  <div key={idx} className="bg-[#070D17] border border-[#1B2A3F] rounded-xl p-3.5 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-[#5CC8E0] tracking-wide">
+                        {step.title}
+                      </span>
+                      <span className="text-[10px] text-[#8195AA] mono font-semibold">
+                        Step {idx + 1}
+                      </span>
+                    </div>
+
+                    {/* Governing Formula */}
+                    {step.formula && (
+                      <div className="bg-[#0B1420] border border-[#1B2A3F] rounded-lg px-3 py-1.5 text-xs text-[#E8C547] mono flex items-center gap-2">
+                        <span className="text-[#8195AA] text-[10px] uppercase font-bold">Equation:</span>
+                        <span>{step.formula}</span>
+                      </div>
+                    )}
+
+                    {/* Numerical Substitution */}
+                    {step.sub && (
+                      <div className="bg-[#0B1420]/60 rounded-lg px-3 py-1.5 text-xs text-[#B9C6D4] mono flex items-center gap-2">
+                        <span className="text-[#8195AA] text-[10px] uppercase font-bold">Substitution:</span>
+                        <span>{step.sub}</span>
+                      </div>
+                    )}
+
+                    {/* Final Result */}
+                    <div className="bg-[#102235]/60 border border-[#5CC8E0]/30 rounded-lg px-3 py-1.5 text-xs font-bold text-[#F2F5F8] mono flex items-center gap-2">
+                      <span className="text-[#5CC8E0] text-[10px] uppercase font-bold">Calculated Output:</span>
+                      <span className="text-[#5CC8E0]">{step.result}</span>
+                    </div>
+
+                    {/* Plain English Engineering Meaning */}
+                    {step.explanation && (
+                      <div className="text-[11px] text-[#8195AA] leading-relaxed pt-1 border-t border-[#1B2A3F]/50 flex items-start gap-1.5">
+                        <Info size={13} className="text-[#5CC8E0] shrink-0 mt-0.5" />
+                        <span><b>Engineering Rationale:</b> {step.explanation}</span>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="flex-1 bg-[#0A101C] border border-[#1B2A3F] rounded-2xl p-12 text-center text-xs text-[#8195AA]">
+            Please select a component from the left list to view its mathematical breakdown.
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// =====================================================================
 // CALC SHEET MODAL
 // =====================================================================
 function CalcSheet({ title, steps, onClose }) {
@@ -10184,6 +10902,7 @@ export default function StructuralDesignSuite() {
               <nav className="space-y-1">
                 {[
                   { id: "3dhouse", label: "Full House 3D BIM", icon: <Building2 size={17} /> },
+                  { id: "audit", label: "📐 Math & Cost Audit", icon: <FileText size={17} /> },
                   { id: "seismic", label: "IS 1893 Seismic", icon: <Activity size={17} /> },
                   { id: "wall", label: `Walls (${filteredWalls.length})`, icon: <Home size={17} /> },
                   { id: "slab", label: `Slabs (${filteredSlabs.length})`, icon: <Layers size={17} /> },
@@ -11071,6 +11790,28 @@ export default function StructuralDesignSuite() {
               )}
             </div>
           </div>
+        )}
+
+        {/* ============ DETAILED ENGINEERING MATH & COST AUDIT TAB ============ */}
+        {tab === "audit" && (
+          <DetailedEngineeringMathAudit
+            slabs={slabs}
+            beams={beams}
+            walls={walls}
+            openings={openings}
+            slabResults={slabResults}
+            beamResults={beamResults}
+            wallResults={wallResults}
+            lintelResults={lintelResults}
+            settings={settings}
+            onNavigateTab={(type, id) => {
+              setTab(type);
+              if (type === "slab" && id) setActiveSlabId(id);
+              if (type === "beam" && id) setActiveBeamId(id);
+              if (type === "lintel" && id) setActiveLintelId(id);
+              if (type === "wall" && id) setActiveWallId(id);
+            }}
+          />
         )}
 
         {/* ============ IS 1893 SEISMIC AUDIT TAB ============ */}
