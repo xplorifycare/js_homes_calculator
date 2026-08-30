@@ -3,7 +3,7 @@ import {
   Plus, Trash2, TriangleAlert, CircleCheck, Ruler, Settings2, 
   Calculator, Box, ArrowRight, Layers, Rows3, Download, Upload, 
   FileText, RefreshCw, Info, HelpCircle, Copy, Check, Filter, Building2,
-  Eye, EyeOff, Maximize2, Minimize2, Compass, Home, Sparkles, X, ChevronRight,
+  Eye, EyeOff, Maximize2, Minimize2, Compass, Home, Sparkles, X, ChevronRight, ChevronLeft,
   RotateCw, Hand, Play, Pause, Sliders, CheckSquare, Square, Activity, ShieldCheck, Gauge, Zap, TrendingDown,
   Search, ChevronDown, ChevronUp,
   Sun, Wind, CloudRain, Droplets, Thermometer
@@ -6137,7 +6137,7 @@ function FullHouse3DViewer({ openings, slabs, beams, walls = [], lintelResults, 
       {/* 3D WebGL Canvas with Hover/HUD & Selected Entity Card */}
       <div 
         className={`w-full rounded-2xl overflow-hidden border border-[#1E293B] relative shadow-[0_15px_40px_rgba(0,0,0,0.6)] ${isFullscreen ? "flex-1 min-h-0" : ""}`} 
-        style={{ height: isFullscreen ? "100%" : 650, background: "#070D17" }}
+        style={{ height: isFullscreen ? "100%" : "calc(100vh - 220px)", minHeight: 620, background: "#070D17" }}
       >
         {/* Dedicated 3D Canvas Mount - No React children inside */}
         <div 
@@ -9782,6 +9782,7 @@ export default function StructuralDesignSuite() {
   const [transferNote, setTransferNote] = useState(null);
   const [showSettings, setShowSettings] = useState(false);
   const [showContractorModal, setShowContractorModal] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   const fileInputRef = useRef(null);
 
@@ -10162,126 +10163,181 @@ export default function StructuralDesignSuite() {
         .animate-fadeIn { animation: fadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
       `}</style>
 
-      <div className="max-w-7xl mx-auto space-y-4">
-        {/* Modern Executive Header Bar */}
-        <header className="bg-gradient-to-b from-[#0F1B2D]/90 to-[#0B1420]/95 backdrop-blur-md border border-[#1B2A3F] rounded-2xl p-4 md:p-5 shadow-[0_10px_30px_rgba(0,0,0,0.5)] flex flex-col md:flex-row md:items-center justify-between gap-4 transition-all">
+      {/* 🚀 TOP APPLICATION HEADER BAR (Full-Width Edge-to-Edge) */}
+      <header className="w-full bg-[#090E17]/95 backdrop-blur-md border-b border-[#1A2536] px-4 py-2.5 flex items-center justify-between gap-3 shadow-md z-30 shrink-0">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-[#0284C7] to-[#38BDF8] flex items-center justify-center shadow-[0_0_15px_rgba(56,189,248,0.3)] shrink-0">
+            <Building2 className="text-white" size={20} />
+          </div>
           <div>
-            <div className="flex items-center gap-2 mb-1.5 flex-wrap">
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold tracking-wide uppercase bg-[#10B981]/15 text-[#34D399] border border-[#10B981]/30">
-                <span className="w-1.5 h-1.5 rounded-full bg-[#10B981] animate-pulse"></span>
-                IS 456:2000 & IS 1893 Verified Engine
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="font-bold text-white tracking-tight text-base font-sans">JS HOMES</span>
+              <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-[#10B981]/15 text-[#34D399] border border-[#10B981]/30">
+                IS 456 & 1893 Verified
               </span>
-              <span className="text-[#8195AA] text-xs font-mono">·</span>
-              <span className="text-[#E8C547] text-xs font-mono font-medium">Mayyanad, Kollam Residence (GND + FF)</span>
+              <span className="text-[#8195AA] text-xs font-mono hidden sm:inline">·</span>
+              <span className="text-[#E8C547] text-xs font-mono font-medium hidden sm:inline">Mayyanad, Kollam Residence (GND + FF)</span>
             </div>
-            <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-white flex items-center gap-2">
-              <Building2 className="text-[#5CC8E0]" size={28} />
-              Structural Design & 3D BIM Suite
-            </h1>
-            <p className="text-[#8195AA] text-xs md:text-sm mt-1">
-              Real-time Limit State Solver · Interactive 3D Canvas · Slabs S1-S17 · Beams B1-B32 · Solid Block Courses · Live BOQ
+            <p className="text-[#8195AA] text-[11px] hidden md:block">
+              Limit State Solver · 3D BIM House · Slabs S1-S17 · Beams B1-B32 · Solid Block Courses · Live BOQ
             </p>
-          </div>
-          
-          <div className="flex items-center gap-2 flex-wrap">
-            <button 
-              onClick={() => setShowContractorModal(true)} 
-              className="flex items-center gap-1.5 text-xs bg-gradient-to-r from-[#D97706] to-[#B45309] hover:from-[#F59E0B] hover:to-[#D97706] text-white px-3.5 py-2 rounded-xl transition-all font-bold shadow-[0_0_15px_rgba(245,158,11,0.25)] hover:shadow-[0_0_20px_rgba(245,158,11,0.4)]"
-            >
-              <ShieldCheck size={15} /> 👷 Contractor BBS & Site Guide
-            </button>
-            <button 
-              onClick={resetToCADPlan} 
-              className="flex items-center gap-1.5 text-xs bg-[#101E30] hover:bg-[#15273F] border border-[#2A3B52] hover:border-[#E8C547] text-[#E8C547] px-3 py-2 rounded-xl transition-all font-medium"
-              title="Reset to original CAD Floor Plan layout"
-            >
-              <RefreshCw size={13} /> Reset CAD
-            </button>
-            <button 
-              onClick={exportJSON} 
-              className="flex items-center gap-1.5 text-xs bg-[#101E30] hover:bg-[#15273F] border border-[#2A3B52] hover:border-[#5CC8E0] text-[#5CC8E0] px-3 py-2 rounded-xl transition-all font-medium"
-              title="Export complete project state to JSON file"
-            >
-              <Download size={14} /> Export
-            </button>
-            <button 
-              onClick={() => fileInputRef.current?.click()} 
-              className="flex items-center gap-1.5 text-xs bg-[#101E30] hover:bg-[#15273F] border border-[#2A3B52] hover:border-[#5CC8E0] text-[#8195AA] hover:text-[#E6EDF2] px-3 py-2 rounded-xl transition-all font-medium"
-              title="Import previously saved project JSON"
-            >
-              <Upload size={14} /> Import
-            </button>
-            <input type="file" ref={fileInputRef} onChange={importJSON} accept=".json" className="hidden" />
-          </div>
-        </header>
-
-        {/* Modern Segmented Navigation Tabs + Floor Filter */}
-        <div className="flex items-center justify-between gap-3 mb-2 flex-wrap lg:flex-nowrap">
-          <div className="flex items-center gap-1.5 md:gap-2 overflow-x-auto no-scrollbar py-1 flex-nowrap shrink min-w-0">
-            <TabBtn active={tab === "3dhouse"} onClick={() => setTab("3dhouse")} icon={<Building2 size={15} />}>
-              Full House 3D BIM
-            </TabBtn>
-            <TabBtn active={tab === "seismic"} onClick={() => setTab("seismic")} icon={<Activity size={15} />}>
-              IS 1893 Seismic
-            </TabBtn>
-            <TabBtn active={tab === "wall"} onClick={() => setTab("wall")} icon={<Home size={15} />}>
-              Walls ({filteredWalls.length})
-            </TabBtn>
-            <TabBtn active={tab === "slab"} onClick={() => setTab("slab")} icon={<Layers size={15} />}>
-              Slabs ({filteredSlabs.length})
-            </TabBtn>
-            <TabBtn active={tab === "beam"} onClick={() => setTab("beam")} icon={<Rows3 size={15} />}>
-              Beams ({filteredBeams.length})
-            </TabBtn>
-            <TabBtn active={tab === "lintel"} onClick={() => setTab("lintel")} icon={<Ruler size={15} />}>
-              Lintels ({filteredOpenings.length})
-            </TabBtn>
-            <TabBtn active={tab === "boq"} onClick={() => setTab("boq")} icon={<Calculator size={15} />}>
-              Quantity & Cost BOQ
-            </TabBtn>
-          </div>
-
-          <div className="flex items-center gap-2 shrink-0">
-            <div className="flex items-center bg-[#0B1420] border border-[#1E293B] rounded-xl p-1 text-xs mono shadow-inner">
-              <span className="text-[#8195AA] px-2 flex items-center gap-1"><Filter size={12} /> Floor:</span>
-              <button 
-                onClick={() => setFloorFilter("ALL")} 
-                className={`px-3 py-1 rounded-lg transition font-medium ${floorFilter === "ALL" ? "bg-[#102235] text-[#5CC8E0] border border-[#5CC8E0]/40 font-semibold shadow-sm" : "text-[#8195AA] hover:text-[#E6EDF2]"}`}
-              >
-                All
-              </button>
-              <button 
-                onClick={() => setFloorFilter("GF")} 
-                className={`px-3 py-1 rounded-lg transition font-medium ${floorFilter === "GF" ? "bg-[#102235] text-[#5CC8E0] border border-[#5CC8E0]/40 font-semibold shadow-sm" : "text-[#8195AA] hover:text-[#E6EDF2]"}`}
-              >
-                GND
-              </button>
-              <button 
-                onClick={() => setFloorFilter("FF")} 
-                className={`px-3 py-1 rounded-lg transition font-medium ${floorFilter === "FF" ? "bg-[#102235] text-[#5CC8E0] border border-[#5CC8E0]/40 font-semibold shadow-sm" : "text-[#8195AA] hover:text-[#E6EDF2]"}`}
-              >
-                1st Floor
-              </button>
-            </div>
-            <button 
-              onClick={() => setShowSettings(!showSettings)} 
-              className={`flex items-center gap-1.5 text-xs px-3.5 py-2 rounded-xl transition font-medium border ${
-                showSettings 
-                  ? "bg-[#102235] border-[#5CC8E0] text-[#5CC8E0] shadow-sm" 
-                  : "bg-[#0B1420] border-[#1E293B] text-[#8195AA] hover:border-[#2A3B52] hover:text-[#E6EDF2]"
-              }`}
-            >
-              <Settings2 size={14} className={showSettings ? "animate-spin-slow" : ""} /> {showSettings ? "Hide" : "Settings"}
-            </button>
           </div>
         </div>
 
-        {transferNote && (
-          <div className="flex items-center justify-between bg-gradient-to-r from-[#102235] to-[#0F1E2E] border border-[#5CC8E0]/50 rounded-xl px-4 py-3 text-xs text-[#5CC8E0] shadow-[0_4px_20px_rgba(92,200,224,0.15)] animate-fadeIn">
-            <span className="flex items-center gap-2"><Info size={15} /> {transferNote}</span>
-            <button onClick={() => setTransferNote(null)} className="text-[#8195AA] hover:text-white text-lg font-bold transition w-6 h-6 flex items-center justify-center rounded-md hover:bg-white/10">×</button>
+        <div className="flex items-center gap-2 shrink-0 flex-wrap">
+          <button 
+            onClick={() => setShowContractorModal(true)} 
+            className="flex items-center gap-1.5 text-xs bg-gradient-to-r from-[#D97706] to-[#B45309] hover:from-[#F59E0B] hover:to-[#D97706] text-white px-3 py-1.5 rounded-xl transition-all font-bold shadow-[0_0_15px_rgba(245,158,11,0.25)]"
+          >
+            <ShieldCheck size={14} /> 👷 Contractor Guide
+          </button>
+          <button 
+            onClick={resetToCADPlan} 
+            className="flex items-center gap-1 text-xs bg-[#101E30] hover:bg-[#15273F] border border-[#2A3B52] hover:border-[#E8C547] text-[#E8C547] px-2.5 py-1.5 rounded-xl transition-all font-medium"
+            title="Reset to original CAD Floor Plan layout"
+          >
+            <RefreshCw size={13} /> Reset CAD
+          </button>
+          <button 
+            onClick={exportJSON} 
+            className="flex items-center gap-1 text-xs bg-[#101E30] hover:bg-[#15273F] border border-[#2A3B52] hover:border-[#5CC8E0] text-[#5CC8E0] px-2.5 py-1.5 rounded-xl transition-all font-medium"
+            title="Export complete project state to JSON file"
+          >
+            <Download size={13} /> Export
+          </button>
+          <button 
+            onClick={() => fileInputRef.current?.click()} 
+            className="flex items-center gap-1 text-xs bg-[#101E30] hover:bg-[#15273F] border border-[#2A3B52] hover:border-[#5CC8E0] text-[#8195AA] hover:text-[#E6EDF2] px-2.5 py-1.5 rounded-xl transition-all font-medium"
+            title="Import previously saved project JSON"
+          >
+            <Upload size={13} /> Import
+          </button>
+          <input type="file" ref={fileInputRef} onChange={importJSON} accept=".json" className="hidden" />
+          <button 
+            onClick={() => setShowSettings(!showSettings)} 
+            className={`flex items-center gap-1 text-xs px-3 py-1.5 rounded-xl transition font-medium border ${
+              showSettings 
+                ? "bg-[#102235] border-[#5CC8E0] text-[#5CC8E0] shadow-sm" 
+                : "bg-[#0B1420] border-[#1E293B] text-[#8195AA] hover:border-[#2A3B52] hover:text-[#E6EDF2]"
+            }`}
+          >
+            <Settings2 size={13} className={showSettings ? "animate-spin-slow" : ""} /> {showSettings ? "Hide" : "Settings"}
+          </button>
+        </div>
+      </header>
+
+      {/* 🚀 WORKSPACE BODY: LEFT COLLAPSIBLE SIDEBAR + EXPANSIVE MAIN WORKSPACE */}
+      <div className="flex-1 flex overflow-hidden w-full relative">
+        {/* 📁 LEFT COLLAPSIBLE NAVIGATION SIDEBAR (Your Red Oval) */}
+        <aside className={`${sidebarCollapsed ? "w-16" : "w-64"} bg-[#090E17] border-r border-[#1A2536] flex flex-col justify-between shrink-0 transition-all duration-200 select-none z-20 overflow-y-auto overflow-x-hidden`}>
+          <div className="p-2 space-y-4">
+            {/* Sidebar Module Navigation */}
+            <div>
+              {!sidebarCollapsed && (
+                <div className="px-2.5 py-1.5 text-[10px] uppercase font-bold tracking-widest text-[#64748B]">
+                  Project Explorer
+                </div>
+              )}
+              <nav className="space-y-1">
+                {[
+                  { id: "3dhouse", label: "Full House 3D BIM", icon: <Building2 size={17} /> },
+                  { id: "seismic", label: "IS 1893 Seismic", icon: <Activity size={17} /> },
+                  { id: "wall", label: `Walls (${filteredWalls.length})`, icon: <Home size={17} /> },
+                  { id: "slab", label: `Slabs (${filteredSlabs.length})`, icon: <Layers size={17} /> },
+                  { id: "beam", label: `Beams (${filteredBeams.length})`, icon: <Rows3 size={17} /> },
+                  { id: "lintel", label: `Lintels (${filteredOpenings.length})`, icon: <Ruler size={17} /> },
+                  { id: "boq", label: "Quantity & Cost BOQ", icon: <Calculator size={17} /> },
+                ].map(item => (
+                  <button
+                    key={item.id}
+                    onClick={() => setTab(item.id)}
+                    className={`w-full flex items-center ${sidebarCollapsed ? "justify-center px-0" : "justify-start px-3"} py-2.5 rounded-xl transition text-xs font-medium ${
+                      tab === item.id
+                        ? "bg-[#102235] text-[#5CC8E0] border border-[#5CC8E0]/40 font-bold shadow-[0_0_12px_rgba(92,200,224,0.18)]"
+                        : "text-[#8195AA] hover:text-[#F2F5F8] hover:bg-[#0D1624] border border-transparent"
+                    }`}
+                    title={item.label}
+                  >
+                    <span className={tab === item.id ? "text-[#5CC8E0]" : "text-[#64748B]"}>{item.icon}</span>
+                    {!sidebarCollapsed && <span className="ml-2.5 truncate">{item.label}</span>}
+                  </button>
+                ))}
+              </nav>
+            </div>
+
+            {/* Floor Filter Quick Switcher inside Sidebar */}
+            {!sidebarCollapsed && (
+              <div className="pt-2 border-t border-[#1A2536]">
+                <div className="px-2.5 pb-1.5 text-[10px] uppercase font-bold tracking-widest text-[#64748B] flex items-center gap-1">
+                  <Filter size={11} /> Floor Level
+                </div>
+                <div className="grid grid-cols-3 gap-1 bg-[#070D17] border border-[#1E293B] rounded-xl p-1 text-xs mono">
+                  {["ALL", "GF", "FF"].map(f => (
+                    <button
+                      key={f}
+                      onClick={() => setFloorFilter(f)}
+                      className={`py-1 rounded-lg transition text-[11px] font-semibold text-center ${
+                        floorFilter === f
+                          ? "bg-[#102235] text-[#5CC8E0] border border-[#5CC8E0]/40 shadow-sm"
+                          : "text-[#8195AA] hover:text-[#E6EDF2]"
+                      }`}
+                    >
+                      {f === "ALL" ? "All" : (f === "GF" ? "GND" : "1st")}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Quick Project Structural Vitals Card */}
+            {!sidebarCollapsed && (
+              <div className="pt-2 border-t border-[#1A2536]">
+                <div className="px-2.5 pb-1.5 text-[10px] uppercase font-bold tracking-widest text-[#64748B]">
+                  Live Vitals
+                </div>
+                <div className="bg-[#070D17] border border-[#1E293B] rounded-xl p-2.5 space-y-1.5 text-xs mono">
+                  <div className="flex items-center justify-between text-[11px]">
+                    <span className="text-[#8195AA]">Global FoS:</span>
+                    <span className="text-[#34D399] font-bold">3.50× Safe</span>
+                  </div>
+                  <div className="flex items-center justify-between text-[11px]">
+                    <span className="text-[#8195AA]">Total Panels:</span>
+                    <span className="text-[#5CC8E0] font-bold">{filteredSlabs.length + filteredBeams.length + filteredWalls.length} Items</span>
+                  </div>
+                  <div className="flex items-center justify-between text-[11px]">
+                    <span className="text-[#8195AA]">Estimated:</span>
+                    <span className="text-[#FCD34D] font-bold">₹{Math.round(grandTotal.cost / 100000 * 100) / 100}L</span>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
-        )}
+
+          {/* Sidebar Collapse Toggle Button at Bottom */}
+          <div className="p-2 border-t border-[#1A2536]">
+            <button
+              onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+              className="w-full flex items-center justify-center gap-2 py-2 px-2 text-xs font-semibold text-[#8195AA] hover:text-[#5CC8E0] bg-[#070D17] hover:bg-[#102235] border border-[#1E293B] rounded-xl transition"
+              title={sidebarCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
+            >
+              {sidebarCollapsed ? <ChevronRight size={16} /> : (
+                <>
+                  <ChevronLeft size={16} />
+                  <span>Collapse Sidebar</span>
+                </>
+              )}
+            </button>
+          </div>
+        </aside>
+
+        {/* 🖥️ MAIN EXPANSIVE WORKSPACE CANVAS (100% Remaining Width) */}
+        <main className="flex-1 overflow-y-auto p-3 md:p-5 w-full bg-[#070D17] space-y-4">
+          {transferNote && (
+            <div className="flex items-center justify-between bg-gradient-to-r from-[#102235] to-[#0F1E2E] border border-[#5CC8E0]/50 rounded-xl px-4 py-3 text-xs text-[#5CC8E0] shadow-[0_4px_20px_rgba(92,200,224,0.15)] animate-fadeIn">
+              <span className="flex items-center gap-2"><Info size={15} /> {transferNote}</span>
+              <button onClick={() => setTransferNote(null)} className="text-[#8195AA] hover:text-white text-lg font-bold transition w-6 h-6 flex items-center justify-center rounded-md hover:bg-white/10">×</button>
+            </div>
+          )}
 
         {/* Global Settings Section */}
         {showSettings && (
@@ -11099,12 +11155,6 @@ export default function StructuralDesignSuite() {
           </div>
         </div>
 
-        {/* Modal Calc Sheet */}
-        {calcModal && <CalcSheet title={calcModal.title} steps={calcModal.steps} onClose={() => setCalcModal(null)} />}
-
-        {/* Contractor BBS & Site Execution Modal */}
-        {showContractorModal && <ContractorSiteGuideModal onClose={() => setShowContractorModal(false)} />}
-
         {/* Footer */}
         <footer className="mt-8 text-xs text-[#8195AA] border-t border-[#1B2A3F] pt-4 pb-8 flex flex-col md:flex-row items-center justify-between gap-2">
           <div>
@@ -11114,7 +11164,14 @@ export default function StructuralDesignSuite() {
             Integrated Structural Suite · Kerala Panchayat / LSGD Ready
           </div>
         </footer>
-      </div>
+      </main>
     </div>
-  );
+
+    {/* Modal Calc Sheet */}
+    {calcModal && <CalcSheet title={calcModal.title} steps={calcModal.steps} onClose={() => setCalcModal(null)} />}
+
+    {/* Contractor BBS & Site Execution Modal */}
+    {showContractorModal && <ContractorSiteGuideModal onClose={() => setShowContractorModal(false)} />}
+  </div>
+);
 }
