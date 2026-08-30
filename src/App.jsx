@@ -8621,7 +8621,10 @@ function DetailedEngineeringMathAudit({
     // 1. Slabs
     for (const s of slabs) {
       const r = slabResults[s.id];
-      const cost = r ? r.cost : (r?.concreteVol * settings.rateConcrete + r?.steelKg * settings.rateSteel + r?.shutteringM2 * settings.rateFormwork);
+      const concCost = Number(r?.concreteVol || 0) * (Number(settings.rateConcrete) || 6200);
+      const steelCost = Number(r?.steelKg || 0) * (Number(settings.rateSteel) || 72);
+      const formworkCost = Number(r?.shutteringM2 || 0) * (Number(settings.rateFormwork) || 380);
+      const cost = Math.round(concCost + steelCost + formworkCost);
       list.push({
         key: `slab-${s.id}`,
         id: s.id,
@@ -8641,7 +8644,10 @@ function DetailedEngineeringMathAudit({
     // 2. Beams
     for (const b of beams) {
       const r = beamResults[b.id];
-      const cost = r ? r.cost : (r?.concreteVol * settings.rateConcrete + r?.steelKg * settings.rateSteel + r?.formworkM2 * settings.rateFormwork);
+      const concCost = Number(r?.concreteVol || 0) * (Number(settings.rateConcrete) || 6200);
+      const steelCost = Number(r?.steelKg || 0) * (Number(settings.rateSteel) || 72);
+      const formworkCost = Number(r?.formworkM2 || 0) * (Number(settings.rateFormwork) || 380);
+      const cost = Math.round(concCost + steelCost + formworkCost);
       list.push({
         key: `beam-${b.id}`,
         id: b.id,
@@ -8661,7 +8667,11 @@ function DetailedEngineeringMathAudit({
     // 3. Walls
     for (const w of walls) {
       const r = wallResults[w.id];
-      const cost = r ? r.totalEstimatedCost : 0;
+      const cost = Math.round(
+        r?.totalEstimatedCost ||
+        ((r?.unitsCost || 0) + (r?.cementCost || 0) + (r?.sandCost || 0) + (r?.plasterCost || 0)) ||
+        0
+      );
       list.push({
         key: `wall-${w.id}`,
         id: w.id,
@@ -8681,7 +8691,10 @@ function DetailedEngineeringMathAudit({
     // 4. Lintels
     for (const o of openings) {
       const r = lintelResults[o.id];
-      const cost = r ? r.cost : (r?.concreteVol * settings.rateConcrete + r?.steelKg * settings.rateSteel + r?.formworkM2 * settings.rateFormwork);
+      const concCost = Number(r?.concreteVol || 0) * (Number(settings.rateConcrete) || 6200);
+      const steelCost = Number(r?.steelKg || 0) * (Number(settings.rateSteel) || 72);
+      const formworkCost = Number(r?.formworkM2 || 0) * (Number(settings.rateFormwork) || 380);
+      const cost = Math.round(concCost + steelCost + formworkCost);
       list.push({
         key: `lintel-${o.id}`,
         id: o.id,
