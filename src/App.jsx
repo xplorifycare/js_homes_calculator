@@ -9987,37 +9987,37 @@ function SafeStateOptimizer({ activeItem, step, settings, onUpdateSlab, onUpdate
 
   if (!config) return null;
 
-  // Local state for the interactive slider
+  // Store baseline value when this component was loaded so user can revert anytime
+  const [initialBaseVal, setInitialBaseVal] = useState(config.currentVal);
   const [sliderVal, setSliderVal] = useState(config.currentVal);
   const [savedSuccess, setSavedSuccess] = useState(false);
+  const [prevKey, setPrevKey] = useState(activeItem.key);
 
-  // Keep in sync if component changes
-  useEffect(() => {
+  if (prevKey !== activeItem.key) {
+    setPrevKey(activeItem.key);
+    setInitialBaseVal(config.currentVal);
     setSliderVal(config.currentVal);
     setSavedSuccess(false);
-  }, [activeItem.key, config.currentVal]);
+  }
 
-  const sim = config.compute(sliderVal);
-  const origSim = config.compute(config.currentVal);
-
-  const handleApplyRecommended = () => {
-    setSliderVal(config.recommended);
-    config.onSave(config.recommended);
+  // Real-time live update: immediately triggers recalculation of all 12 dependent equations across the CAD model
+  const handleSliderChange = (newVal) => {
+    setSliderVal(newVal);
+    config.onSave(newVal);
     setSavedSuccess(true);
-    setTimeout(() => setSavedSuccess(false), 4000);
+    setTimeout(() => setSavedSuccess(false), 2500);
   };
 
-  const handleSaveToProject = () => {
-    config.onSave(sliderVal);
-    setSavedSuccess(true);
-    setTimeout(() => setSavedSuccess(false), 4000);
+  const handleApplyRecommended = () => {
+    handleSliderChange(config.recommended);
   };
 
   const handleReset = () => {
-    setSliderVal(config.currentVal);
-    config.onSave(config.currentVal);
-    setSavedSuccess(false);
+    handleSliderChange(initialBaseVal);
   };
+
+  const sim = config.compute(sliderVal);
+  const origSim = config.compute(initialBaseVal);
 
   // Color calculation for slider state
   let statusColor = "#10B981"; // Safe green
@@ -10058,8 +10058,14 @@ function SafeStateOptimizer({ activeItem, step, settings, onUpdateSlab, onUpdate
             🎛️
           </div>
           <div>
-            <div className="text-[10px] text-[#8195AA] uppercase font-mono tracking-wider font-semibold">
-              Live What-If Engineering Simulator
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] text-[#8195AA] uppercase font-mono tracking-wider font-semibold">
+                Live What-If Engineering Simulator
+              </span>
+              <span className="flex items-center gap-1 text-[9px] font-mono px-1.5 py-0.2 rounded bg-[#10B981]/15 text-[#34D399] border border-[#10B981]/30">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#34D399] animate-pulse"></span>
+                Instant Live Sync Active
+              </span>
             </div>
             <h4 className="text-sm sm:text-base font-bold text-white tracking-wide flex items-center gap-2 flex-wrap">
               <span>{config.title}</span>
@@ -10079,7 +10085,7 @@ function SafeStateOptimizer({ activeItem, step, settings, onUpdateSlab, onUpdate
 
         {/* Current vs Slider Value Readout */}
         <div className="flex items-center gap-2 text-xs font-mono">
-          <span className="text-[#8195AA]">Current: <b className="text-white">{config.currentVal} {config.unit}</b></span>
+          <span className="text-[#8195AA]">Baseline: <b className="text-white">{initialBaseVal} {config.unit}</b></span>
           <span className="text-[#5CC8E0]">➜</span>
           <span className="bg-[#102235] px-2.5 py-1 rounded-lg border border-[#5CC8E0]/50 text-[#5CC8E0] font-bold text-sm">
             {sliderVal} {config.unit}
@@ -10091,8 +10097,8 @@ function SafeStateOptimizer({ activeItem, step, settings, onUpdateSlab, onUpdate
       <div className="space-y-2.5 relative z-10">
         <div className="flex items-center justify-between text-xs font-mono">
           <span className="text-[#8195AA] flex items-center gap-1">
-            <span>Tune {config.paramName}:</span>
-            <b className="text-white">{sliderVal} {config.unit}</b>
+            <span>Drag slider to tune {config.paramName}:</span>
+            <b className="text-white text-sm">{sliderVal} {config.unit}</b>
           </span>
           <span className="text-[11px] font-semibold" style={{ color: statusColor }}>
             Zone: {zoneLabel} ({sim.capacityPct}% Capacity)
@@ -10123,19 +10129,37 @@ function SafeStateOptimizer({ activeItem, step, settings, onUpdateSlab, onUpdate
             />
           </div>
 
-          {/* Actual Input Range Slider */}
-          <input
-            type="range"
-            min={config.min}
-            max={config.max}
-            step={config.step}
-            value={sliderVal}
-            onChange={(e) => {
-              setSliderVal(Number(e.target.value));
-              setSavedSuccess(false);
-            }}
-            className="w-full h-2 bg-[#17263A] rounded-lg appearance-none cursor-pointer accent-[#5CC8E0] focus:outline-none"
-          />
+          {/* Stepper Buttons + Slider Container */}
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => handleSliderChange(Math.max(config.min, sliderVal - config.step))}
+              disabled={sliderVal <= config.min}
+              className="px-2.5 py-1.5 bg-[#102235] hover:bg-[#162D45] disabled:opacity-30 text-[#5CC8E0] rounded-lg text-xs font-mono font-bold border border-[#5CC8E0]/30 transition shrink-0 cursor-pointer select-none"
+              title={`Decrease by ${config.step}mm`}
+            >
+              -{config.step}mm
+            </button>
+
+            {/* Actual Input Range Slider */}
+            <input
+              type="range"
+              min={config.min}
+              max={config.max}
+              step={config.step}
+              value={sliderVal}
+              onChange={(e) => handleSliderChange(Number(e.target.value))}
+              className="w-full h-3 bg-[#17263A] rounded-lg appearance-none cursor-pointer accent-[#5CC8E0] focus:outline-none"
+            />
+
+            <button
+              onClick={() => handleSliderChange(Math.min(config.max, sliderVal + config.step))}
+              disabled={sliderVal >= config.max}
+              className="px-2.5 py-1.5 bg-[#102235] hover:bg-[#162D45] disabled:opacity-30 text-[#5CC8E0] rounded-lg text-xs font-mono font-bold border border-[#5CC8E0]/30 transition shrink-0 cursor-pointer select-none"
+              title={`Increase by ${config.step}mm`}
+            >
+              +{config.step}mm
+            </button>
+          </div>
 
           {/* Zone Legend & Pin Indicators */}
           <div className="flex items-center justify-between text-[10px] font-mono text-[#8195AA] pt-1.5 px-0.5">
@@ -10157,17 +10181,17 @@ function SafeStateOptimizer({ activeItem, step, settings, onUpdateSlab, onUpdate
 
       {/* Before vs After Real-Time Structural Comparison Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3 relative z-10">
-        {/* Current State Card */}
+        {/* Baseline Original State Card */}
         <div className="bg-[#070D17] border border-[#1A2738] rounded-xl p-3 space-y-1.5 text-xs font-mono">
           <div className="text-[10px] text-[#8195AA] uppercase font-bold flex items-center justify-between">
-            <span>Original Component State</span>
+            <span>Baseline Original State</span>
             <span className={`px-1.5 py-0.2 rounded text-[9px] font-bold ${origSim.isSafe ? "bg-[#10B981]/20 text-[#34D399]" : "bg-[#EF4444]/20 text-[#F87171]"}`}>
               {origSim.isSafe ? "PASS" : "EXCEEDED"}
             </span>
           </div>
           <div className="flex items-baseline justify-between">
             <span className="text-white font-bold">{config.paramName}:</span>
-            <span className="text-[#94A3B8] font-bold text-sm">{config.currentVal} {config.unit}</span>
+            <span className="text-[#94A3B8] font-bold text-sm">{initialBaseVal} {config.unit}</span>
           </div>
           <div className="flex items-baseline justify-between">
             <span className="text-[#8195AA]">{origSim.metricLabel}:</span>
@@ -10181,10 +10205,10 @@ function SafeStateOptimizer({ activeItem, step, settings, onUpdateSlab, onUpdate
           </div>
         </div>
 
-        {/* Simulated Tuned State Card */}
+        {/* Live Tuned State Card */}
         <div className="bg-[#091524] border border-[#1E3550] rounded-xl p-3 space-y-1.5 text-xs font-mono shadow-inner">
           <div className="text-[10px] text-[#5CC8E0] uppercase font-bold flex items-center justify-between">
-            <span>Tuned Simulation State</span>
+            <span>Live Tuned State (Active in CAD)</span>
             <span className="px-1.5 py-0.2 rounded text-[9px] font-bold" style={{ color: statusColor, backgroundColor: `${statusColor}25` }}>
               {sim.isSafe ? "PASS (SAFE)" : "EXCEEDED"}
             </span>
@@ -10232,27 +10256,19 @@ function SafeStateOptimizer({ activeItem, step, settings, onUpdateSlab, onUpdate
             >
               <span>⚡ Auto-Apply Perfect Safe Value ({config.recommended} {config.unit})</span>
             </button>
-            <button
-              onClick={handleSaveToProject}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-[#102235] hover:bg-[#162D45] text-[#5CC8E0] border border-[#5CC8E0]/40 hover:border-[#5CC8E0] rounded-xl text-xs font-semibold transition active:scale-95 cursor-pointer"
-            >
-              <span>💾 Save to Project CAD</span>
-            </button>
+            <span className="text-xs font-bold text-[#10B981] flex items-center gap-1 font-mono">
+              <Check size={14} /> Live Sync Active
+            </span>
           </div>
 
           <div className="flex items-center gap-2">
-            {sliderVal !== config.currentVal && (
+            {sliderVal !== initialBaseVal && (
               <button
                 onClick={handleReset}
-                className="text-xs text-[#8195AA] hover:text-white underline font-mono py-1 px-2 cursor-pointer"
+                className="text-xs text-[#8195AA] hover:text-white underline font-mono py-1 px-2 cursor-pointer transition"
               >
-                Reset to Original
+                ↺ Revert to Baseline ({initialBaseVal} {config.unit})
               </button>
-            )}
-            {savedSuccess && (
-              <span className="text-xs font-bold text-[#10B981] flex items-center gap-1 animate-fade-in font-mono">
-                <Check size={14} /> Saved & Updated in CAD!
-              </span>
             )}
           </div>
         </div>
