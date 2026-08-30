@@ -12270,6 +12270,7 @@ function DetailedEngineeringMathAudit({
   const [activeSectionTab, setActiveSectionTab] = useState("math"); // "math" | "diagram" | "boq" | "safety" | "all"
   const [activeStepIndex, setActiveStepIndex] = useState(0);
   const [viewAllSteps, setViewAllSteps] = useState(false);
+  const stepStripRef = useRef(null);
 
   // Compile unified list of all components
   const allItems = useMemo(() => {
@@ -12431,6 +12432,24 @@ function DetailedEngineeringMathAudit({
       return isExceeded || isDefl;
     }).length;
   }, [mathSteps, activeItem]);
+
+  // Smooth scroll handler for step pills navigation
+  const scrollStepStrip = (direction) => {
+    if (stepStripRef.current) {
+      const scrollAmount = direction === "left" ? -240 : 240;
+      stepStripRef.current.scrollBy({ left: scrollAmount, behavior: "smooth" });
+    }
+  };
+
+  // Auto-scroll selected step pill into view
+  useEffect(() => {
+    if (stepStripRef.current) {
+      const activeEl = stepStripRef.current.querySelector(`[data-step-idx="${activeStepIndex}"]`);
+      if (activeEl) {
+        activeEl.scrollIntoView({ behavior: "smooth", inline: "nearest", block: "nearest" });
+      }
+    }
+  }, [activeStepIndex]);
 
   // Copy report handler
   const handleCopyReport = () => {
@@ -12688,7 +12707,7 @@ function DetailedEngineeringMathAudit({
             </div>
 
             {/* PRIMARY COMPONENT SECTION NAVIGATION TABS */}
-            <div className="flex items-center gap-1.5 p-1 bg-[#090E17] border border-[#1A2536] rounded-2xl overflow-x-auto shadow-md">
+            <div className="flex items-center gap-1.5 p-1 bg-[#090E17] border border-[#1A2536] rounded-2xl overflow-x-auto shadow-md tech-scrollbar">
               <button
                 onClick={() => setActiveSectionTab("math")}
                 className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition cursor-pointer shrink-0 ${
@@ -13055,43 +13074,65 @@ function DetailedEngineeringMathAudit({
                     </div>
                   </div>
 
-                  {/* Horizontal Step Selector Pills */}
-                  <div className="flex items-center gap-1.5 overflow-x-auto pb-1.5 pt-0.5 scrollbar-thin">
-                    {mathSteps.map((step, idx) => {
-                      const isSelected = activeStepIndex === idx && !viewAllSteps;
-                      const isExceeded = step.capacity && Number(step.capacity.current) > Number(step.capacity.limit);
-                      const isDefl = step.title?.includes("Deflection") && activeItem.result?.deflectionFlag;
-                      const hasIssue = isExceeded || isDefl;
+                  {/* Horizontal Step Selector Strip with Left/Right Chevrons */}
+                  <div className="relative flex items-center gap-1.5">
+                    <button
+                      onClick={() => scrollStepStrip("left")}
+                      className="p-1.5 rounded-xl bg-[#0B1524] hover:bg-[#132238] text-[#8195AA] hover:text-[#5CC8E0] border border-[#1A2C42] hover:border-[#5CC8E0]/40 transition shrink-0 cursor-pointer shadow-sm"
+                      title="Scroll steps left"
+                    >
+                      <ChevronLeft size={15} />
+                    </button>
 
-                      const cleanTitle = step.title.replace(/^\d+\.\s*/, "");
-                      const shortTitle = cleanTitle.length > 20 ? cleanTitle.slice(0, 18) + "…" : cleanTitle;
+                    <div
+                      ref={stepStripRef}
+                      className="flex-1 flex items-center gap-1.5 overflow-x-auto pb-2 pt-1 scroll-smooth tech-scrollbar"
+                    >
+                      {mathSteps.map((step, idx) => {
+                        const isSelected = activeStepIndex === idx && !viewAllSteps;
+                        const isExceeded = step.capacity && Number(step.capacity.current) > Number(step.capacity.limit);
+                        const isDefl = step.title?.includes("Deflection") && activeItem.result?.deflectionFlag;
+                        const hasIssue = isExceeded || isDefl;
 
-                      return (
-                        <button
-                          key={idx}
-                          onClick={() => {
-                            setActiveStepIndex(idx);
-                            setViewAllSteps(false);
-                          }}
-                          className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-mono font-bold transition shrink-0 cursor-pointer border ${
-                            isSelected
-                              ? "bg-[#5CC8E0] text-black border-[#5CC8E0] shadow-md"
-                              : hasIssue
-                              ? "bg-[#EF4444]/15 text-[#F87171] border-[#EF4444]/40 hover:bg-[#EF4444]/25"
-                              : "bg-[#0B1524] text-[#8195AA] hover:text-white border-[#1A2C42] hover:border-[#2F4E75]"
-                          }`}
-                          title={step.title}
-                        >
-                          <span className={`w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-bold ${
-                            isSelected ? "bg-black text-[#5CC8E0]" : hasIssue ? "bg-[#EF4444] text-white" : "bg-[#162940] text-[#5CC8E0]"
-                          }`}>
-                            {idx + 1}
-                          </span>
-                          <span>{shortTitle}</span>
-                          {hasIssue && <span className="w-1.5 h-1.5 rounded-full bg-[#EF4444] animate-pulse" />}
-                        </button>
-                      );
-                    })}
+                        const cleanTitle = step.title.replace(/^\d+\.\s*/, "");
+                        const shortTitle = cleanTitle.length > 20 ? cleanTitle.slice(0, 18) + "…" : cleanTitle;
+
+                        return (
+                          <button
+                            key={idx}
+                            data-step-idx={idx}
+                            onClick={() => {
+                              setActiveStepIndex(idx);
+                              setViewAllSteps(false);
+                            }}
+                            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-mono font-bold transition shrink-0 cursor-pointer border ${
+                              isSelected
+                                ? "bg-[#5CC8E0] text-black border-[#5CC8E0] shadow-md scale-[1.02]"
+                                : hasIssue
+                                ? "bg-[#EF4444]/15 text-[#F87171] border-[#EF4444]/40 hover:bg-[#EF4444]/25"
+                                : "bg-[#0B1524] text-[#8195AA] hover:text-white border-[#1A2C42] hover:border-[#2F4E75]"
+                            }`}
+                            title={step.title}
+                          >
+                            <span className={`w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-bold ${
+                              isSelected ? "bg-black text-[#5CC8E0]" : hasIssue ? "bg-[#EF4444] text-white" : "bg-[#162940] text-[#5CC8E0]"
+                            }`}>
+                              {idx + 1}
+                            </span>
+                            <span>{shortTitle}</span>
+                            {hasIssue && <span className="w-1.5 h-1.5 rounded-full bg-[#EF4444] animate-pulse" />}
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    <button
+                      onClick={() => scrollStepStrip("right")}
+                      className="p-1.5 rounded-xl bg-[#0B1524] hover:bg-[#132238] text-[#8195AA] hover:text-[#5CC8E0] border border-[#1A2C42] hover:border-[#5CC8E0]/40 transition shrink-0 cursor-pointer shadow-sm"
+                      title="Scroll steps right"
+                    >
+                      <ChevronRight size={15} />
+                    </button>
                   </div>
                 </div>
 

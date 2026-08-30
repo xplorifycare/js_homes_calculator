@@ -27,6 +27,11 @@ html, body, #root {
 }
 
 /* Modern Dark Minimalist Scrollbars */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #22354D #0B1320;
+}
+
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -34,16 +39,61 @@ html, body, #root {
 
 ::-webkit-scrollbar-track {
   background: #070D17;
+  border-radius: 9999px;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #1E293B;
+  background: #1E2E42;
   border-radius: 9999px;
+  border: 1px solid #0E1A29;
   transition: background-color 0.2s;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #3B82F6;
+  background: #5CC8E0;
+  box-shadow: 0 0 8px rgba(92, 200, 224, 0.5);
+}
+
+::-webkit-scrollbar-button {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
+/* Dedicated Tech Scrollbar for Horizontal Navigation Strips */
+.tech-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: #263E5E #08111D;
+}
+
+.tech-scrollbar::-webkit-scrollbar {
+  height: 5px;
+  width: 5px;
+}
+
+.tech-scrollbar::-webkit-scrollbar-track {
+  background: #08111D;
+  border-radius: 9999px;
+  border: 1px solid #142236;
+  margin: 0 2px;
+}
+
+.tech-scrollbar::-webkit-scrollbar-thumb {
+  background: #253D5C;
+  border-radius: 9999px;
+  border: 1px solid #101E30;
+  transition: all 0.2s ease;
+}
+
+.tech-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #5CC8E0;
+  box-shadow: 0 0 10px rgba(92, 200, 224, 0.6);
+}
+
+.tech-scrollbar::-webkit-scrollbar-button {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
 }
 
 /* Monospace Class */
