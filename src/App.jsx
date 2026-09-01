@@ -1485,7 +1485,7 @@ function buildBeamSteps(beam, settings, r) {
     latexSub: `L_{\\text{eff}} = ${beam.clearSpan}\\text{ m} + ${((Number(beam.supportWidth) || settings.bearing) / 1000).toFixed(3)}\\text{ m}`,
     latexResult: `L_{\\text{eff}} = ${num(Leff)}\\text{ m}`,
     diagramKey: "beam_effective_span",
-    diagData: { clearSpan: beam.clearSpan, supportWidth: (Number(beam.supportWidth) || settings.bearing), d, Leff },
+    diagData: { clearSpan: beam.clearSpan, supportWidth: (Number(beam.supportWidth) || settings.bearing), d, Leff, isWallSupported: r.isWallSupported },
     vars: [
       { symbol: "L_{\\text{eff}}", name: "Effective Span", def: "Design center-to-center span between support centers per Cl 22.2(a)", unit: "m" },
       { symbol: "L_{\\text{clear}}", name: "Clear Unobstructed Span", def: "Face-to-face clear distance between supporting columns or walls", unit: "m" },
@@ -11826,36 +11826,77 @@ function StepVariableDiagram({ step, item, settings }) {
 
         {/* 11. BEAM EFFECTIVE SPAN & GEOMETRY */}
         {diagramKey === "beam_effective_span" && (() => {
-          const { clearSpan = 3.5, supportWidth = 230, d = 260, Leff = 3.73 } = diagData;
+          const { clearSpan = 3.5, supportWidth = 230, d = 260, Leff = 3.73, isWallSupported } = diagData;
           return (
-            <svg viewBox="0 0 540 180" className="w-full h-auto min-w-[500px] max-h-[185px]">
+            <svg viewBox="0 0 540 185" className="w-full h-auto min-w-[500px] max-h-[190px]">
               {renderDefs("bes_")}
-              {/* Columns on Left and Right */}
-              <rect x="70" y="45" width="60" height="100" fill="#1B293C" stroke="#475569" strokeWidth="1.5" />
-              <text x="100" y="105" fill="#94A3B8" fontSize="9" textAnchor="middle" fontFamily="monospace">Column</text>
-              <rect x="410" y="45" width="60" height="100" fill="#1B293C" stroke="#475569" strokeWidth="1.5" />
-              <text x="440" y="105" fill="#94A3B8" fontSize="9" textAnchor="middle" fontFamily="monospace">Column</text>
 
-              {/* Beam Stem resting on columns */}
-              <rect x="70" y="45" width="400" height="40" fill="url(#bes_concHatch)" stroke="#38BDF8" strokeWidth="1.5" />
+              {isWallSupported ? (
+                <>
+                  {/* Continuous Solid Masonry Wall Bedding Below Beam */}
+                  <rect x="70" y="85" width="400" height="60" fill="#181512" stroke="#D97706" strokeWidth="1.5" strokeDasharray="5 3" />
+                  
+                  {/* Brick pattern lines */}
+                  <line x1="70" y1="105" x2="470" y2="105" stroke="#D97706" strokeWidth="0.8" opacity="0.6" />
+                  <line x1="70" y1="125" x2="470" y2="125" stroke="#D97706" strokeWidth="0.8" opacity="0.6" />
+                  <line x1="130" y1="85" x2="130" y2="105" stroke="#D97706" strokeWidth="0.8" opacity="0.4" />
+                  <line x1="200" y1="105" x2="200" y2="125" stroke="#D97706" strokeWidth="0.8" opacity="0.4" />
+                  <line x1="270" y1="85" x2="270" y2="105" stroke="#D97706" strokeWidth="0.8" opacity="0.4" />
+                  <line x1="340" y1="105" x2="340" y2="125" stroke="#D97706" strokeWidth="0.8" opacity="0.4" />
+                  <line x1="410" y1="85" x2="410" y2="105" stroke="#D97706" strokeWidth="0.8" opacity="0.4" />
 
-              {/* Bearing Width w_support */}
-              <line x1="70" y1="35" x2="130" y2="35" stroke="#FCD34D" strokeWidth="1.5" markerStart="url(#bes_arr-sa)" markerEnd="url(#bes_arr-a)" />
-              <text x="100" y="27" fill="#FCD34D" fontSize="9" textAnchor="middle" fontFamily="monospace">w={supportWidth}mm</text>
+                  {/* Wall Bedding Status Badge */}
+                  <rect x="120" y="96" width="300" height="24" rx="4" fill="#0B131F" stroke="#D97706" strokeWidth="1" />
+                  <text x="270" y="112" fill="#FCD34D" fontSize="10" textAnchor="middle" fontFamily="monospace" fontWeight="bold">
+                    🧱 Continuous Solid Masonry Wall Bedding (Wall W2)
+                  </text>
 
-              {/* Clear Span Lclear */}
-              <line x1="130" y1="100" x2="410" y2="100" stroke="#38BDF8" strokeWidth="1.5" markerStart="url(#bes_arr-sc)" markerEnd="url(#bes_arr-c)" />
-              <text x="270" y="115" fill="#38BDF8" fontSize="10.5" textAnchor="middle" fontFamily="monospace" fontWeight="bold">
-                L_clear = {clearSpan} m (Face-to-Face)
-              </text>
+                  {/* Beam Stem resting directly on wall */}
+                  <rect x="70" y="45" width="400" height="40" fill="url(#bes_concHatch)" stroke="#38BDF8" strokeWidth="1.8" />
+                  <text x="270" y="69" fill="#38BDF8" fontSize="10.5" textAnchor="middle" fontFamily="monospace" fontWeight="bold">
+                    RCC Wall Tie Band / Lintel Beam (IS 4326)
+                  </text>
 
-              {/* Effective Span Leff (C/C of bearings) */}
-              <line x1="100" y1="140" x2="440" y2="140" stroke="#34D399" strokeWidth="1.5" markerStart="url(#bes_arr-sg)" markerEnd="url(#bes_arr-g)" />
-              <line x1="100" y1="45" x2="100" y2="148" stroke="#34D399" strokeWidth="1" strokeDasharray="3 2" />
-              <line x1="440" y1="45" x2="440" y2="148" stroke="#34D399" strokeWidth="1" strokeDasharray="3 2" />
-              <text x="270" y="156" fill="#34D399" fontSize="10.5" textAnchor="middle" fontFamily="monospace" fontWeight="bold">
-                Leff = min(Lclear + d, Lclear + w) = {num(Leff)} m
-              </text>
+                  {/* Bearing Width w_support */}
+                  <line x1="70" y1="35" x2="130" y2="35" stroke="#FCD34D" strokeWidth="1.5" markerStart="url(#bes_arr-sa)" markerEnd="url(#bes_arr-a)" />
+                  <text x="100" y="27" fill="#FCD34D" fontSize="9" textAnchor="middle" fontFamily="monospace">Wall t={supportWidth}mm</text>
+
+                  {/* Clear Wall Span Annotation */}
+                  <line x1="70" y1="155" x2="470" y2="155" stroke="#34D399" strokeWidth="1.5" markerStart="url(#bes_arr-sg)" markerEnd="url(#bes_arr-g)" />
+                  <text x="270" y="172" fill="#34D399" fontSize="10" textAnchor="middle" fontFamily="monospace" fontWeight="bold">
+                    Wall Panel Length = {clearSpan} m (Zero Free-Span Sagging)
+                  </text>
+                </>
+              ) : (
+                <>
+                  {/* Columns on Left and Right */}
+                  <rect x="70" y="45" width="60" height="100" fill="#1B293C" stroke="#475569" strokeWidth="1.5" />
+                  <text x="100" y="105" fill="#94A3B8" fontSize="9" textAnchor="middle" fontFamily="monospace">Column</text>
+                  <rect x="410" y="45" width="60" height="100" fill="#1B293C" stroke="#475569" strokeWidth="1.5" />
+                  <text x="440" y="105" fill="#94A3B8" fontSize="9" textAnchor="middle" fontFamily="monospace">Column</text>
+
+                  {/* Beam Stem resting on columns */}
+                  <rect x="70" y="45" width="400" height="40" fill="url(#bes_concHatch)" stroke="#38BDF8" strokeWidth="1.5" />
+
+                  {/* Bearing Width w_support */}
+                  <line x1="70" y1="35" x2="130" y2="35" stroke="#FCD34D" strokeWidth="1.5" markerStart="url(#bes_arr-sa)" markerEnd="url(#bes_arr-a)" />
+                  <text x="100" y="27" fill="#FCD34D" fontSize="9" textAnchor="middle" fontFamily="monospace">w={supportWidth}mm</text>
+
+                  {/* Clear Span Lclear */}
+                  <line x1="130" y1="100" x2="410" y2="100" stroke="#38BDF8" strokeWidth="1.5" markerStart="url(#bes_arr-sc)" markerEnd="url(#bes_arr-c)" />
+                  <text x="270" y="115" fill="#38BDF8" fontSize="10.5" textAnchor="middle" fontFamily="monospace" fontWeight="bold">
+                    L_clear = {clearSpan} m (Face-to-Face)
+                  </text>
+
+                  {/* Effective Span Leff (C/C of bearings) */}
+                  <line x1="100" y1="140" x2="440" y2="140" stroke="#34D399" strokeWidth="1.5" markerStart="url(#bes_arr-sg)" markerEnd="url(#bes_arr-g)" />
+                  <line x1="100" y1="45" x2="100" y2="148" stroke="#34D399" strokeWidth="1" strokeDasharray="3 2" />
+                  <line x1="440" y1="45" x2="440" y2="148" stroke="#34D399" strokeWidth="1" strokeDasharray="3 2" />
+                  <text x="270" y="156" fill="#34D399" fontSize="10.5" textAnchor="middle" fontFamily="monospace" fontWeight="bold">
+                    Leff = min(Lclear + d, Lclear + w) = {num(Leff)} m
+                  </text>
+                </>
+              )}
             </svg>
           );
         })()}
