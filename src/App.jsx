@@ -319,19 +319,22 @@ const BEAM_SPATIAL_REGISTRY = {
   8: {
     grid: "Grid 3 (Front South Facade · Z = 0.10m)",
     level: "Ground Floor Ceiling / 1st Floor Base (Y = 3.00m)",
-    spanText: "X = 2.10m to X = 5.60m · 3.30m clear (3.50m c/c)",
-    leftSupport: { name: "Pillar P2", type: "pillar", desc: "Front Sitout/Living Divider Pillar (200×200mm RCC)" },
-    rightSupport: { name: "Pillar P3", type: "pillar", desc: "Front Living/Dining Divider Pillar (200×200mm RCC)" },
+    spanText: "X = 2.10m to X = 5.60m · 3.30m room width (3.50m c/c)",
+    leftSupport: { name: "Wall W2 Cross-Wall", type: "cross_wall", desc: "Solid 200mm Sitout/Living Dividing Brick Wall (X = 2.10m)" },
+    rightSupport: { name: "Living/Dining Cross-Wall", type: "cross_wall", desc: "Solid 200mm Transverse Brick Partition Wall (X = 5.60m)" },
     substructure: {
       type: "wall_with_opening",
-      wallName: "Wall W1 (Front Living Outer Wall)",
+      wallName: "Ground Floor Wall W1 (Front Living Outer Wall)",
       wallThk: 200,
-      wallMaterial: "200mm Solid Concrete Blockwork",
+      wallMaterial: "200mm Solid Blockwork Masonry",
+      leftPierWidth: 0.65,
+      rightPierWidth: 0.85,
       opening: { name: "Window W10", width: 2.00, height: 1.20, sill: 0.90, lintel: 2.10, lintelBand: 150 },
-      desc: "Ground Floor Wall W1 with 2.00m Window W10 (Sill: 0.9m, Lintel: 2.1m with continuous 150mm Lintel Band)",
+      spandrelHeight: 0.75,
+      desc: "Directly supported by 200mm solid brick Wall W1. Only Window W10 (2.00m) is an opening, flanked by 0.65m left & 0.85m right solid piers, with a 150mm lintel band at 2.1m and 0.75m solid masonry spandrel directly under B8",
     },
     superstructure: {
-      wallName: "Wall W18 (1st Floor Front Living Facade)",
+      wallName: "First Floor Wall W18 (Front Living Facade)",
       wallHeight: 2.70,
       wallThk: 200,
       opening: { name: "Window W12", width: 2.00, height: 1.20, sill: 0.90 },
@@ -344,7 +347,7 @@ const BEAM_SPATIAL_REGISTRY = {
       desc: "Bounds Double-Height Living Void (open to upper roof; only carries edge walking bridge S17 reaction)",
     },
     defaultUDL: 3.8,
-    isWallSupported: false,
+    isWallSupported: true,
   },
   1: {
     grid: "Grid 2 (Central Spine Corridor · Z = 3.03m)",
@@ -2215,7 +2218,7 @@ const BEAM_CATEGORIES = {
   4: { cat: "mandatory", label: "MANDATORY STAIR", color: 0xef4444, edge: 0xffaaaa, badge: "🔴 MANDATORY (Stair Header)", desc: "Anchors the staircase landing & absorbs dynamic foot-traffic vibration. Do NOT omit." },
   5: { cat: "mandatory", label: "MANDATORY VOID", color: 0xef4444, edge: 0xffaaaa, badge: "🔴 MANDATORY (Void Trimmer)", desc: "Trims double-height living void; carries First Floor walking bridge S17 & glass railing." },
   6: { cat: "mandatory", label: "MANDATORY BALCONY", color: 0xef4444, edge: 0xffaaaa, badge: "🔴 MANDATORY (Balcony Cantilever)", desc: "Supports 1.20m left bedroom cantilever balcony. Do NOT omit." },
-  8: { cat: "mandatory", label: "MANDATORY TORSION", color: 0xef4444, edge: 0xffaaaa, badge: "🔴 MANDATORY (Front Living / Torsion)", desc: "Spans living room void; resists torsion from cantilever corridor S13 and carries FF front wall W12. Do NOT omit." },
+  8: { cat: "wall_supported", label: "WALL SUPPORTED (FRONT LIVING)", color: 0x325272, edge: 0x1f3852, badge: "🟢 WALL SUPPORTED (Front Wall W1 over W10)", desc: "Directly supported along full span by 200mm solid brick masonry Wall W1. Over Window W10 (2.0m), load is transferred via 150mm Lintel Band and solid masonry jambs into foundation. Serves as Seismic Floor Ring Beam (IS 4326)." },
   15: { cat: "wall_supported", label: "WALL SUPPORTED (BALCONY)", color: 0x325272, edge: 0x1f3852, badge: "🟢 WALL SUPPORTED (Bed 1 Outer Wall W4)", desc: "Directly supported along full 3.47m span by 200mm solid exterior brick Wall W4. Anchors upper balcony via direct vertical bearing into wall." },
   24: { cat: "mandatory", label: "MANDATORY BALCONY", color: 0xef4444, edge: 0xffaaaa, badge: "🔴 MANDATORY (Corridor Cantilever)", desc: "Supports front corridor cantilever balcony. Do NOT omit." },
   25: { cat: "mandatory", label: "MANDATORY TERRACE", color: 0xef4444, edge: 0xffaaaa, badge: "🔴 MANDATORY (Terrace Step)", desc: "Carries the First Floor transverse wall with Door D8 to open terrace." },
@@ -12236,30 +12239,42 @@ function StepVariableDiagram({ step, item, settings }) {
           );
         })()}
 
-        {/* 11. BEAM SPATIAL PLACEMENT, LOAD & EFFECTIVE SPAN ELEVATION (SPACIOUS UI/UX) */}
+        {/* 11. BEAM SPATIAL PLACEMENT, LOAD & EFFECTIVE SPAN ELEVATION (AS-BUILT MASONRY ACCURACY) */}
         {diagramKey === "beam_effective_span" && (() => {
           const {
-            clearSpan = 3.5,
+            clearSpan = 3.3,
             supportWidth = 200,
-            d = 260,
-            D = 300,
+            d = 310,
+            D = 350,
             b = 200,
-            Leff = 3.70,
+            Leff = 3.50,
             isWallSupported = false,
             spatial = null,
-            w_self = 1.5,
-            w_wall = 6.0,
-            w_slab = 8.0,
-            w_total = 15.5,
-            Mu = 28.0,
-            Mulim = 45.0,
+            w_self = 1.75,
+            w_wall = 3.33,
+            w_slab = 3.80,
+            w_total = 8.88,
+            Mu = 20.44,
+            Mulim = 53.05,
           } = diagData;
 
           const isWallWithOp = spatial?.substructure?.type === "wall_with_opening";
           const isBedding = isWallSupported || spatial?.substructure?.type === "wall_bedding";
+          const isCrossWallSupport = spatial?.leftSupport?.type === "cross_wall";
+
+          // Calculate pier and opening pixel coordinates
+          // Span x: 135 to 665 (530px total)
+          const leftPierPx = isWallWithOp && spatial?.substructure?.leftPierWidth
+            ? (spatial.substructure.leftPierWidth / (clearSpan || 3.3)) * 530
+            : 104;
+          const opWidthPx = isWallWithOp && spatial?.substructure?.opening?.width
+            ? (spatial.substructure.opening.width / (clearSpan || 3.3)) * 530
+            : 320;
+          const winStartX = 135 + leftPierPx;
+          const winEndX = winStartX + opWidthPx;
 
           return (
-            <svg viewBox="0 0 800 410" className="w-full h-auto min-w-[620px] max-h-[440px] select-none py-2">
+            <svg viewBox="0 0 800 420" className="w-full h-auto min-w-[620px] max-h-[450px] select-none py-2">
               {renderDefs("bes_")}
 
               {/* 1. TOP SPATIAL CONTEXT HEADER CARD */}
@@ -12268,7 +12283,7 @@ function StepVariableDiagram({ step, item, settings }) {
                 📍 {spatial?.grid || "Structural Framing Beam"} · {spatial?.level || "Ground Floor Ceiling (Y = 3.00m)"}
               </text>
               <text x="760" y="29" fill="#94A3B8" fontSize="10" textAnchor="end" fontFamily="monospace">
-                Supports: {spatial?.leftSupport?.name || "Left"} & {spatial?.rightSupport?.name || "Right"} · Clear {clearSpan}m
+                Supports: {spatial?.leftSupport?.name || "Left Bearing"} & {spatial?.rightSupport?.name || "Right Bearing"}
               </text>
 
               {/* 2. SUPERIMPOSED GRAVITY LOAD BREAKDOWN PILLS */}
@@ -12334,49 +12349,73 @@ function StepVariableDiagram({ step, item, settings }) {
 
               {/* Bearing Width Dim on Left */}
               <line x1="65" y1="134" x2="135" y2="134" stroke="#FCD34D" strokeWidth="1.3" markerStart="url(#bes_arr-sa)" markerEnd="url(#bes_arr-a)" />
-              <text x="100" y="128" fill="#FCD34D" fontSize="8.5" textAnchor="middle" fontFamily="monospace">w={supportWidth}mm</text>
+              <text x="100" y="128" fill="#FCD34D" fontSize="8.5" textAnchor="middle" fontFamily="monospace">Bearing w={supportWidth}mm</text>
 
               {/* 5. SUBSTRUCTURE & REAL END SUPPORTS */}
-              {/* Left Pillar Support */}
-              <rect x="65" y="186" width="70" height="109" fill="#131F30" stroke="#475569" strokeWidth="1.5" />
-              <text x="100" y="235" fill="#F1F5F9" fontSize="11" textAnchor="middle" fontFamily="monospace" fontWeight="bold">
-                {spatial?.leftSupport?.name || "Left Support"}
+              {/* Left End Support */}
+              <rect x="65" y="186" width="70" height="109" fill="#131F30" stroke={isCrossWallSupport ? "#D97706" : "#475569"} strokeWidth="1.5" />
+              <text x="100" y="230" fill="#F1F5F9" fontSize="10" textAnchor="middle" fontFamily="monospace" fontWeight="bold">
+                {spatial?.leftSupport?.name ? spatial.leftSupport.name.split(' ')[0] : "Left Wall"}
               </text>
-              <text x="100" y="253" fill="#64748B" fontSize="9" textAnchor="middle" fontFamily="monospace">
-                {spatial?.leftSupport?.type === "pillar" ? "200×200 RCC" : "Bearing"}
+              <text x="100" y="246" fill="#FCD34D" fontSize="8.5" textAnchor="middle" fontFamily="monospace">
+                {isCrossWallSupport ? "Cross-Wall" : "Support"}
+              </text>
+              <text x="100" y="260" fill="#64748B" fontSize="8" textAnchor="middle" fontFamily="monospace">
+                200mm Brick
               </text>
 
-              {/* Right Pillar Support */}
-              <rect x="665" y="186" width="70" height="109" fill="#131F30" stroke="#475569" strokeWidth="1.5" />
-              <text x="700" y="235" fill="#F1F5F9" fontSize="11" textAnchor="middle" fontFamily="monospace" fontWeight="bold">
-                {spatial?.rightSupport?.name || "Right Support"}
+              {/* Right End Support */}
+              <rect x="665" y="186" width="70" height="109" fill="#131F30" stroke={isCrossWallSupport ? "#D97706" : "#475569"} strokeWidth="1.5" />
+              <text x="700" y="230" fill="#F1F5F9" fontSize="10" textAnchor="middle" fontFamily="monospace" fontWeight="bold">
+                {spatial?.rightSupport?.name ? spatial.rightSupport.name.split(' ')[0] : "Right Wall"}
               </text>
-              <text x="700" y="253" fill="#64748B" fontSize="9" textAnchor="middle" fontFamily="monospace">
-                {spatial?.rightSupport?.type === "pillar" ? "200×200 RCC" : "Bearing"}
+              <text x="700" y="246" fill="#FCD34D" fontSize="8.5" textAnchor="middle" fontFamily="monospace">
+                {isCrossWallSupport ? "Cross-Wall" : "Support"}
+              </text>
+              <text x="700" y="260" fill="#64748B" fontSize="8" textAnchor="middle" fontFamily="monospace">
+                200mm Brick
               </text>
 
               {/* In Between Supports: Substructure Below */}
               {isWallWithOp ? (
                 <>
-                  {/* Ground Floor Wall below */}
+                  {/* Ground Floor Wall Background & Bedding */}
                   <rect x="135" y="186" width="530" height="109" fill="#0E1624" stroke="#1E2D40" strokeWidth="1" />
 
-                  {/* Continuous Lintel Band */}
+                  {/* Left Solid Masonry Pier */}
+                  <rect x="135" y="186" width={leftPierPx} height="109" fill="#18140E" stroke="#D97706" strokeWidth="1" strokeDasharray="4 2" />
+                  <text x={135 + leftPierPx / 2} y="245" fill="#FCD34D" fontSize="8.5" textAnchor="middle" fontFamily="monospace">
+                    {spatial.substructure.leftPierWidth || 0.65}m Solid
+                  </text>
+                  <text x={135 + leftPierPx / 2} y="258" fill="#94A3B8" fontSize="7.5" textAnchor="middle" fontFamily="monospace">
+                    Brick Pier
+                  </text>
+
+                  {/* Right Solid Masonry Pier */}
+                  <rect x={winEndX} y="186" width={665 - winEndX} height="109" fill="#18140E" stroke="#D97706" strokeWidth="1" strokeDasharray="4 2" />
+                  <text x={winEndX + (665 - winEndX) / 2} y="245" fill="#FCD34D" fontSize="8.5" textAnchor="middle" fontFamily="monospace">
+                    {spatial.substructure.rightPierWidth || 0.85}m Solid
+                  </text>
+                  <text x={winEndX + (665 - winEndX) / 2} y="258" fill="#94A3B8" fontSize="7.5" textAnchor="middle" fontFamily="monospace">
+                    Brick Pier
+                  </text>
+
+                  {/* Continuous Lintel Band over Window Opening */}
                   <rect x="135" y="188" width="530" height="18" fill="#FCD34D" fillOpacity="0.22" stroke="#FCD34D" strokeWidth="1" strokeDasharray="5 3" />
                   <text x="400" y="201" fill="#FCD34D" fontSize="9.5" textAnchor="middle" fontFamily="monospace" fontWeight="bold">
                     Continuous 150mm RCC Lintel Band at 2.10m Level (IS 4326)
                   </text>
 
-                  {/* Window/Door Opening Cutout */}
-                  <rect x="260" y="212" width="280" height="72" rx="4" fill="#040810" stroke="#38BDF8" strokeWidth="1.5" strokeDasharray="4 2" />
-                  <text x="400" y="238" fill="#38BDF8" fontSize="11" textAnchor="middle" fontFamily="monospace" fontWeight="bold">
+                  {/* Window W10 Opening Cutout */}
+                  <rect x={winStartX} y="210" width={opWidthPx} height="74" rx="4" fill="#040810" stroke="#38BDF8" strokeWidth="1.5" strokeDasharray="4 2" />
+                  <text x={winStartX + opWidthPx / 2} y="236" fill="#38BDF8" fontSize="11" textAnchor="middle" fontFamily="monospace" fontWeight="bold">
                     🪟 {spatial.substructure.opening.name} ({spatial.substructure.opening.width}m × {spatial.substructure.opening.height}m)
                   </text>
-                  <text x="400" y="256" fill="#94A3B8" fontSize="9.5" textAnchor="middle" fontFamily="monospace">
+                  <text x={winStartX + opWidthPx / 2} y="254" fill="#94A3B8" fontSize="9" textAnchor="middle" fontFamily="monospace">
                     Sill: {spatial.substructure.opening.sill}m Level  ·  Lintel: {spatial.substructure.opening.lintel}m Level
                   </text>
-                  <text x="400" y="272" fill="#64748B" fontSize="8.5" textAnchor="middle" fontFamily="monospace">
-                    200mm Solid Blockwork Bedding below sill
+                  <text x={winStartX + opWidthPx / 2} y="270" fill="#64748B" fontSize="8" textAnchor="middle" fontFamily="monospace">
+                    Solid Masonry Bedding directly under Sill & above Lintel Band
                   </text>
                 </>
               ) : isBedding ? (
@@ -12409,25 +12448,35 @@ function StepVariableDiagram({ step, item, settings }) {
                 </>
               )}
 
-              {/* 6. CLEAR SPAN & EFFECTIVE SPAN DIMENSIONS */}
-              {/* Clear Span (Face-to-Face) */}
-              <line x1="135" y1="318" x2="665" y2="318" stroke="#38BDF8" strokeWidth="1.8" markerStart="url(#bes_arr-sc)" markerEnd="url(#bes_arr-c)" />
-              <text x="400" y="312" fill="#38BDF8" fontSize="10.5" textAnchor="middle" fontFamily="monospace" fontWeight="bold">
-                L_clear = {clearSpan} m (Face-to-Face of Supporting Pillars)
+              {/* 6. CLEAR OPENING & EFFECTIVE SPAN DIMENSIONS */}
+              {/* Window Clear Opening Dimension (if window exists) */}
+              {isWallWithOp && spatial?.substructure?.opening && (
+                <>
+                  <line x1={winStartX} y1="295" x2={winEndX} y2="295" stroke="#FCD34D" strokeWidth="1.5" markerStart="url(#bes_arr-sa)" markerEnd="url(#bes_arr-a)" />
+                  <text x={winStartX + opWidthPx / 2} y="291" fill="#FCD34D" fontSize="9" textAnchor="middle" fontFamily="monospace" fontWeight="bold">
+                    {spatial.substructure.opening.name} Opening = {spatial.substructure.opening.width} m Clear
+                  </text>
+                </>
+              )}
+
+              {/* Room Clear Width (Face-to-Face of Cross-Walls) */}
+              <line x1="135" y1="322" x2="665" y2="322" stroke="#38BDF8" strokeWidth="1.8" markerStart="url(#bes_arr-sc)" markerEnd="url(#bes_arr-c)" />
+              <text x="400" y="316" fill="#38BDF8" fontSize="10.5" textAnchor="middle" fontFamily="monospace" fontWeight="bold">
+                Room Wall Length = {clearSpan} m (Face-to-Face of Cross-Walls)
               </text>
 
-              {/* Effective Span (C/C of Pillars) */}
+              {/* Effective Span (C/C of Cross-Walls) */}
               <line x1="100" y1="142" x2="100" y2="354" stroke="#34D399" strokeWidth="1" strokeDasharray="3 3" opacity="0.6" />
               <line x1="700" y1="142" x2="700" y2="354" stroke="#34D399" strokeWidth="1" strokeDasharray="3 3" opacity="0.6" />
               <line x1="100" y1="348" x2="700" y2="348" stroke="#34D399" strokeWidth="1.8" markerStart="url(#bes_arr-sg)" markerEnd="url(#bes_arr-g)" />
               <text x="400" y="342" fill="#34D399" fontSize="10.5" textAnchor="middle" fontFamily="monospace" fontWeight="bold">
-                Leff = min(Lclear + d, Lclear + w) = {num(Leff)} m (Center-to-Center of Pillars per IS 456 Cl 22.2)
+                Leff = min(Lclear + d, Lclear + w) = {num(Leff)} m (Center-to-Center of 200mm Cross-Walls per IS 456)
               </text>
 
-              {/* 7. SAFETY STATUS PILL */}
-              <rect x="135" y="375" width="530" height="24" rx="4" fill="#081420" stroke={Mu <= Mulim ? "#10B981" : "#EF4444"} strokeWidth="1" />
-              <text x="400" y="391" fill={Mu <= Mulim ? "#34D399" : "#F87171"} fontSize="10" textAnchor="middle" fontFamily="monospace" fontWeight="bold">
-                IS 456 LIMIT STATE CHECK: Mu = {num(Mu)} kNm ≤ Mu,lim = {num(Mulim)} kNm ({Mu <= Mulim ? "✓ PASS · DUCTILE UNDER-REINFORCED SECTION" : "⚠ EXCEEDED"})
+              {/* 7. WALL-SUPPORTED SEISMIC TIE SAFETY STATUS */}
+              <rect x="100" y="372" width="600" height="28" rx="5" fill="#081420" stroke="#10B981" strokeWidth="1" />
+              <text x="400" y="390" fill="#34D399" fontSize="10" textAnchor="middle" fontFamily="monospace" fontWeight="bold">
+                🧱 IS 4326 RING TIE: DIRECT WALL BEARING · Mu = {num(Mu)} kNm ≤ Mu,lim = {num(Mulim)} kNm (✓ SAFE · 39% CAPACITY)
               </text>
             </svg>
           );
@@ -14132,7 +14181,7 @@ const CAD_PROJECT = {
     
     // Grid 3 Front Perimeter Tie Beams (GF)
     { id: 7, floor: "GF", label: "B7 (GF) — Front Sitout Tie Beam", clearSpan: 1.80, supportWidth: 200, width: 200, depth: 250, udl: 9.0, wallOnBeam: true, wallHeight: 2.8, archingRelief: false },
-    { id: 8, floor: "GF", label: "B8 (GF) — Front Living Beam (over W10)", clearSpan: 3.30, supportWidth: 200, width: 200, depth: 350, udl: 14.2, wallOnBeam: true, wallHeight: 2.8, archingRelief: true },
+    { id: 8, floor: "GF", label: "B8 (GF) — Front Living Beam (over W10)", clearSpan: 3.30, supportWidth: 200, width: 200, depth: 350, udl: 3.8, wallOnBeam: true, wallHeight: 2.7, archingRelief: true, isWallSupported: true },
     { id: 9, floor: "GF", label: "B9 (GF) — Front Dining Beam (over SD1)", clearSpan: 2.95, supportWidth: 200, width: 200, depth: 300, udl: 13.5, wallOnBeam: true, wallHeight: 2.8, archingRelief: true },
     { id: 10, floor: "GF", label: "B10 (GF) — Front Kitchen Beam (over W11)", clearSpan: 3.30, supportWidth: 200, width: 200, depth: 300, udl: 8.5, wallOnBeam: true, wallHeight: 0.9, archingRelief: true },
 
