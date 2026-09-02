@@ -1804,7 +1804,7 @@ const BEAM_CATEGORIES = {
   5: { cat: "mandatory", label: "MANDATORY VOID", color: 0xef4444, edge: 0xffaaaa, badge: "🔴 MANDATORY (Void Trimmer)", desc: "Trims double-height living void; carries First Floor walking bridge S17 & glass railing." },
   6: { cat: "mandatory", label: "MANDATORY BALCONY", color: 0xef4444, edge: 0xffaaaa, badge: "🔴 MANDATORY (Balcony Cantilever)", desc: "Supports 1.20m left bedroom cantilever balcony. Do NOT omit." },
   8: { cat: "mandatory", label: "MANDATORY TORSION", color: 0xef4444, edge: 0xffaaaa, badge: "🔴 MANDATORY (Front Living / Torsion)", desc: "Spans living room void; resists torsion from cantilever corridor S13 and carries FF front wall W12. Do NOT omit." },
-  15: { cat: "mandatory", label: "MANDATORY BALCONY", color: 0xef4444, edge: 0xffaaaa, badge: "🔴 MANDATORY (Balcony Anchorage)", desc: "Continuous perimeter beam anchoring left cantilever balcony SD3. Do NOT omit." },
+  15: { cat: "wall_supported", label: "WALL SUPPORTED (BALCONY)", color: 0x325272, edge: 0x1f3852, badge: "🟢 WALL SUPPORTED (Bed 1 Outer Wall W4)", desc: "Directly supported along full 3.47m span by 200mm solid exterior brick Wall W4. Anchors upper balcony via direct vertical bearing into wall." },
   24: { cat: "mandatory", label: "MANDATORY BALCONY", color: 0xef4444, edge: 0xffaaaa, badge: "🔴 MANDATORY (Corridor Cantilever)", desc: "Supports front corridor cantilever balcony. Do NOT omit." },
   25: { cat: "mandatory", label: "MANDATORY TERRACE", color: 0xef4444, edge: 0xffaaaa, badge: "🔴 MANDATORY (Terrace Step)", desc: "Carries the First Floor transverse wall with Door D8 to open terrace." },
   26: { cat: "wall_supported", label: "WALL SUPPORTED", color: 0x325272, edge: 0x1f3852, badge: "🟢 WALL SUPPORTED (Sitout/Living Wall W2)", desc: "Directly supported along full span by 200mm solid brick masonry Wall W2. Serves as Seismic Ring Tie Band (IS 4326)." },
@@ -13612,7 +13612,7 @@ const CAD_PROJECT = {
     { id: 14, floor: "GF", label: "B14 (GF) — Rear Bed 2 Beam (over W8/W9)", clearSpan: 3.00, supportWidth: 200, width: 200, depth: 300, udl: 13.8, wallOnBeam: true, wallHeight: 2.8, archingRelief: true },
 
     // Exterior Side Perimeter Beams (GF)
-    { id: 15, floor: "GF", label: "B15 (GF) — Left Bed Outer Beam", clearSpan: 3.47, supportWidth: 200, width: 200, depth: 300, udl: 14.5, wallOnBeam: true, wallHeight: 2.8, archingRelief: true },
+    { id: 15, floor: "GF", label: "B15 (GF) — Left Bed Outer Beam", clearSpan: 3.47, supportWidth: 200, width: 200, depth: 300, udl: 14.5, wallOnBeam: true, wallHeight: 2.8, archingRelief: true, isWallSupported: true },
     { id: 16, floor: "GF", label: "B16 (GF) — Left Sitout Outer Beam", clearSpan: 2.73, supportWidth: 200, width: 200, depth: 250, udl: 10.0, wallOnBeam: true, wallHeight: 2.8, archingRelief: false },
     { id: 17, floor: "GF", label: "B17 (GF) — Right Kitchen Outer Beam (over D6)", clearSpan: 2.73, supportWidth: 200, width: 200, depth: 250, udl: 8.5, wallOnBeam: true, wallHeight: 0.9, archingRelief: true },
     { id: 18, floor: "GF", label: "B18 (GF) — Right Bed Outer Beam", clearSpan: 3.47, supportWidth: 200, width: 200, depth: 300, udl: 14.5, wallOnBeam: true, wallHeight: 2.8, archingRelief: false },
