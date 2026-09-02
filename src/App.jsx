@@ -12236,7 +12236,7 @@ function StepVariableDiagram({ step, item, settings }) {
           );
         })()}
 
-        {/* 11. BEAM SPATIAL PLACEMENT, LOAD & EFFECTIVE SPAN ELEVATION */}
+        {/* 11. BEAM SPATIAL PLACEMENT, LOAD & EFFECTIVE SPAN ELEVATION (SPACIOUS UI/UX) */}
         {diagramKey === "beam_effective_span" && (() => {
           const {
             clearSpan = 3.5,
@@ -12259,151 +12259,175 @@ function StepVariableDiagram({ step, item, settings }) {
           const isBedding = isWallSupported || spatial?.substructure?.type === "wall_bedding";
 
           return (
-            <svg viewBox="0 0 600 245" className="w-full h-auto min-w-[540px] max-h-[250px]">
+            <svg viewBox="0 0 800 410" className="w-full h-auto min-w-[620px] max-h-[440px] select-none py-2">
               {renderDefs("bes_")}
 
-              {/* 1. TOP SPATIAL CONTEXT BANNER */}
-              <rect x="20" y="4" width="560" height="20" rx="4" fill="#0B1320" stroke="#1E293B" strokeWidth="1" />
-              <text x="30" y="17" fill="#5CC8E0" fontSize="9.5" fontFamily="monospace" fontWeight="bold">
-                📍 {spatial?.grid || "Structural Beam Placement"} · {spatial?.level || "Ground Floor Ceiling (Y = 3.00m)"}
+              {/* 1. TOP SPATIAL CONTEXT HEADER CARD */}
+              <rect x="25" y="10" width="750" height="30" rx="6" fill="#0A1320" stroke="#1E2E42" strokeWidth="1" />
+              <text x="40" y="29" fill="#38BDF8" fontSize="11" fontFamily="monospace" fontWeight="bold">
+                📍 {spatial?.grid || "Structural Framing Beam"} · {spatial?.level || "Ground Floor Ceiling (Y = 3.00m)"}
               </text>
-              <text x="570" y="17" fill="#94A3B8" fontSize="8.5" textAnchor="end" fontFamily="monospace">
-                {spatial?.spanText || `Clear Span ${clearSpan}m · b×D = ${b}×${D}mm`}
+              <text x="760" y="29" fill="#94A3B8" fontSize="10" textAnchor="end" fontFamily="monospace">
+                Supports: {spatial?.leftSupport?.name || "Left"} & {spatial?.rightSupport?.name || "Right"} · Clear {clearSpan}m
               </text>
 
-              {/* 2. OVERHEAD SUPERSTRUCTURE & GRAVITY LOAD VECTORS */}
-              <rect x="65" y="28" width="470" height="38" fill="#0B1522" stroke="#334155" strokeWidth="1" strokeDasharray="3 3" rx="2" />
-              {spatial?.superstructure?.opening && (
+              {/* 2. SUPERIMPOSED GRAVITY LOAD BREAKDOWN PILLS */}
+              <g transform="translate(0, 48)">
+                {/* Wall Load Pill */}
+                <rect x="135" y="0" width="165" height="22" rx="4" fill="#1A120B" stroke="#EA580C" strokeWidth="0.9" />
+                <text x="217" y="15" fill="#FB923C" fontSize="9.5" textAnchor="middle" fontFamily="monospace" fontWeight="bold">
+                  🧱 Wall: {num(w_wall)} kN/m
+                </text>
+
+                {/* Slab / Void Reaction Pill */}
+                <rect x="310" y="0" width="180" height="22" rx="4" fill="#0B1A2A" stroke="#0284C7" strokeWidth="0.9" />
+                <text x="400" y="15" fill="#38BDF8" fontSize="9.5" textAnchor="middle" fontFamily="monospace" fontWeight="bold">
+                  🏢 {spatial?.slabContext?.name ? spatial.slabContext.name.slice(0, 16) : "Floor Slab"}: {num(w_slab)} kN/m
+                </text>
+
+                {/* Self Weight Pill */}
+                <rect x="500" y="0" width="165" height="22" rx="4" fill="#17150A" stroke="#EAB308" strokeWidth="0.9" />
+                <text x="582" y="15" fill="#FACC15" fontSize="9.5" textAnchor="middle" fontFamily="monospace" fontWeight="bold">
+                  ⚙️ Self-Wt: {num(w_self)} kN/m
+                </text>
+              </g>
+
+              {/* 3. OVERHEAD FIRST FLOOR WALL & LOAD VECTORS */}
+              <rect x="65" y="78" width="670" height="42" fill="#080F1A" stroke="#334155" strokeWidth="1" strokeDasharray="3 3" rx="4" />
+              <text x="180" y="103" fill="#64748B" fontSize="9.5" fontFamily="monospace">
+                {spatial?.superstructure?.wallName || "First Floor Overhead Masonry Wall"} (h = {spatial?.superstructure?.wallHeight || 2.70}m)
+              </text>
+
+              {spatial?.superstructure?.opening ? (
                 <>
-                  <rect x="235" y="32" width="130" height="30" fill="#060C14" stroke="#5CC8E0" strokeWidth="1" strokeDasharray="2 2" />
-                  <text x="300" y="47" fill="#5CC8E0" fontSize="8" textAnchor="middle" fontFamily="monospace" fontWeight="bold">
-                    Overhead {spatial.superstructure.opening.name}
+                  <rect x="310" y="82" width="180" height="34" fill="#030712" stroke="#38BDF8" strokeWidth="1.2" strokeDasharray="2 2" rx="3" />
+                  <text x="400" y="99" fill="#38BDF8" fontSize="10" textAnchor="middle" fontFamily="monospace" fontWeight="bold">
+                    Overhead {spatial.superstructure.opening.name} ({spatial.superstructure.opening.width}m)
                   </text>
-                  <text x="300" y="58" fill="#64748B" fontSize="7.5" textAnchor="middle" fontFamily="monospace">
-                    Masonry Opening Void Deduction
+                  <text x="400" y="111" fill="#64748B" fontSize="8" textAnchor="middle" fontFamily="monospace">
+                    Opening Void Masonry Deduction
                   </text>
                 </>
+              ) : (
+                <text x="400" y="103" fill="#94A3B8" fontSize="9.5" textAnchor="middle" fontFamily="monospace">
+                  Continuous Overhead Solid Masonry
+                </text>
               )}
 
-              {/* Load Vectors (Downward amber arrows) */}
-              {[115, 195, 300, 405, 485].map((xPos, i) => (
-                <line key={i} x1={xPos} y1="36" x2={xPos} y2="62" stroke="#FCD34D" strokeWidth="1.6" markerEnd="url(#bes_arr-a)" />
+              {/* Downward Gravity Load Vectors */}
+              {[180, 290, 400, 510, 620].map((xPos, idx) => (
+                <line key={idx} x1={xPos} y1="124" x2={xPos} y2="140" stroke="#FCD34D" strokeWidth="1.8" markerEnd="url(#bes_arr-a)" />
               ))}
 
-              {/* Applied Load Summary Badge */}
-              <rect x="110" y="29" width="380" height="17" fill="#070E1A" stroke="#FCD34D" strokeWidth="0.8" rx="3" />
-              <text x="300" y="41" fill="#FCD34D" fontSize="8.5" textAnchor="middle" fontFamily="monospace" fontWeight="bold">
-                ↓ Superimposed Line Load: w_tot = {num(w_total)} kN/m [ Wall: {num(w_wall)} | Slab: {num(w_slab)} | Self: {num(w_self)} ]
+              {/* 4. RCC BEAM STEM */}
+              <rect x="65" y="142" width="670" height="44" fill="url(#bes_concHatch)" stroke="#38BDF8" strokeWidth="2" rx="3" />
+              <text x="400" y="165" fill="#38BDF8" fontSize="11" textAnchor="middle" fontFamily="monospace" fontWeight="bold">
+                RCC BEAM STEM: {b} × {D} mm (d = {d} mm) · Fe500 / M20 Concrete
               </text>
 
-              {/* 3. RCC BEAM STEM */}
-              <rect x="65" y="66" width="470" height="36" fill="url(#bes_concHatch)" stroke="#38BDF8" strokeWidth="1.8" rx="2" />
-              <text x="300" y="86" fill="#38BDF8" fontSize="10" textAnchor="middle" fontFamily="monospace" fontWeight="bold">
-                RCC Beam Stem: {b}×{D}mm (d = {d}mm) · Fe500 / M20
+              {/* Longitudinal Rebars */}
+              <circle cx="180" cy="174" r="3.5" fill="#F59E0B" />
+              <circle cx="400" cy="174" r="3.5" fill="#F59E0B" />
+              <circle cx="620" cy="174" r="3.5" fill="#F59E0B" />
+              <circle cx="180" cy="153" r="2.5" fill="#38BDF8" />
+              <circle cx="620" cy="153" r="2.5" fill="#38BDF8" />
+
+              {/* Bearing Width Dim on Left */}
+              <line x1="65" y1="134" x2="135" y2="134" stroke="#FCD34D" strokeWidth="1.3" markerStart="url(#bes_arr-sa)" markerEnd="url(#bes_arr-a)" />
+              <text x="100" y="128" fill="#FCD34D" fontSize="8.5" textAnchor="middle" fontFamily="monospace">w={supportWidth}mm</text>
+
+              {/* 5. SUBSTRUCTURE & REAL END SUPPORTS */}
+              {/* Left Pillar Support */}
+              <rect x="65" y="186" width="70" height="109" fill="#131F30" stroke="#475569" strokeWidth="1.5" />
+              <text x="100" y="235" fill="#F1F5F9" fontSize="11" textAnchor="middle" fontFamily="monospace" fontWeight="bold">
+                {spatial?.leftSupport?.name || "Left Support"}
               </text>
-
-              {/* Longitudinal Rebar Indicators */}
-              <circle cx="115" cy="94" r="3" fill="#F59E0B" />
-              <circle cx="300" cy="94" r="3" fill="#F59E0B" />
-              <circle cx="485" cy="94" r="3" fill="#F59E0B" />
-              <circle cx="115" cy="74" r="2.5" fill="#38BDF8" />
-              <circle cx="485" cy="74" r="2.5" fill="#38BDF8" />
-
-              {/* Bearing Width Dim */}
-              <line x1="65" y1="58" x2="125" y2="58" stroke="#FCD34D" strokeWidth="1.2" markerStart="url(#bes_arr-sa)" markerEnd="url(#bes_arr-a)" />
-              <text x="95" y="52" fill="#FCD34D" fontSize="8" textAnchor="middle" fontFamily="monospace">w={supportWidth}mm</text>
-
-              {/* 4. SUBSTRUCTURE & END SUPPORTS */}
-              {/* Left Support Column / Pillar */}
-              <rect x="65" y="102" width="60" height="78" fill="#172334" stroke="#475569" strokeWidth="1.5" />
-              <text x="95" y="138" fill="#E2E8F0" fontSize="9" textAnchor="middle" fontFamily="monospace" fontWeight="bold">
-                {spatial?.leftSupport?.name || "Left Pillar"}
-              </text>
-              <text x="95" y="152" fill="#64748B" fontSize="8" textAnchor="middle" fontFamily="monospace">
+              <text x="100" y="253" fill="#64748B" fontSize="9" textAnchor="middle" fontFamily="monospace">
                 {spatial?.leftSupport?.type === "pillar" ? "200×200 RCC" : "Bearing"}
               </text>
 
-              {/* Right Support Column / Pillar */}
-              <rect x="475" y="102" width="60" height="78" fill="#172334" stroke="#475569" strokeWidth="1.5" />
-              <text x="505" y="138" fill="#E2E8F0" fontSize="9" textAnchor="middle" fontFamily="monospace" fontWeight="bold">
-                {spatial?.rightSupport?.name || "Right Pillar"}
+              {/* Right Pillar Support */}
+              <rect x="665" y="186" width="70" height="109" fill="#131F30" stroke="#475569" strokeWidth="1.5" />
+              <text x="700" y="235" fill="#F1F5F9" fontSize="11" textAnchor="middle" fontFamily="monospace" fontWeight="bold">
+                {spatial?.rightSupport?.name || "Right Support"}
               </text>
-              <text x="505" y="152" fill="#64748B" fontSize="8" textAnchor="middle" fontFamily="monospace">
+              <text x="700" y="253" fill="#64748B" fontSize="9" textAnchor="middle" fontFamily="monospace">
                 {spatial?.rightSupport?.type === "pillar" ? "200×200 RCC" : "Bearing"}
               </text>
 
-              {/* In Between Supports: Substructure representation */}
+              {/* In Between Supports: Substructure Below */}
               {isWallWithOp ? (
                 <>
                   {/* Ground Floor Wall below */}
-                  <rect x="125" y="102" width="350" height="78" fill="#131B28" stroke="#334155" strokeWidth="1" />
-                  
-                  {/* Continuous 150mm Lintel Band */}
-                  <rect x="125" y="104" width="350" height="11" fill="#FCD34D" fillOpacity="0.25" stroke="#FCD34D" strokeWidth="0.8" strokeDasharray="4 2" />
-                  <text x="300" y="113" fill="#FCD34D" fontSize="7.5" textAnchor="middle" fontFamily="monospace">
-                    150mm Continuous RCC Lintel Band at 2.10m Level (IS 4326)
+                  <rect x="135" y="186" width="530" height="109" fill="#0E1624" stroke="#1E2D40" strokeWidth="1" />
+
+                  {/* Continuous Lintel Band */}
+                  <rect x="135" y="188" width="530" height="18" fill="#FCD34D" fillOpacity="0.22" stroke="#FCD34D" strokeWidth="1" strokeDasharray="5 3" />
+                  <text x="400" y="201" fill="#FCD34D" fontSize="9.5" textAnchor="middle" fontFamily="monospace" fontWeight="bold">
+                    Continuous 150mm RCC Lintel Band at 2.10m Level (IS 4326)
                   </text>
 
                   {/* Window/Door Opening Cutout */}
-                  <rect x="195" y="117" width="210" height="63" fill="#060C14" stroke="#5CC8E0" strokeWidth="1.4" strokeDasharray="3 2" />
-                  <text x="300" y="142" fill="#5CC8E0" fontSize="10" textAnchor="middle" fontFamily="monospace" fontWeight="bold">
-                    {spatial.substructure.opening.name} ({spatial.substructure.opening.width}m × {spatial.substructure.opening.height}m)
+                  <rect x="260" y="212" width="280" height="72" rx="4" fill="#040810" stroke="#38BDF8" strokeWidth="1.5" strokeDasharray="4 2" />
+                  <text x="400" y="238" fill="#38BDF8" fontSize="11" textAnchor="middle" fontFamily="monospace" fontWeight="bold">
+                    🪟 {spatial.substructure.opening.name} ({spatial.substructure.opening.width}m × {spatial.substructure.opening.height}m)
                   </text>
-                  <text x="300" y="157" fill="#94A3B8" fontSize="8.5" textAnchor="middle" fontFamily="monospace">
-                    Sill: {spatial.substructure.opening.sill}m · Lintel: {spatial.substructure.opening.lintel}m
+                  <text x="400" y="256" fill="#94A3B8" fontSize="9.5" textAnchor="middle" fontFamily="monospace">
+                    Sill: {spatial.substructure.opening.sill}m Level  ·  Lintel: {spatial.substructure.opening.lintel}m Level
                   </text>
-                  <text x="300" y="171" fill="#64748B" fontSize="7.5" textAnchor="middle" fontFamily="monospace">
-                    200mm Solid Blockwork below sill level
+                  <text x="400" y="272" fill="#64748B" fontSize="8.5" textAnchor="middle" fontFamily="monospace">
+                    200mm Solid Blockwork Bedding below sill
                   </text>
                 </>
               ) : isBedding ? (
                 <>
                   {/* Continuous Solid Masonry Wall Bedding */}
-                  <rect x="125" y="102" width="350" height="78" fill="#181512" stroke="#D97706" strokeWidth="1.5" strokeDasharray="5 3" />
-                  <line x1="125" y1="122" x2="475" y2="122" stroke="#D97706" strokeWidth="0.8" opacity="0.6" />
-                  <line x1="125" y1="142" x2="475" y2="142" stroke="#D97706" strokeWidth="0.8" opacity="0.6" />
-                  <line x1="125" y1="162" x2="475" y2="162" stroke="#D97706" strokeWidth="0.8" opacity="0.6" />
-                  
-                  <rect x="160" y="128" width="280" height="26" rx="4" fill="#0B131F" stroke="#D97706" strokeWidth="1" />
-                  <text x="300" y="144" fill="#FCD34D" fontSize="9.5" textAnchor="middle" fontFamily="monospace" fontWeight="bold">
-                    🧱 Continuous Solid Masonry Wall Bedding Support
+                  <rect x="135" y="186" width="530" height="109" fill="#16120E" stroke="#D97706" strokeWidth="1.5" strokeDasharray="5 3" />
+                  <line x1="135" y1="212" x2="665" y2="212" stroke="#D97706" strokeWidth="0.8" opacity="0.6" />
+                  <line x1="135" y1="238" x2="665" y2="238" stroke="#D97706" strokeWidth="0.8" opacity="0.6" />
+                  <line x1="135" y1="264" x2="665" y2="264" stroke="#D97706" strokeWidth="0.8" opacity="0.6" />
+
+                  <rect x="200" y="222" width="400" height="34" rx="6" fill="#09111C" stroke="#D97706" strokeWidth="1" />
+                  <text x="400" y="243" fill="#FCD34D" fontSize="11" textAnchor="middle" fontFamily="monospace" fontWeight="bold">
+                    🧱 Continuous Solid Masonry Wall Bedding ({spatial?.substructure?.wallName || "Solid Wall"})
                   </text>
-                  <text x="300" y="172" fill="#34D399" fontSize="8" textAnchor="middle" fontFamily="monospace">
-                    Direct vertical elastic bedding · Zero free-span sagging (IS 4326)
+                  <text x="400" y="278" fill="#34D399" fontSize="9.5" textAnchor="middle" fontFamily="monospace">
+                    Direct vertical compressive bearing · Zero free-span sagging (IS 4326 Ring Tie)
                   </text>
                 </>
               ) : (
                 <>
                   {/* Open Room Clearance */}
-                  <rect x="125" y="102" width="350" height="78" fill="#090E17" stroke="#1E293B" strokeWidth="1" />
-                  <line x1="300" y1="108" x2="300" y2="174" stroke="#475569" strokeWidth="1" strokeDasharray="3 3" />
-                  <text x="300" y="136" fill="#94A3B8" fontSize="10" textAnchor="middle" fontFamily="monospace" fontWeight="bold">
-                    Open Room Clearance (2.70m Headroom)
+                  <rect x="135" y="186" width="530" height="109" fill="#070C15" stroke="#162232" strokeWidth="1" />
+                  <line x1="400" y1="195" x2="400" y2="285" stroke="#475569" strokeWidth="1" strokeDasharray="4 4" />
+                  <text x="400" y="235" fill="#94A3B8" fontSize="11.5" textAnchor="middle" fontFamily="monospace" fontWeight="bold">
+                    Open Room Headroom Clearance (2.70m)
                   </text>
-                  <text x="300" y="152" fill="#5CC8E0" fontSize="8.5" textAnchor="middle" fontFamily="monospace">
-                    Free-spanning portal frame across open hall
+                  <text x="400" y="254" fill="#38BDF8" fontSize="9.5" textAnchor="middle" fontFamily="monospace">
+                    Spans unobstructed across open hall · No wall below
                   </text>
                 </>
               )}
 
-              {/* 5. DIMENSION LINES & EFFECTIVE SPAN */}
-              {/* Clear Span */}
-              <line x1="125" y1="190" x2="475" y2="190" stroke="#38BDF8" strokeWidth="1.4" markerStart="url(#bes_arr-sc)" markerEnd="url(#bes_arr-c)" />
-              <text x="300" y="186" fill="#38BDF8" fontSize="9.5" textAnchor="middle" fontFamily="monospace" fontWeight="bold">
-                L_clear = {clearSpan} m (Face-to-Face of Supports)
+              {/* 6. CLEAR SPAN & EFFECTIVE SPAN DIMENSIONS */}
+              {/* Clear Span (Face-to-Face) */}
+              <line x1="135" y1="318" x2="665" y2="318" stroke="#38BDF8" strokeWidth="1.8" markerStart="url(#bes_arr-sc)" markerEnd="url(#bes_arr-c)" />
+              <text x="400" y="312" fill="#38BDF8" fontSize="10.5" textAnchor="middle" fontFamily="monospace" fontWeight="bold">
+                L_clear = {clearSpan} m (Face-to-Face of Supporting Pillars)
               </text>
 
-              {/* Effective Span */}
-              <line x1="95" y1="210" x2="505" y2="210" stroke="#34D399" strokeWidth="1.4" markerStart="url(#bes_arr-sg)" markerEnd="url(#bes_arr-g)" />
-              <line x1="95" y1="66" x2="95" y2="216" stroke="#34D399" strokeWidth="0.8" strokeDasharray="3 2" />
-              <line x1="505" y1="66" x2="505" y2="216" stroke="#34D399" strokeWidth="0.8" strokeDasharray="3 2" />
-              <text x="300" y="224" fill="#34D399" fontSize="9.5" textAnchor="middle" fontFamily="monospace" fontWeight="bold">
-                Leff = min(Lclear + d, Lclear + w) = {num(Leff)} m (C/C Bearings)
+              {/* Effective Span (C/C of Pillars) */}
+              <line x1="100" y1="142" x2="100" y2="354" stroke="#34D399" strokeWidth="1" strokeDasharray="3 3" opacity="0.6" />
+              <line x1="700" y1="142" x2="700" y2="354" stroke="#34D399" strokeWidth="1" strokeDasharray="3 3" opacity="0.6" />
+              <line x1="100" y1="348" x2="700" y2="348" stroke="#34D399" strokeWidth="1.8" markerStart="url(#bes_arr-sg)" markerEnd="url(#bes_arr-g)" />
+              <text x="400" y="342" fill="#34D399" fontSize="10.5" textAnchor="middle" fontFamily="monospace" fontWeight="bold">
+                Leff = min(Lclear + d, Lclear + w) = {num(Leff)} m (Center-to-Center of Pillars per IS 456 Cl 22.2)
               </text>
 
-              {/* Safety Status Pill */}
-              <text x="300" y="240" fill={Mu <= Mulim ? "#34D399" : "#EF4444"} fontSize="9" textAnchor="middle" fontFamily="monospace">
-                IS 456 Verification: Mu = {num(Mu)} kNm ≤ Mu,lim = {num(Mulim)} kNm ({Mu <= Mulim ? "✓ PASS · Ductile Section" : "⚠ EXCEEDED"})
+              {/* 7. SAFETY STATUS PILL */}
+              <rect x="135" y="375" width="530" height="24" rx="4" fill="#081420" stroke={Mu <= Mulim ? "#10B981" : "#EF4444"} strokeWidth="1" />
+              <text x="400" y="391" fill={Mu <= Mulim ? "#34D399" : "#F87171"} fontSize="10" textAnchor="middle" fontFamily="monospace" fontWeight="bold">
+                IS 456 LIMIT STATE CHECK: Mu = {num(Mu)} kNm ≤ Mu,lim = {num(Mulim)} kNm ({Mu <= Mulim ? "✓ PASS · DUCTILE UNDER-REINFORCED SECTION" : "⚠ EXCEEDED"})
               </text>
             </svg>
           );
